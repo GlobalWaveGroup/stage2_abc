@@ -1,0 +1,279 @@
+// This Pine Script™ is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// © TianShu ABC Wave Trading System
+// 
+// HOW TO USE:
+// 1. Open TradingView, go to any forex chart (H1 recommended)
+// 2. Open Pine Editor (bottom panel)
+// 3. Paste this entire script
+// 4. Click "Add to chart"
+// 5. Use "Strategy Tester" tab to see backtest results
+// 6. Adjust inputs as needed
+
+//@version=5
+strategy("TianShu ABC Wave", overlay=true, default_qty_type=strategy.percent_of_equity, 
+     default_qty_value=1, initial_capital=10000, commission_type=strategy.commission.cash_per_order,
+     commission_value=0, slippage=1, calc_on_every_tick=false)
+
+// ═══════════════════════════════════════════════════════════════
+// INPUTS
+// ═══════════════════════════════════════════════════════════════
+zz_dev_pct    = input.float(1.0, "ZigZag Deviation %", minval=0.1, step=0.1)
+zz_confirm    = input.int(5, "ZigZag Confirm Bars", minval=1)
+min_score     = input.float(0.30, "Minimum Entry Score", minval=0.1, maxval=0.9, step=0.05)
+w_slope       = input.float(0.40, "Weight: Slope Ratio")
+w_time        = input.float(0.35, "Weight: Time Ratio")
+w_amp         = input.float(0.25, "Weight: Amp Ratio")
+allow_long    = input.bool(true, "Allow Long")
+allow_short   = input.bool(true, "Allow Short")
+show_zigzag   = input.bool(true, "Show ZigZag Lines")
+show_labels   = input.bool(true, "Show Entry Labels")
+
+// ═══════════════════════════════════════════════════════════════
+// ONLINE ZIGZAG
+// ═══════════════════════════════════════════════════════════════
+var int    zz_trend = 0
+var float  zz_ext_price = na
+var int    zz_ext_bar = na
+var float  zz_tent_price = na
+var int    zz_tent_bar = na
+var int    zz_tent_type = 0
+var float  zz_init_hi = na
+var float  zz_init_lo = na
+var int    zz_init_hi_bar = na
+var int    zz_init_lo_bar = na
+
+// Pivot arrays (store last 10 pivots)
+var float[] pv_price = array.new_float(0)
+var int[]   pv_bar   = array.new_int(0)
+var int[]   pv_dir   = array.new_int(0)
+
+// Track if new pivot confirmed this bar
+var bool new_pivot = false
+new_pivot := false
+
+float dev = zz_dev_pct / 100.0
+
+if zz_trend == 0
+    if na(zz_init_hi)
+        zz_init_hi := high
+        zz_init_hi_bar := bar_index
+        zz_init_lo := low
+        zz_init_lo_bar := bar_index
+    else
+        if high > zz_init_hi
+            zz_init_hi := high
+            zz_init_hi_bar := bar_index
+        if low < zz_init_lo
+            zz_init_lo := low
+            zz_init_lo_bar := bar_index
+        
+        if zz_init_lo > 0
+            rng = (zz_init_hi - zz_init_lo) / zz_init_lo
+            if rng >= dev
+                if zz_init_hi_bar > zz_init_lo_bar
+                    array.push(pv_price, zz_init_lo)
+                    array.push(pv_bar, zz_init_lo_bar)
+                    array.push(pv_dir, -1)
+                    zz_trend := 1
+                    zz_ext_price := high
+                    zz_ext_bar := bar_index
+                else
+                    array.push(pv_price, zz_init_hi)
+                    array.push(pv_bar, zz_init_hi_bar)
+                    array.push(pv_dir, 1)
+                    zz_trend := -1
+                    zz_ext_price := low
+                    zz_ext_bar := bar_index
+                zz_tent_type := 0
+
+if zz_trend == 1
+    if high > zz_ext_price
+        zz_ext_price := high
+        zz_ext_bar := bar_index
+        zz_tent_type := 0
+    
+    drop = zz_ext_price > 0 ? (zz_ext_price - low) / zz_ext_price : 0.0
+    if drop >= dev and zz_tent_type == 0
+        zz_tent_bar := zz_ext_bar
+        zz_tent_price := zz_ext_price
+        zz_tent_type := 1
+    
+    if zz_tent_type == 1
+        if high > zz_tent_price
+            zz_ext_price := high
+            zz_ext_bar := bar_index
+            zz_tent_type := 0
+        else if bar_index - zz_tent_bar >= zz_confirm
+            array.push(pv_price, zz_tent_price)
+            array.push(pv_bar, zz_tent_bar)
+            array.push(pv_dir, 1)
+            zz_trend := -1
+            zz_ext_price := low
+            zz_ext_bar := bar_index
+            zz_tent_type := 0
+            new_pivot := true
+
+if zz_trend == -1
+    if low < zz_ext_price
+        zz_ext_price := low
+        zz_ext_bar := bar_index
+        zz_tent_type := 0
+    
+    rise = zz_ext_price > 0 ? (high - zz_ext_price) / zz_ext_price : 0.0
+    if rise >= dev and zz_tent_type == 0
+        zz_tent_bar := zz_ext_bar
+        zz_tent_price := zz_ext_price
+        zz_tent_type := -1
+    
+    if zz_tent_type == -1
+        if low < zz_tent_price
+            zz_ext_price := low
+            zz_ext_bar := bar_index
+            zz_tent_type := 0
+        else if bar_index - zz_tent_bar >= zz_confirm
+            array.push(pv_price, zz_tent_price)
+            array.push(pv_bar, zz_tent_bar)
+            array.push(pv_dir, -1)
+            zz_trend := 1
+            zz_ext_price := high
+            zz_ext_bar := bar_index
+            zz_tent_type := 0
+            new_pivot := true
+
+// ═══════════════════════════════════════════════════════════════
+// DRAW ZIGZAG
+// ═══════════════════════════════════════════════════════════════
+if show_zigzag and new_pivot and array.size(pv_price) >= 2
+    int sz = array.size(pv_price)
+    line.new(array.get(pv_bar, sz-2), array.get(pv_price, sz-2),
+             array.get(pv_bar, sz-1), array.get(pv_price, sz-1),
+             color=color.gray, width=1)
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRY SCORING
+// ═══════════════════════════════════════════════════════════════
+compute_score(float slope_ratio, float time_ratio, float amp_ratio) =>
+    float slope_score = math.min(1.0, math.max(0.0, 1.0 - slope_ratio * 0.8))
+    float time_score = math.min(1.0, math.max(0.0, (math.log(1.0 + time_ratio) - 0.2) / 2.2))
+    float amp_score = 0.0
+    if amp_ratio < 0.3
+        amp_score := amp_ratio / 0.3 * 0.4
+    else if amp_ratio < 0.7
+        amp_score := 0.4 + (amp_ratio - 0.3) / 0.4 * 0.6
+    else if amp_ratio <= 1.0
+        amp_score := 1.0
+    else if amp_ratio <= 1.5
+        amp_score := 1.0 - (amp_ratio - 1.0) / 0.5 * 0.3
+    else
+        amp_score := math.max(0.3, 0.7 - (amp_ratio - 1.5) * 0.2)
+    math.min(1.0, math.max(0.0, w_slope * slope_score + w_time * time_score + w_amp * amp_score))
+
+score_to_tp_mult(float score) =>
+    float result = 0.60
+    if score < 0.50
+        result := 0.60 + (score - 0.30) / 0.20 * 0.05
+    else if score < 0.70
+        result := 0.65 + (score - 0.50) / 0.20 * 0.10
+    else if score < 0.85
+        result := 0.75 + (score - 0.70) / 0.15 * 0.15
+    else
+        result := 0.90 + math.min((score - 0.85) / 0.15, 1.0) * 0.20
+    result
+
+score_to_sl_ratio(float score) =>
+    float result = 0.45
+    if score < 0.50
+        result := 0.45 - (score - 0.30) / 0.20 * 0.03
+    else if score < 0.70
+        result := 0.42 - (score - 0.50) / 0.20 * 0.04
+    else if score < 0.85
+        result := 0.38 - (score - 0.70) / 0.15 * 0.03
+    else
+        result := 0.35 - math.min((score - 0.85) / 0.15, 1.0) * 0.03
+    result
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRY LOGIC
+// ═══════════════════════════════════════════════════════════════
+if new_pivot and array.size(pv_price) >= 3 and strategy.position_size == 0
+    int sz = array.size(pv_price)
+    
+    float p0_price = array.get(pv_price, sz - 3)
+    int   p0_bar   = array.get(pv_bar, sz - 3)
+    float p1_price = array.get(pv_price, sz - 2)
+    int   p1_bar   = array.get(pv_bar, sz - 2)
+    float p2_price = array.get(pv_price, sz - 1)
+    int   p2_bar   = array.get(pv_bar, sz - 1)
+    
+    int   a_bars_val = p1_bar - p0_bar
+    float a_amp  = math.abs(p1_price - p0_price)
+    int   a_dir  = p1_price > p0_price ? 1 : -1
+    
+    int   b_bars_val = p2_bar - p1_bar
+    float b_amp  = math.abs(p2_price - p1_price)
+    
+    if a_bars_val > 0 and b_bars_val > 0 and a_amp > 0
+        float amp_ratio   = b_amp / a_amp
+        float time_ratio  = b_bars_val / float(a_bars_val)
+        float a_slope_val = a_amp / a_bars_val
+        float b_slope_val = b_amp / b_bars_val
+        float slope_ratio = a_slope_val > 0 ? b_slope_val / a_slope_val : 999.0
+        
+        float score = compute_score(slope_ratio, time_ratio, amp_ratio)
+        
+        if score >= min_score
+            float tp_mult  = score_to_tp_mult(score)
+            float sl_ratio = score_to_sl_ratio(score)
+            
+            float tp_dist = a_amp * tp_mult
+            float sl_dist = tp_dist * sl_ratio
+            
+            if a_dir == 1 and allow_long
+                strategy.entry("ABC_Long", strategy.long)
+                strategy.exit("Exit_Long", "ABC_Long", 
+                     profit=tp_dist / syminfo.mintick, 
+                     loss=sl_dist / syminfo.mintick)
+                
+                if show_labels
+                    label.new(bar_index, low, 
+                         str.format("L s={0,number,#.##}", score),
+                         style=label.style_label_up, color=color.green, 
+                         textcolor=color.white, size=size.small)
+            
+            if a_dir == -1 and allow_short
+                strategy.entry("ABC_Short", strategy.short)
+                strategy.exit("Exit_Short", "ABC_Short", 
+                     profit=tp_dist / syminfo.mintick, 
+                     loss=sl_dist / syminfo.mintick)
+                
+                if show_labels
+                    label.new(bar_index, high, 
+                         str.format("S s={0,number,#.##}", score),
+                         style=label.style_label_down, color=color.red, 
+                         textcolor=color.white, size=size.small)
+
+// ═══════════════════════════════════════════════════════════════
+// DYNAMIC TRADE MANAGEMENT (simplified for Pine limitations)
+// ═══════════════════════════════════════════════════════════════
+// Note: Pine Script's strategy framework handles SL/TP via strategy.exit()
+// Dynamic SL modification is limited in Pine. The MT5 EA has full 
+// dynamic management. This TV version uses the initial SL/TP only,
+// which will show slightly worse results than the full system.
+// For accurate dynamic management testing, use the MT5 EA.
+
+// ═══════════════════════════════════════════════════════════════
+// INFO TABLE
+// ═══════════════════════════════════════════════════════════════
+var table info_table = table.new(position.top_right, 2, 6, bgcolor=color.new(color.black, 80))
+if barstate.islast
+    table.cell(info_table, 0, 0, "TianShu ABC", text_color=color.white, text_size=size.normal)
+    table.cell(info_table, 0, 1, "Pivots:", text_color=color.gray, text_size=size.small)
+    table.cell(info_table, 1, 1, str.tostring(array.size(pv_price)), text_color=color.white, text_size=size.small)
+    table.cell(info_table, 0, 2, "ZZ Dev:", text_color=color.gray, text_size=size.small)
+    table.cell(info_table, 1, 2, str.tostring(zz_dev_pct) + "%", text_color=color.white, text_size=size.small)
+    table.cell(info_table, 0, 3, "Min Score:", text_color=color.gray, text_size=size.small)
+    table.cell(info_table, 1, 3, str.tostring(min_score), text_color=color.white, text_size=size.small)
+    table.cell(info_table, 0, 4, "Trend:", text_color=color.gray, text_size=size.small)
+    table.cell(info_table, 1, 4, zz_trend == 1 ? "UP" : zz_trend == -1 ? "DOWN" : "INIT", 
+         text_color=zz_trend == 1 ? color.green : zz_trend == -1 ? color.red : color.gray, text_size=size.small)
