@@ -69,23 +69,27 @@ def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None):
             'c': round(df.iloc[i]['close'], 5),
         })
 
-    # Top 20 重要拐点 (峰10 + 谷10)
-    top_marks = []
+    # 所有拐点按重要性排序（峰和谷分别排序），传入JS端由滑块控制显示数量
+    all_peaks = []
+    all_valleys = []
     if pivot_info:
-        peaks = sorted([v for v in pivot_info.values() if v['dir'] == 1], key=lambda x: -x['importance'])[:10]
-        valleys = sorted([v for v in pivot_info.values() if v['dir'] == -1], key=lambda x: -x['importance'])[:10]
+        peaks = sorted([v for v in pivot_info.values() if v['dir'] == 1], key=lambda x: -x['importance'])
+        valleys = sorted([v for v in pivot_info.values() if v['dir'] == -1], key=lambda x: -x['importance'])
         for rank, p in enumerate(peaks):
-            top_marks.append({
+            all_peaks.append({
                 'bar': p['bar'], 'price': round(p['price'], 5), 'dir': 1,
-                'rank': rank + 1, 'imp': round(p['importance'], 3),
+                'rank': rank + 1, 'imp': round(p['importance'], 4),
                 'label': f"H{rank+1}",
             })
         for rank, p in enumerate(valleys):
-            top_marks.append({
+            all_valleys.append({
                 'bar': p['bar'], 'price': round(p['price'], 5), 'dir': -1,
-                'rank': rank + 1, 'imp': round(p['importance'], 3),
+                'rank': rank + 1, 'imp': round(p['importance'], 4),
                 'label': f"L{rank+1}",
             })
+    top_marks = all_peaks + all_valleys
+    n_peaks = len(all_peaks)
+    n_valleys = len(all_valleys)
 
     n_snap = len(snap_data)
     n_amp = sum(1 for s in snap_data if s['type'] == 'amp')
@@ -95,7 +99,7 @@ def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None):
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>归并引擎 v2.1 + 波段池融合</title>
+<title>归并引擎 v3.1 + 波段池融合</title>
 <style>
 * {{ box-sizing: border-box; }}
 body {{ background: #0a0a1a; color: #ddd; font-family: 'Consolas', monospace; margin: 0; padding: 10px; }}
@@ -112,14 +116,15 @@ canvas {{ display: block; border: 1px solid #222; cursor: crosshair; }}
 .slider-box input[type=range] {{ width: 120px; }}
 </style></head><body>
 
-<h2>归并引擎 v2.1 + 波段池融合 | EURUSD H1 | {df['datetime'].iloc[0]} ~ {df['datetime'].iloc[-1]}</h2>
+<h2>归并引擎 v3.1 | EURUSD H1 | {df['datetime'].iloc[0]} ~ {df['datetime'].iloc[-1]}</h2>
 <div class="info">
 {len(df)} bars | Base: {snap_data[0]['n']}pv |
 Final: {len(results['final_pivots'])}pv |
 Snap: {n_snap} (A:{n_amp} T:{n_lat}) |
 Extra: {n_extra} segs |
 Fusion: {n_fusion} new segs |
-Total pool: {301 + n_fusion}
+Total pool: {len(snap_data[0]['pts'])*2 + n_fusion} |
+Peaks: {n_peaks} | Valleys: {n_valleys}
 </div>
 
 <div style="margin:4px 0;">
@@ -129,10 +134,21 @@ Total pool: {301 + n_fusion}
 <button class="btn" onclick="showType('lat')">Lat</button>
 <button class="btn" onclick="showBase()">Base</button>
 <button class="btn" onclick="toggleExtra()">Extra</button>
-<button class="btn" onclick="toggleTop()" style="background:#2a1a4a;color:#f8f;">Top20</button>
+<button class="btn" id="topBtn" onclick="toggleTop()" style="background:#2a1a4a;color:#f8f;">ImpPts</button>
+<button class="btn" id="impValBtn" onclick="toggleImpVal()" style="background:#1a2a3a;color:#adf;">Values</button>
 <button class="btn" id="fusionBtn" onclick="toggleFusion()" style="background:#3a1a3a;color:#c8f;">Fusion</button>
 <button class="btn" onclick="showStep(1)">Step+</button>
 <button class="btn" onclick="showStep(-1)">Step-</button>
+</div>
+<div style="margin:4px 0;">
+<span class="slider-box" style="color:#f8f;">
+  Peaks: <input type="range" id="peakSlider" min="0" max="{n_peaks}" value="{min(10, n_peaks)}" oninput="updatePeakN(this.value)">
+  <span id="peakN">{min(10, n_peaks)}</span>/{n_peaks}
+</span>
+<span class="slider-box" style="color:#4f4;">
+  Valleys: <input type="range" id="valleySlider" min="0" max="{n_valleys}" value="{min(10, n_valleys)}" oninput="updateValleyN(this.value)">
+  <span id="valleyN">{min(10, n_valleys)}</span>/{n_valleys}
+</span>
 <span class="slider-box" style="color:#c8f;">
   Fusion Top: <input type="range" id="fusionSlider" min="0" max="{n_fusion}" value="50" oninput="updateFusionN(this.value)">
   <span id="fusionN">50</span>/{n_fusion}
@@ -167,7 +183,13 @@ const S = {json.dumps(snap_data)};
 const EX = {json.dumps(extra_groups)};
 const TOP = {json.dumps(top_marks)};
 const FUS = {json.dumps(fusion_data)};
+// Separate peaks and valleys from TOP array
+const PEAKS = TOP.filter(m => m.dir === 1);
+const VALS = TOP.filter(m => m.dir === -1);
 let showTop = true;
+let showImpVal = true;
+let peakTopN = Math.min(10, PEAKS.length);
+let valleyTopN = Math.min(10, VALS.length);
 let showFusion = true;
 let fusionTopN = Math.min(50, FUS.length);
 let minImp = 0;
@@ -217,15 +239,25 @@ function hideAll(){{ vis.fill(false); exVis.fill(false); showFusion=false; stepC
 function showType(t){{ vis.fill(false); exVis.fill(false); showFusion=false; S.forEach((s,i)=>vis[i]=s.type===t); sync(); draw(); }}
 function showBase(){{ vis.fill(false); exVis.fill(false); showFusion=false; vis[0]=true; sync(); draw(); }}
 function toggleExtra(){{ const on=exVis.some(v=>v); exVis.fill(!on); sync(); draw(); }}
-function toggleTop(){{ showTop=!showTop; draw(); }}
+function toggleTop(){{ showTop=!showTop; document.getElementById('topBtn').classList.toggle('active',showTop); draw(); }}
+function toggleImpVal(){{ showImpVal=!showImpVal; document.getElementById('impValBtn').classList.toggle('active',showImpVal); draw(); }}
 function toggleFusion(){{ showFusion=!showFusion; document.getElementById('fusionBtn').classList.toggle('active',showFusion); draw(); }}
 
+function updatePeakN(v) {{
+    peakTopN = parseInt(v);
+    document.getElementById('peakN').textContent = peakTopN;
+    draw();
+}}
+function updateValleyN(v) {{
+    valleyTopN = parseInt(v);
+    document.getElementById('valleyN').textContent = valleyTopN;
+    draw();
+}}
 function updateFusionN(v) {{
     fusionTopN = parseInt(v);
     document.getElementById('fusionN').textContent = fusionTopN;
     draw();
 }}
-
 function updateMinImp(v) {{
     minImp = v / 100.0;
     document.getElementById('impVal').textContent = minImp.toFixed(2);
@@ -404,41 +436,93 @@ function draw(){{
         cx.setLineDash([]); cx.globalAlpha=1;
     }}
 
-    // === Top 20 pivot markers ===
-    if(showTop && TOP.length > 0) {{
+    // === Important pivot markers (adjustable count) ===
+    if(showTop) {{
         cx.globalAlpha = 1;
         cx.setLineDash([]);
-        cx.font = 'bold 11px monospace';
         cx.textAlign = 'center';
 
-        for(const m of TOP) {{
+        // Draw peaks (top peakTopN)
+        for(let i=0; i<Math.min(peakTopN, PEAKS.length); i++) {{
+            const m = PEAKS[i];
             const x = xS(m.bar);
             const y = yS(m.price);
-            const isPeak = m.dir === 1;
-            const color = isPeak ? '#FF4444' : '#44FF44';
-            const yOff = isPeak ? -14 : 16;
+            const color = '#FF4444';
+            const yOff = -14;
+            const sz = Math.max(3, 6 - i*0.3); // size decreases with rank
 
-            // Marker circle
+            // Marker circle (size by importance)
             cx.fillStyle = color;
+            cx.globalAlpha = Math.max(0.4, 1.0 - i*0.03);
             cx.beginPath();
-            cx.arc(x, y, 5, 0, Math.PI*2);
+            cx.arc(x, y, sz, 0, Math.PI*2);
             cx.fill();
             cx.strokeStyle = '#fff';
-            cx.lineWidth = 1;
+            cx.lineWidth = i < 5 ? 1.2 : 0.6;
             cx.stroke();
 
-            // Label: H1/L1 + price
+            // Label: H1 + imp value
             cx.fillStyle = color;
+            cx.font = i < 10 ? 'bold 11px monospace' : '10px monospace';
             cx.fillText(`${{m.label}}`, x, y + yOff);
-            cx.font = '9px monospace';
-            cx.fillStyle = '#aaa';
-            cx.fillText(`${{m.price.toFixed(4)}}`, x, y + yOff + (isPeak ? -11 : 11));
-            cx.font = 'bold 11px monospace';
 
-            // Vertical line to price
+            if(showImpVal) {{
+                cx.font = '9px monospace';
+                cx.fillStyle = '#faa';
+                cx.fillText(`${{m.imp.toFixed(3)}}`, x, y + yOff - 11);
+            }}
+
+            // Price
+            cx.font = '8px monospace';
+            cx.fillStyle = '#888';
+            cx.fillText(`${{m.price.toFixed(4)}}`, x, y + yOff - (showImpVal ? 21 : 11));
+
+            // Vertical line
             cx.strokeStyle = color;
             cx.lineWidth = 0.5;
-            cx.globalAlpha = 0.4;
+            cx.globalAlpha = 0.3;
+            cx.beginPath();
+            cx.moveTo(x, y);
+            cx.lineTo(x, y + yOff * 0.6);
+            cx.stroke();
+            cx.globalAlpha = 1;
+        }}
+
+        // Draw valleys (top valleyTopN)
+        for(let i=0; i<Math.min(valleyTopN, VALS.length); i++) {{
+            const m = VALS[i];
+            const x = xS(m.bar);
+            const y = yS(m.price);
+            const color = '#44FF44';
+            const yOff = 16;
+            const sz = Math.max(3, 6 - i*0.3);
+
+            cx.fillStyle = color;
+            cx.globalAlpha = Math.max(0.4, 1.0 - i*0.03);
+            cx.beginPath();
+            cx.arc(x, y, sz, 0, Math.PI*2);
+            cx.fill();
+            cx.strokeStyle = '#fff';
+            cx.lineWidth = i < 5 ? 1.2 : 0.6;
+            cx.stroke();
+
+            cx.fillStyle = color;
+            cx.font = i < 10 ? 'bold 11px monospace' : '10px monospace';
+            cx.fillText(`${{m.label}}`, x, y + yOff);
+
+            if(showImpVal) {{
+                cx.font = '9px monospace';
+                cx.fillStyle = '#afa';
+                cx.fillText(`${{m.imp.toFixed(3)}}`, x, y + yOff + 11);
+            }}
+
+            cx.font = '8px monospace';
+            cx.fillStyle = '#888';
+            cx.fillText(`${{m.price.toFixed(4)}}`, x, y + yOff + (showImpVal ? 21 : 11));
+
+            cx.strokeStyle = color;
+            cx.lineWidth = 0.5;
+            cx.globalAlpha = 0.3;
             cx.beginPath();
             cx.moveTo(x, y);
             cx.lineTo(x, y + yOff * 0.6);
@@ -464,6 +548,20 @@ cv.addEventListener('mousemove',(e)=>{{
     if(bar>=0 && bar<K.length){{
         const k=K[bar];
         infoText = `Bar ${{bar}} | O:${{k.o.toFixed(5)}} H:${{k.h.toFixed(5)}} L:${{k.l.toFixed(5)}} C:${{k.c.toFixed(5)}}`;
+    }}
+
+    // Check if hovering near an important point
+    if(showTop) {{
+        const allShown = PEAKS.slice(0, peakTopN).concat(VALS.slice(0, valleyTopN));
+        let bestPt = null, bestPtDist = 12;
+        for(const m of allShown) {{
+            const px = xS(m.bar), py = yS(m.price);
+            const d = Math.sqrt((mx_-px)*(mx_-px)+(my_-py)*(my_-py));
+            if(d < bestPtDist) {{ bestPtDist=d; bestPt=m; }}
+        }}
+        if(bestPt) {{
+            infoText += ` | ${{bestPt.label}} bar=${{bestPt.bar}} price=${{bestPt.price.toFixed(5)}} imp=${{bestPt.imp.toFixed(4)}}`;
+        }}
     }}
 
     // Check if hovering near a fusion segment
@@ -496,6 +594,8 @@ cv.addEventListener('mousemove',(e)=>{{
 
 draw();
 document.getElementById('fusionBtn').classList.add('active');
+document.getElementById('topBtn').classList.add('active');
+document.getElementById('impValBtn').classList.add('active');
 </script></body></html>"""
 
     with open(output_path, 'w') as f:
