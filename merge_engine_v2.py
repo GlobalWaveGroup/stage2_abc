@@ -588,6 +588,127 @@ def build_segment_pool(results, pivot_info):
     return pool
 
 
+def pool_fusion(pool, pivot_info, max_rounds=100):
+    """
+    波段池内三波归并 — 消融级别界限。
+    
+    核心原则：
+    - 线段就是线段，不分级别、不分来源
+    - 任何三条首尾相连的线段构成三波 → 无条件产出新线段
+    - 新线段再参与下一轮
+    - 循环直到不动点（无新线段产出）
+    
+    算法：
+    1. 用端点建邻接索引：end_index[bar] = 所有以bar为终点的线段
+                          start_index[bar] = 所有以bar为起点的线段
+    2. 对每个枢轴点bar，找所有 (seg_in → bar → seg_out) 组合
+       即 seg_in.end == bar == seg_out.start，且 seg_in 和 seg_out 方向相反
+    3. 对每对 (seg_in, seg_out)，在 start_index[seg_out.end] 中找第三段 seg3
+       使得 seg_out.end == seg3.start
+    4. 产出新线段: seg_in.start → seg3.end
+    5. 去重后加入池，重建索引，下一轮
+    
+    返回: (扩展后的池, 新增线段列表, 日志)
+    """
+    from collections import defaultdict
+    
+    # 用 (bar_start, bar_end) 作为唯一键
+    seg_set = {}
+    for s in pool:
+        key = (s['bar_start'], s['bar_end'])
+        if key not in seg_set:
+            seg_set[key] = s
+    
+    fusion_log = []
+    all_new = []  # 所有新产出的线段
+    
+    for round_num in range(1, max_rounds + 1):
+        # 建索引
+        end_at = defaultdict(list)    # bar → [seg that ends here]
+        start_at = defaultdict(list)  # bar → [seg that starts here]
+        for key, s in seg_set.items():
+            end_at[s['bar_end']].append(s)
+            start_at[s['bar_start']].append(s)
+        
+        # 搜索所有三波组合
+        new_in_round = []
+        
+        # 对每个可能的中间枢轴点 (三波的第2和第3个端点)
+        # 三波: seg_A(p1→p2) + seg_B(p2→p3) + seg_C(p3→p4)
+        # 需要: seg_A.end==p2, seg_B.start==p2, seg_B.end==p3, seg_C.start==p3
+        # 产出: p1→p4
+        
+        for p2 in list(end_at.keys()):
+            segs_ending_at_p2 = end_at[p2]
+            segs_starting_at_p2 = start_at.get(p2, [])
+            
+            if not segs_starting_at_p2:
+                continue
+            
+            for seg_A in segs_ending_at_p2:
+                for seg_B in segs_starting_at_p2:
+                    # seg_A: p1→p2, seg_B: p2→p3
+                    p3 = seg_B['bar_end']
+                    segs_starting_at_p3 = start_at.get(p3, [])
+                    
+                    if not segs_starting_at_p3:
+                        continue
+                    
+                    for seg_C in segs_starting_at_p3:
+                        # seg_C: p3→p4
+                        p1 = seg_A['bar_start']
+                        p4 = seg_C['bar_end']
+                        
+                        # 基本有效性: p1 < p2 < p3 < p4 (时间递增)
+                        if not (p1 < p2 and p2 < p3 and p3 < p4):
+                            continue
+                        
+                        # 去重: 如果已存在则跳过
+                        new_key = (p1, p4)
+                        if new_key in seg_set:
+                            continue
+                        
+                        # 产出新线段
+                        info1 = pivot_info.get(p1, {})
+                        info4 = pivot_info.get(p4, {})
+                        imp1 = info1.get('importance', 0)
+                        imp4 = info4.get('importance', 0)
+                        
+                        new_seg = {
+                            'bar_start': p1,
+                            'price_start': seg_A['price_start'],
+                            'dir_start': seg_A['dir_start'],
+                            'bar_end': p4,
+                            'price_end': seg_C['price_end'],
+                            'dir_end': seg_C['dir_end'],
+                            'span': p4 - p1,
+                            'amplitude': abs(seg_C['price_end'] - seg_A['price_start']),
+                            'source': 'fusion',
+                            'source_label': f'F{round_num}',
+                            'imp_start': imp1,
+                            'imp_end': imp4,
+                            'importance': min(imp1, imp4),
+                            # 元数据：三波组成信息（留给冗余删除用）
+                            'fusion_via': (seg_A['bar_end'], seg_B['bar_end']),
+                            'fusion_amps': (seg_A['amplitude'], seg_B['amplitude'], seg_C['amplitude']),
+                        }
+                        
+                        seg_set[new_key] = new_seg
+                        new_in_round.append(new_seg)
+        
+        if not new_in_round:
+            fusion_log.append(f"F{round_num}: 不动点, 池={len(seg_set)}")
+            break
+        
+        all_new.extend(new_in_round)
+        fusion_log.append(f"F{round_num}: +{len(new_in_round)} 新线段, 池={len(seg_set)}")
+    
+    # 转回列表, 按重要性排序
+    full_pool = sorted(seg_set.values(), key=lambda s: -s['importance'])
+    
+    return full_pool, all_new, fusion_log
+
+
 def prune_redundant(pool, keep_ratio=0.5):
     """
     冗余删除。
@@ -715,23 +836,53 @@ def main():
 
     # ===== 波段池 =====
     print("\n" + "=" * 70)
-    print("波段池构建")
+    print("波段池构建 (初始)")
     print("=" * 70)
     
     pool = build_segment_pool(results, pivot_info)
     amp_segs = sum(1 for s in pool if s['source'] == 'amp')
     lat_segs = sum(1 for s in pool if s['source'] == 'lat')
     base_segs = sum(1 for s in pool if s['source'] == 'base')
-    print(f"\n去重波段池: {len(pool)} 条 (base:{base_segs}, amp:{amp_segs}, lat:{lat_segs})")
+    print(f"\n初始波段池: {len(pool)} 条 (base:{base_segs}, amp:{amp_segs}, lat:{lat_segs})")
+
+    # ===== 波段池内三波归并 (消融级别) =====
+    print("\n" + "=" * 70)
+    print("波段池三波归并 — 消融级别界限")
+    print("=" * 70)
+    
+    t0 = time.time()
+    full_pool, new_segs, fusion_log = pool_fusion(pool, pivot_info)
+    t1 = time.time()
+    
+    fusion_segs = sum(1 for s in full_pool if s['source'] == 'fusion')
+    print(f"\n归并后波段池: {len(full_pool)} 条 (新增fusion:{fusion_segs}) {t1-t0:.3f}s")
+    print(f"\n归并日志:")
+    for entry in fusion_log:
+        print(f"  {entry}")
+    
+    # 验证关键连接
+    print(f"\n关键连接验证:")
+    checks = [
+        (3, 72, 'H1->L8'), (3, 98, 'H1->L5'),
+        (39, 166, 'L4->H2'), (142, 195, 'H7->L2'),
+    ]
+    pool_keys = {(s['bar_start'], s['bar_end']) for s in full_pool}
+    for b1, b2, desc in checks:
+        status = 'OK' if (b1, b2) in pool_keys else 'MISSING'
+        print(f"  {status:7s} | {desc}")
     
     # Top线段
-    print(f"\nTop 10 重要线段:")
-    for s in pool[:10]:
+    print(f"\nTop 20 重要线段:")
+    for s in full_pool[:20]:
         d1 = 'H' if s['dir_start'] == 1 else 'L'
         d2 = 'H' if s['dir_end'] == 1 else 'L'
-        print(f"  [{s['source_label']:5s}] bar{s['bar_start']:4d}{d1}({s['price_start']:.5f}) -> "
+        src = s['source_label']
+        via = ''
+        if 'fusion_via' in s:
+            via = f' via({s["fusion_via"][0]},{s["fusion_via"][1]})'
+        print(f"  [{src:6s}] bar{s['bar_start']:4d}{d1}({s['price_start']:.5f}) -> "
               f"bar{s['bar_end']:4d}{d2}({s['price_end']:.5f}) | "
-              f"span={s['span']:4d} amp={s['amplitude']:.5f} | imp={s['importance']:.3f}")
+              f"span={s['span']:4d} amp={s['amplitude']:.5f} | imp={s['importance']:.3f}{via}")
 
 if __name__ == '__main__':
     main()

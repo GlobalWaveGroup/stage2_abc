@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-归并引擎v2.1可视化
+归并引擎v2.1可视化 — 含波段池三波融合
 - 快照(base/amp/lat): 完整zigzag连线
-- extra_segments: 滑窗收集的被贪心跳过的线段（虚线单独绘制）
+- extra_segments: 滑窗收集的被贪心跳过的线段（虚线）
+- fusion线段: 波段池内三波归并产出的新线段（紫色系）
 - Step+/- 可逐步回放归并过程
-- Extra开关单独控制
+- Fusion Top N 滑块控制显示数量
+- Top20 重要拐点标记
 """
 
 import json
@@ -12,7 +14,8 @@ import sys
 sys.path.insert(0, '/home/ubuntu/stage2_abc')
 from merge_engine_v2 import *
 
-def generate_html(df, results, output_path, pivot_info=None):
+
+def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None):
     snapshots = results['all_snapshots']
     extra_segs = results.get('extra_segments', [])
 
@@ -31,12 +34,30 @@ def generate_html(df, results, output_path, pivot_info=None):
             'b1': int(p_start[0]), 'p1': round(p_start[1], 5),
             'b2': int(p_end[0]),   'p2': round(p_end[1], 5),
         })
-    # 转为有序列表
     extra_groups = []
     for label in sorted(extra_by_label.keys()):
         segs = extra_by_label[label]
         src = 'amp' if (label.startswith('A') and '_mid' not in label) else 'lat'
         extra_groups.append({'label': label, 'src': src, 'segs': segs})
+
+    # Fusion 线段（按重要性排序，已经排好了）
+    fusion_data = []
+    if fusion_segs:
+        # 按重要性排序
+        sorted_fusion = sorted(fusion_segs, key=lambda s: -s['importance'])
+        for s in sorted_fusion:
+            via = s.get('fusion_via', (0, 0))
+            fusion_data.append({
+                'b1': s['bar_start'], 'p1': round(s['price_start'], 5),
+                'd1': s['dir_start'],
+                'b2': s['bar_end'],   'p2': round(s['price_end'], 5),
+                'd2': s['dir_end'],
+                'imp': round(s['importance'], 4),
+                'span': s['span'],
+                'amp': round(s['amplitude'], 5),
+                'src': s['source_label'],
+                'via': [via[0], via[1]] if via else [0, 0],
+            })
 
     # K线
     kline_data = []
@@ -70,10 +91,11 @@ def generate_html(df, results, output_path, pivot_info=None):
     n_amp = sum(1 for s in snap_data if s['type'] == 'amp')
     n_lat = sum(1 for s in snap_data if s['type'] == 'lat')
     n_extra = sum(len(g['segs']) for g in extra_groups)
+    n_fusion = len(fusion_data)
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>归并引擎 v2.1 - 完全归并</title>
+<title>归并引擎 v2.1 + 波段池融合</title>
 <style>
 * {{ box-sizing: border-box; }}
 body {{ background: #0a0a1a; color: #ddd; font-family: 'Consolas', monospace; margin: 0; padding: 10px; }}
@@ -85,16 +107,19 @@ h2 {{ color: #7eb8da; margin: 5px 0; font-size: 16px; }}
 canvas {{ display: block; border: 1px solid #222; cursor: crosshair; }}
 .btn {{ background: #1a2a4a; color: #8ac; border: 1px solid #335; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin: 0 2px; }}
 .btn:hover {{ background: #2a3a5a; }}
+.btn.active {{ background: #3a2a5a; color: #f8f; border-color: #a6a; }}
+.slider-box {{ display: inline-flex; align-items: center; gap: 4px; margin: 0 8px; font-size: 11px; }}
+.slider-box input[type=range] {{ width: 120px; }}
 </style></head><body>
 
-<h2>归并引擎 v2.1 | EURUSD H1 | {df['datetime'].iloc[0]} ~ {df['datetime'].iloc[-1]}</h2>
+<h2>归并引擎 v2.1 + 波段池融合 | EURUSD H1 | {df['datetime'].iloc[0]} ~ {df['datetime'].iloc[-1]}</h2>
 <div class="info">
 {len(df)} bars | Base: {snap_data[0]['n']}pv |
 Final: {len(results['final_pivots'])}pv |
-Iter: {results['total_iterations']} |
 Snap: {n_snap} (A:{n_amp} T:{n_lat}) |
-Extra: {n_extra} segs ({len(extra_groups)} groups) |
-Pool: 301 unique
+Extra: {n_extra} segs |
+Fusion: {n_fusion} new segs |
+Total pool: {301 + n_fusion}
 </div>
 
 <div style="margin:4px 0;">
@@ -105,8 +130,17 @@ Pool: 301 unique
 <button class="btn" onclick="showBase()">Base</button>
 <button class="btn" onclick="toggleExtra()">Extra</button>
 <button class="btn" onclick="toggleTop()" style="background:#2a1a4a;color:#f8f;">Top20</button>
+<button class="btn" id="fusionBtn" onclick="toggleFusion()" style="background:#3a1a3a;color:#c8f;">Fusion</button>
 <button class="btn" onclick="showStep(1)">Step+</button>
 <button class="btn" onclick="showStep(-1)">Step-</button>
+<span class="slider-box" style="color:#c8f;">
+  Fusion Top: <input type="range" id="fusionSlider" min="0" max="{n_fusion}" value="50" oninput="updateFusionN(this.value)">
+  <span id="fusionN">50</span>/{n_fusion}
+</span>
+<span class="slider-box" style="color:#ffa;">
+  Min imp: <input type="range" id="impSlider" min="0" max="100" value="0" oninput="updateMinImp(this.value)">
+  <span id="impVal">0.00</span>
+</span>
 </div>
 
 <div style="display:flex; gap:15px; flex-wrap:wrap; margin:6px 0;">
@@ -115,7 +149,7 @@ Pool: 301 unique
 <div class="section" id="snap_ctl"></div>
 </div>
 <div>
-<div style="color:#9e9; font-size:11px; font-weight:bold;">Extra (滑窗收集)</div>
+<div style="color:#9e9; font-size:11px; font-weight:bold;">Extra (滑窗)</div>
 <div class="section" id="extra_ctl"></div>
 </div>
 </div>
@@ -132,7 +166,11 @@ const K = {json.dumps(kline_data)};
 const S = {json.dumps(snap_data)};
 const EX = {json.dumps(extra_groups)};
 const TOP = {json.dumps(top_marks)};
+const FUS = {json.dumps(fusion_data)};
 let showTop = true;
+let showFusion = true;
+let fusionTopN = Math.min(50, FUS.length);
+let minImp = 0;
 
 function snapColor(i) {{
     const s = S[i];
@@ -153,35 +191,53 @@ function snapColor(i) {{
 function extraColor(gi) {{
     const g = EX[gi];
     if(g.label.includes('_mid')) {{
-        // lat-mid: green variants
         const t = gi / Math.max(EX.length-1, 1);
         return `rgb(${{Math.round(80+t*40)}},${{Math.round(220-t*60)}},${{Math.round(120+t*40)}})`;
     }} else {{
-        // amp extra: orange variants
         const t = gi / Math.max(EX.length-1, 1);
         return `rgb(${{Math.round(255-t*40)}},${{Math.round(160-t*60)}},${{Math.round(60)}})`;
     }}
+}}
+
+function fusionColor(rank, total) {{
+    // 紫色系: 高重要性=亮紫, 低重要性=暗紫
+    const t = rank / Math.max(total-1, 1);
+    const r = Math.round(200 - t*100);
+    const g = Math.round(80 - t*50);
+    const b = Math.round(255 - t*80);
+    return `rgb(${{r}},${{g}},${{b}})`;
 }}
 
 const vis = S.map(()=>true);
 const exVis = EX.map(()=>true);
 let stepCursor = S.length;
 
-function showAll(){{ vis.fill(true); exVis.fill(true); stepCursor=S.length; sync(); draw(); updateCursor(); }}
-function hideAll(){{ vis.fill(false); exVis.fill(false); stepCursor=0; sync(); draw(); updateCursor(); }}
-function showType(t){{ vis.fill(false); exVis.fill(false); S.forEach((s,i)=>vis[i]=s.type===t); sync(); draw(); }}
-function showBase(){{ vis.fill(false); exVis.fill(false); vis[0]=true; sync(); draw(); }}
+function showAll(){{ vis.fill(true); exVis.fill(true); showFusion=true; stepCursor=S.length; sync(); draw(); updateCursor(); }}
+function hideAll(){{ vis.fill(false); exVis.fill(false); showFusion=false; stepCursor=0; sync(); draw(); updateCursor(); }}
+function showType(t){{ vis.fill(false); exVis.fill(false); showFusion=false; S.forEach((s,i)=>vis[i]=s.type===t); sync(); draw(); }}
+function showBase(){{ vis.fill(false); exVis.fill(false); showFusion=false; vis[0]=true; sync(); draw(); }}
 function toggleExtra(){{ const on=exVis.some(v=>v); exVis.fill(!on); sync(); draw(); }}
 function toggleTop(){{ showTop=!showTop; draw(); }}
+function toggleFusion(){{ showFusion=!showFusion; document.getElementById('fusionBtn').classList.toggle('active',showFusion); draw(); }}
+
+function updateFusionN(v) {{
+    fusionTopN = parseInt(v);
+    document.getElementById('fusionN').textContent = fusionTopN;
+    draw();
+}}
+
+function updateMinImp(v) {{
+    minImp = v / 100.0;
+    document.getElementById('impVal').textContent = minImp.toFixed(2);
+    draw();
+}}
 
 function showStep(d){{
     stepCursor=Math.max(0,Math.min(S.length,stepCursor+d));
     S.forEach((s,i)=>vis[i]=i<stepCursor);
-    // show extra up to current step label
     if(stepCursor>0){{
         const curLabel = S[stepCursor-1].label;
         EX.forEach((g,i)=>{{
-            // show extra if its source label <= current snapshot label
             exVis[i] = false;
             for(let si=0; si<stepCursor; si++){{
                 if(g.label===S[si].label || g.label===S[si].label+'_mid') exVis[i]=true;
@@ -258,7 +314,27 @@ function draw(){{
         cx.beginPath(); cx.moveTo(x,yS(k.l)); cx.lineTo(x,yS(k.h)); cx.stroke();
     }}
 
-    // === Extra segments (draw first, behind snapshots) ===
+    // === Fusion segments (draw first, behind everything) ===
+    if(showFusion && FUS.length > 0) {{
+        const n = Math.min(fusionTopN, FUS.length);
+        for(let i=n-1; i>=0; i--) {{
+            const f = FUS[i];
+            if(f.imp < minImp) continue;
+            const color = fusionColor(i, n);
+            const t = i / Math.max(n-1, 1);
+            cx.strokeStyle = color;
+            cx.lineWidth = Math.max(0.3, 2.5 - t*2.0);
+            cx.globalAlpha = Math.max(0.15, 0.7 - t*0.5);
+            cx.setLineDash([10, 4]);
+            cx.beginPath();
+            cx.moveTo(xS(f.b1), yS(f.p1));
+            cx.lineTo(xS(f.b2), yS(f.p2));
+            cx.stroke();
+        }}
+        cx.setLineDash([]); cx.globalAlpha=1;
+    }}
+
+    // === Extra segments ===
     for(let gi=0; gi<EX.length; gi++){{
         if(!exVis[gi]) continue;
         const g=EX[gi];
@@ -371,32 +447,78 @@ function draw(){{
         }}
         cx.textAlign = 'start';
     }}
+
+    // === Hover info for fusion segments ===
+    // (handled in mousemove)
 }}
+
+let hoveredFusion = null;
 
 cv.addEventListener('mousemove',(e)=>{{
     const rect=cv.getBoundingClientRect();
     const mx_=e.clientX-rect.left;
+    const my_=e.clientY-rect.top;
     const bar=Math.round((mx_-mg.l)/pw*K.length);
-    if(bar>=0&&bar<K.length){{
+
+    let infoText = '';
+    if(bar>=0 && bar<K.length){{
         const k=K[bar];
-        document.getElementById('info').textContent=
-            `Bar ${{bar}} | O:${{k.o.toFixed(5)}} H:${{k.h.toFixed(5)}} L:${{k.l.toFixed(5)}} C:${{k.c.toFixed(5)}}`;
+        infoText = `Bar ${{bar}} | O:${{k.o.toFixed(5)}} H:${{k.h.toFixed(5)}} L:${{k.l.toFixed(5)}} C:${{k.c.toFixed(5)}}`;
     }}
+
+    // Check if hovering near a fusion segment
+    if(showFusion) {{
+        const n = Math.min(fusionTopN, FUS.length);
+        let best = null, bestDist = 15; // 15px threshold
+        for(let i=0; i<n; i++) {{
+            const f = FUS[i];
+            if(f.imp < minImp) continue;
+            const x1=xS(f.b1), y1=yS(f.p1), x2=xS(f.b2), y2=yS(f.p2);
+            // Distance from point to line segment
+            const dx=x2-x1, dy=y2-y1;
+            const len2 = dx*dx+dy*dy;
+            if(len2===0) continue;
+            let t = ((mx_-x1)*dx+(my_-y1)*dy)/len2;
+            t = Math.max(0, Math.min(1, t));
+            const px=x1+t*dx, py=y1+t*dy;
+            const d = Math.sqrt((mx_-px)*(mx_-px)+(my_-py)*(my_-py));
+            if(d < bestDist) {{ bestDist=d; best=f; }}
+        }}
+        if(best) {{
+            const d1 = best.d1===1?'H':'L';
+            const d2 = best.d2===1?'H':'L';
+            infoText += ` | FUSION[${{best.src}}] bar${{best.b1}}${{d1}}->bar${{best.b2}}${{d2}} span=${{best.span}} amp=${{best.amp}} imp=${{best.imp}} via(${{best.via[0]}},${{best.via[1]}})`;
+        }}
+    }}
+
+    document.getElementById('info').textContent = infoText;
 }});
 
 draw();
+document.getElementById('fusionBtn').classList.add('active');
 </script></body></html>"""
 
     with open(output_path, 'w') as f:
         f.write(html)
-    print(f"Saved: {output_path}")
+    print(f"Saved: {output_path} ({len(html)//1024}KB)")
+
 
 def main():
     df = load_kline("/home/ubuntu/DataBase/base_kline/EURUSD_H1.csv", limit=200)
     base = calculate_base_zg(df['high'].values, df['low'].values)
     results = full_merge_engine(base)
     pivot_info = compute_pivot_importance(results)
-    generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v2.html", pivot_info=pivot_info)
+    pool = build_segment_pool(results, pivot_info)
+    full_pool, fusion_segs, fusion_log = pool_fusion(pool, pivot_info)
+
+    print(f"Initial pool: {len(pool)}")
+    print(f"After fusion: {len(full_pool)} (+{len(fusion_segs)} fusion)")
+    for entry in fusion_log:
+        print(f"  {entry}")
+
+    generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v2.html",
+                  pivot_info=pivot_info, fusion_segs=fusion_segs)
+
 
 if __name__ == '__main__':
     main()
