@@ -375,7 +375,7 @@ def full_merge_engine(pivots, max_iterations=200):
 # 6. 点重要性 → 线段重要性 → 波段池
 # =============================================================================
 
-def compute_pivot_importance(results, high=None, low=None):
+def compute_pivot_importance(results, high=None, low=None, total_bars=None):
     """
     多维度拐点重要性评分。
     
@@ -387,6 +387,7 @@ def compute_pivot_importance(results, high=None, low=None):
     D5. extremity — 该点价格在同方向(峰/谷)中的极端程度（接近全局极值越重要）
     D6. isolation — 与相邻拐点的时间距离（越孤立越是结构性转折）
     D7. price_range_dominance — 该点到最近反向拐点的价格差占全局价格范围的比例
+    D8. recency — 离最后一根K线越近越重要（指数衰减）
     
     各维度归一化到0~1后加权求和。
     """
@@ -462,6 +463,16 @@ def compute_pivot_importance(results, high=None, low=None):
             dists.append(base[idx+1][0] - bar)
         isolation[bar] = sum(dists) / len(dists) if dists else 0
     
+    # --- D8: recency (离最后一根K线越近越重要, 指数衰减) ---
+    max_bar = max(p[0] for p in base) if base else 0
+    if total_bars and total_bars > max_bar:
+        max_bar = total_bars - 1  # 使用实际K线数量
+    recency = {}
+    decay_lambda = 3.0 / max(max_bar, 1)  # ~5%权重在最远端, ~95%在最近端
+    for p in base:
+        bar = p[0]
+        recency[bar] = np.exp(-decay_lambda * (max_bar - bar))
+    
     # --- 归一化辅助 ---
     def _norm(d, keys):
         vals = [d.get(k, 0) for k in keys]
@@ -476,6 +487,7 @@ def compute_pivot_importance(results, high=None, low=None):
     n_amp = _norm(max_amplitude, bars)
     n_span = _norm(max_span, bars)
     n_iso = _norm(isolation, bars)
+    n_rec = _norm(recency, bars)
     
     # --- 构建拐点信息 ---
     pivot_info = {}
@@ -499,15 +511,16 @@ def compute_pivot_importance(results, high=None, low=None):
                 max_local_range = max(max_local_range, abs(price - base[ni][1]))
         dominance = max_local_range / global_range
         
-        # 加权综合 (权重可调)
+        # 加权综合 (权重可调, 8维, 总和=1.0)
         w = {
-            'line_count': 0.20,
-            'survival': 0.15,
-            'amplitude': 0.20,
-            'time_span': 0.10,
-            'extremity': 0.15,
-            'isolation': 0.10,
-            'dominance': 0.10,
+            'line_count': 0.17,
+            'survival': 0.12,
+            'amplitude': 0.18,
+            'time_span': 0.08,
+            'extremity': 0.13,
+            'isolation': 0.08,
+            'dominance': 0.09,
+            'recency': 0.15,   # D8: 时间临近性
         }
         
         importance = (
@@ -517,7 +530,8 @@ def compute_pivot_importance(results, high=None, low=None):
             w['time_span'] * n_span.get(bar, 0) +
             w['extremity'] * extremity +
             w['isolation'] * n_iso.get(bar, 0) +
-            w['dominance'] * dominance
+            w['dominance'] * dominance +
+            w['recency'] * n_rec.get(bar, 0)
         )
         
         pivot_info[bar] = {
@@ -529,6 +543,7 @@ def compute_pivot_importance(results, high=None, low=None):
             'd5_extremity': round(extremity, 3),
             'd6_isolation': round(isolation.get(bar, 0), 1),
             'd7_dominance': round(dominance, 3),
+            'd8_recency': round(recency.get(bar, 0), 4),
             'importance': round(importance, 4),
         }
     
@@ -544,7 +559,7 @@ def build_segment_pool(results, pivot_info):
     2. 滑窗收集的额外线段（被贪心跳过但满足归并条件的三波）
     
     自然去重（同一对拐点只保留一次）。
-    线段重要性 = min(两端点重要性)，短板决定。
+    线段重要性 = 两端点重要性的乘积（联合评估）。
     """
     snapshots = results['all_snapshots']
     extra_segments = results.get('extra_segments', [])
@@ -565,7 +580,7 @@ def build_segment_pool(results, pivot_info):
                 'source': source,
                 'source_label': label,
                 'imp_start': imp1, 'imp_end': imp2,
-                'importance': min(imp1, imp2),
+                'importance': imp1 * imp2,  # 乘积: 联合评估，两端都重要时远大于只一端重要
             }
     
     # 快照中的线段
@@ -681,7 +696,7 @@ def pool_fusion(pool, pivot_info, max_rounds=100):
                             'source_label': f'F{round_num}',
                             'imp_start': imp1,
                             'imp_end': imp4,
-                            'importance': min(imp1, imp4),
+                            'importance': imp1 * imp4,  # 乘积: 联合评估
                             # 元数据：三波组成信息（留给冗余删除用）
                             'fusion_via': (seg_A['bar_end'], seg_B['bar_end']),
                             'fusion_amps': (seg_A['amplitude'], seg_B['amplitude'], seg_C['amplitude']),
@@ -701,6 +716,216 @@ def pool_fusion(pool, pivot_info, max_rounds=100):
     full_pool = sorted(seg_set.values(), key=lambda s: -s['importance'])
     
     return full_pool, all_new, fusion_log
+
+
+# =============================================================================
+# 6b. 对称结构识别 — 5维对称向量
+# =============================================================================
+
+def find_symmetric_structures(pool, pivot_info, df=None, top_n=100, max_pool_size=800):
+    """
+    在波段池中扫描所有三波(A,B,C)组合，计算5维对称向量。
+    
+    三波结构: seg_A → seg_B → seg_C, 首尾相连
+    - seg_A.end == seg_B.start
+    - seg_B.end == seg_C.start
+    - A和C方向相同（都是上升或都是下降），B方向相反（中间段）
+    
+    5维对称度:
+    1. amp_sym  — 幅度对称: 1 - |amp_A - amp_C| / max(amp_A, amp_C)
+    2. time_sym — 时间对称: 1 - |time_A - time_C| / max(time_A, time_C)
+    3. mod_sym  — 模长对称: 1 - |mod_A - mod_C| / max(mod_A, mod_C)
+       mod = sqrt(norm_amp² + norm_time²), 归一化后计算
+       注: 时-空转换常数暂用经验值, 这是核心待解问题
+    4. slope_sym — 斜率对称: 1 - |slope_A + slope_C| / max(|slope_A|, |slope_C|)
+       A和C方向相同 → slope_A和slope_C符号相同 → 镜像是 slope_A ≈ slope_C
+       (对于中心对称结构, A的下降对应C的下降)
+    5. complexity_sym — 内部结构对称 (当前简化版: 用子波段数近似)
+    
+    综合对称度 = 5维的加权平均
+    
+    max_pool_size: 参与搜索的最大线段数（按重要性截取），控制搜索空间
+    
+    返回: [{score, sym_score, endpoint_imp, vec, p1-p4, ...}, ...] 按综合对称度降序
+    """
+    from collections import defaultdict
+    import math
+    
+    # 限制搜索空间: 取重要性最高的max_pool_size条线段
+    search_pool = pool
+    if len(pool) > max_pool_size:
+        search_pool = sorted(pool, key=lambda s: -s['importance'])[:max_pool_size]
+    
+    # 建索引: end_bar → [seg], start_bar → [seg]
+    end_at = defaultdict(list)
+    start_at = defaultdict(list)
+    for s in search_pool:
+        end_at[s['bar_end']].append(s)
+        start_at[s['bar_start']].append(s)
+    
+    # 统计全局参数用于归一化 (使用完整池的统计, 不受截取影响)
+    all_amps = [s['amplitude'] for s in pool if s['amplitude'] > 0]
+    all_spans = [s['span'] for s in pool if s['span'] > 0]
+    if not all_amps or not all_spans:
+        return []
+    
+    global_amp = max(all_amps)
+    global_span = max(all_spans)
+    
+    # 时-空转换经验常数: 使幅度和时间在模长计算中权重相当
+    # 以全局幅度range / 全局时间range 作为缩放因子
+    space_time_ratio = global_amp / max(global_span, 1)
+    
+    # 子波段数统计（用于complexity_sym）: 用排序+二分实现O(logN)查询
+    base_bars_sorted = sorted(p['bar'] for p in pivot_info.values())
+    import bisect
+    
+    def _count_sub_segments(bar_start, bar_end):
+        """计算时间区间内的base层拐点数（近似内部结构复杂度）, O(logN)"""
+        left = bisect.bisect_right(base_bars_sorted, bar_start)
+        right = bisect.bisect_left(base_bars_sorted, bar_end)
+        return right - left
+    
+    def _compute_modulus(amp, span):
+        """计算归一化模长"""
+        norm_amp = amp / max(global_amp, 1e-10)
+        norm_time = span / max(global_span, 1)
+        return math.sqrt(norm_amp**2 + norm_time**2)
+    
+    def _sym_ratio(a, b):
+        """对称度: 1 - |a-b|/max(a,b), 值域[0,1], 完全相等=1"""
+        mx = max(abs(a), abs(b))
+        if mx < 1e-10:
+            return 1.0  # 两者都近零，视为完全对称
+        return 1.0 - abs(a - b) / mx
+    
+    # 扫描所有三波组合
+    structures = []
+    seen = set()
+    
+    for p2 in list(end_at.keys()):
+        # seg_A ends at p2
+        for seg_A in end_at[p2]:
+            # seg_B starts at p2
+            for seg_B in start_at.get(p2, []):
+                p3 = seg_B['bar_end']
+                
+                # seg_C starts at p3
+                for seg_C in start_at.get(p3, []):
+                    p1 = seg_A['bar_start']
+                    p4 = seg_C['bar_end']
+                    
+                    # 时间递增
+                    if not (p1 < p2 and p2 < p3 and p3 < p4):
+                        continue
+                    
+                    # 去重 (用三波的4个端点作为唯一键)
+                    key = (p1, p2, p3, p4)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    
+                    # 方向检查: A和C方向相同, B方向相反
+                    # 上升段: price_end > price_start, 下降段: price_end < price_start
+                    dir_A = 1 if seg_A['price_end'] > seg_A['price_start'] else -1
+                    dir_B = 1 if seg_B['price_end'] > seg_B['price_start'] else -1
+                    dir_C = 1 if seg_C['price_end'] > seg_C['price_start'] else -1
+                    
+                    if dir_A != dir_C or dir_A == dir_B:
+                        continue  # A和C必须同向, B必须反向
+                    
+                    # === 计算5维对称度 ===
+                    amp_A = seg_A['amplitude']
+                    amp_C = seg_C['amplitude']
+                    time_A = seg_A['span']
+                    time_C = seg_C['span']
+                    
+                    if amp_A < 1e-10 or amp_C < 1e-10 or time_A < 1 or time_C < 1:
+                        continue
+                    
+                    # D1: 幅度对称
+                    amp_sym = _sym_ratio(amp_A, amp_C)
+                    
+                    # D2: 时间对称
+                    time_sym = _sym_ratio(time_A, time_C)
+                    
+                    # D3: 模长对称
+                    mod_A = _compute_modulus(amp_A, time_A)
+                    mod_C = _compute_modulus(amp_C, time_C)
+                    mod_sym = _sym_ratio(mod_A, mod_C)
+                    
+                    # D4: 斜率对称
+                    slope_A = amp_A / time_A * dir_A
+                    slope_C = amp_C / time_C * dir_C
+                    # A和C同向, 所以slope符号相同, 镜像对称 = slope_A ≈ slope_C
+                    slope_sym = _sym_ratio(abs(slope_A), abs(slope_C))
+                    
+                    # D5: 内部结构对称 (子波段数)
+                    sub_A = _count_sub_segments(p1, p2)
+                    sub_C = _count_sub_segments(p3, p4)
+                    complexity_sym = _sym_ratio(sub_A, sub_C)
+                    
+                    # 综合对称度 (加权)
+                    w_sym = {
+                        'amplitude': 0.25,
+                        'time': 0.20,
+                        'modulus': 0.25,     # 核心维度
+                        'slope': 0.15,
+                        'complexity': 0.15,
+                    }
+                    
+                    sym_score = (
+                        w_sym['amplitude'] * amp_sym +
+                        w_sym['time'] * time_sym +
+                        w_sym['modulus'] * mod_sym +
+                        w_sym['slope'] * slope_sym +
+                        w_sym['complexity'] * complexity_sym
+                    )
+                    
+                    # 结构类型判定
+                    amp_B = seg_B['amplitude']
+                    if dir_A == -1:
+                        # A下降, B上升, C下降 → V底型 (先跌-反弹-再跌)
+                        struct_type = 'V_bottom' if amp_C < amp_A else 'descending'
+                    else:
+                        # A上升, B下降, C上升 → 倒V顶型 (先涨-回调-再涨)
+                        struct_type = 'inv_V_top' if amp_C < amp_A else 'ascending'
+                    
+                    # 端点重要性加权的综合得分
+                    imp_A_start = pivot_info.get(p1, {}).get('importance', 0)
+                    imp_A_end = pivot_info.get(p2, {}).get('importance', 0)
+                    imp_C_end = pivot_info.get(p4, {}).get('importance', 0)
+                    endpoint_imp = (imp_A_start + imp_A_end + imp_C_end) / 3.0
+                    
+                    # 最终得分 = 对称度 × 端点重要性
+                    final_score = sym_score * endpoint_imp
+                    
+                    structures.append({
+                        'score': round(final_score, 6),
+                        'sym_score': round(sym_score, 4),
+                        'endpoint_imp': round(endpoint_imp, 4),
+                        'vec': {
+                            'amp': round(amp_sym, 4),
+                            'time': round(time_sym, 4),
+                            'mod': round(mod_sym, 4),
+                            'slope': round(slope_sym, 4),
+                            'complexity': round(complexity_sym, 4),
+                        },
+                        'p1': p1, 'p2': p2, 'p3': p3, 'p4': p4,
+                        'price_p1': seg_A['price_start'],
+                        'price_p2': seg_A['price_end'],
+                        'price_p3': seg_B['price_end'],
+                        'price_p4': seg_C['price_end'],
+                        'amp_A': round(amp_A, 5), 'amp_B': round(amp_B, 5), 'amp_C': round(amp_C, 5),
+                        'time_A': time_A, 'time_B': seg_B['span'], 'time_C': time_C,
+                        'dir': dir_A,  # A和C的方向
+                        'type': struct_type,
+                    })
+    
+    # 按最终得分排序
+    structures.sort(key=lambda s: -s['score'])
+    
+    return structures[:top_n]
 
 
 def prune_redundant(pool, keep_ratio=0.5):
@@ -806,27 +1031,32 @@ def main():
     print("多维度拐点重要性分析")
     print("=" * 70)
     
-    pivot_info = compute_pivot_importance(results)
+    pivot_info = compute_pivot_importance(results, total_bars=len(df))
     
     # Top 10 峰 + Top 10 谷
     peaks = sorted([v for v in pivot_info.values() if v['dir'] == 1], key=lambda x: -x['importance'])
     valleys = sorted([v for v in pivot_info.values() if v['dir'] == -1], key=lambda x: -x['importance'])
     
-    print(f"\nTop 10 重要峰 (共{len(peaks)}峰):")
-    print(f"  {'bar':>4s} {'price':>9s} | {'imp':>6s} | {'lines':>5s} {'surv':>4s} {'amp':>8s} {'span':>4s} {'extm':>5s} {'isol':>5s} {'dom':>5s} | datetime")
-    for p in peaks[:10]:
-        dt = df.iloc[p['bar']]['datetime']
-        print(f"  {p['bar']:4d} {p['price']:.5f} | {p['importance']:.4f} | "
-              f"{p['d1_line_count']:5d} {p['d2_survival']:4d} {p['d3_amplitude']:.5f} {p['d4_time_span']:4d} "
-              f"{p['d5_extremity']:.3f} {p['d6_isolation']:5.1f} {p['d7_dominance']:.3f} | {dt}")
+    # 百分比截断 — 缺省显示前50%
+    pct = 0.5
+    n_show_peaks = max(1, int(len(peaks) * pct))
+    n_show_valleys = max(1, int(len(valleys) * pct))
     
-    print(f"\nTop 10 重要谷 (共{len(valleys)}谷):")
-    print(f"  {'bar':>4s} {'price':>9s} | {'imp':>6s} | {'lines':>5s} {'surv':>4s} {'amp':>8s} {'span':>4s} {'extm':>5s} {'isol':>5s} {'dom':>5s} | datetime")
-    for p in valleys[:10]:
+    print(f"\nTop {n_show_peaks} 重要峰 (共{len(peaks)}峰, 前{int(pct*100)}%):")
+    print(f"  {'bar':>4s} {'price':>9s} | {'imp':>6s} | {'lines':>5s} {'surv':>4s} {'amp':>8s} {'span':>4s} {'extm':>5s} {'isol':>5s} {'dom':>5s} {'rec':>6s} | datetime")
+    for p in peaks[:n_show_peaks]:
         dt = df.iloc[p['bar']]['datetime']
         print(f"  {p['bar']:4d} {p['price']:.5f} | {p['importance']:.4f} | "
               f"{p['d1_line_count']:5d} {p['d2_survival']:4d} {p['d3_amplitude']:.5f} {p['d4_time_span']:4d} "
-              f"{p['d5_extremity']:.3f} {p['d6_isolation']:5.1f} {p['d7_dominance']:.3f} | {dt}")
+              f"{p['d5_extremity']:.3f} {p['d6_isolation']:5.1f} {p['d7_dominance']:.3f} {p['d8_recency']:.4f} | {dt}")
+    
+    print(f"\nTop {n_show_valleys} 重要谷 (共{len(valleys)}谷, 前{int(pct*100)}%):")
+    print(f"  {'bar':>4s} {'price':>9s} | {'imp':>6s} | {'lines':>5s} {'surv':>4s} {'amp':>8s} {'span':>4s} {'extm':>5s} {'isol':>5s} {'dom':>5s} {'rec':>6s} | datetime")
+    for p in valleys[:n_show_valleys]:
+        dt = df.iloc[p['bar']]['datetime']
+        print(f"  {p['bar']:4d} {p['price']:.5f} | {p['importance']:.4f} | "
+              f"{p['d1_line_count']:5d} {p['d2_survival']:4d} {p['d3_amplitude']:.5f} {p['d4_time_span']:4d} "
+              f"{p['d5_extremity']:.3f} {p['d6_isolation']:5.1f} {p['d7_dominance']:.3f} {p['d8_recency']:.4f} | {dt}")
 
     # ===== 波段池 =====
     print("\n" + "=" * 70)
@@ -877,6 +1107,41 @@ def main():
         print(f"  [{src:6s}] bar{s['bar_start']:4d}{d1}({s['price_start']:.5f}) -> "
               f"bar{s['bar_end']:4d}{d2}({s['price_end']:.5f}) | "
               f"span={s['span']:4d} amp={s['amplitude']:.5f} | imp={s['importance']:.3f}{via}")
+    
+    # ===== 对称结构识别 =====
+    print("\n" + "=" * 70)
+    print("对称结构识别 — 5维对称向量")
+    print("=" * 70)
+    
+    t0 = time.time()
+    sym_structures = find_symmetric_structures(full_pool, pivot_info, df=df, top_n=200)
+    t1 = time.time()
+    
+    print(f"\n发现 {len(sym_structures)} 个对称结构 ({t1-t0:.3f}s)")
+    
+    if sym_structures:
+        # 统计
+        types = {}
+        for s in sym_structures:
+            t = s['type']
+            types[t] = types.get(t, 0) + 1
+        print(f"类型分布: {types}")
+        
+        # 高对称度统计 (sym_score > 0.8)
+        high_sym = [s for s in sym_structures if s['sym_score'] > 0.8]
+        print(f"高对称度(>0.8): {len(high_sym)}个")
+        
+        print(f"\nTop 30 对称结构:")
+        print(f"  {'score':>7s} {'sym':>5s} {'imp':>5s} | {'amp':>5s} {'time':>5s} {'mod':>5s} {'slp':>5s} {'cplx':>5s} | "
+              f"{'type':>12s} | p1→p2→p3→p4 | A/B/C幅度 | A/B/C时间")
+        for s in sym_structures[:30]:
+            v = s['vec']
+            d = '↑' if s['dir'] == 1 else '↓'
+            print(f"  {s['score']:.5f} {s['sym_score']:.3f} {s['endpoint_imp']:.3f} | "
+                  f"{v['amp']:.3f} {v['time']:.3f} {v['mod']:.3f} {v['slope']:.3f} {v['complexity']:.3f} | "
+                  f"{s['type']:>12s}{d} | {s['p1']:3d}→{s['p2']:3d}→{s['p3']:3d}→{s['p4']:3d} | "
+                  f"{s['amp_A']:.4f}/{s['amp_B']:.4f}/{s['amp_C']:.4f} | "
+                  f"{s['time_A']:3d}/{s['time_B']:3d}/{s['time_C']:3d}")
 
 if __name__ == '__main__':
     main()

@@ -15,7 +15,7 @@ sys.path.insert(0, '/home/ubuntu/stage2_abc')
 from merge_engine_v3 import *
 
 
-def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None):
+def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None, sym_structures=None):
     snapshots = results['all_snapshots']
     extra_segs = results.get('extra_segments', [])
 
@@ -58,6 +58,25 @@ def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None):
                 'src': s['source_label'],
                 'via': [via[0], via[1]] if via else [0, 0],
             })
+
+    # Symmetry structures
+    sym_data = []
+    if sym_structures:
+        for s in sym_structures:
+            sym_data.append({
+                'p1': s['p1'], 'p2': s['p2'], 'p3': s['p3'], 'p4': s['p4'],
+                'pp1': round(s['price_p1'], 5), 'pp2': round(s['price_p2'], 5),
+                'pp3': round(s['price_p3'], 5), 'pp4': round(s['price_p4'], 5),
+                'score': s['score'], 'sym': s['sym_score'],
+                'imp': s['endpoint_imp'],
+                'va': s['vec']['amp'], 'vt': s['vec']['time'],
+                'vm': s['vec']['mod'], 'vs': s['vec']['slope'],
+                'vc': s['vec']['complexity'],
+                'aA': s['amp_A'], 'aB': s['amp_B'], 'aC': s['amp_C'],
+                'tA': s['time_A'], 'tB': s['time_B'], 'tC': s['time_C'],
+                'dir': s['dir'], 'type': s['type'],
+            })
+    n_sym = len(sym_data)
 
     # K线
     kline_data = []
@@ -123,7 +142,7 @@ Final: {len(results['final_pivots'])}pv |
 Snap: {n_snap} (A:{n_amp} T:{n_lat}) |
 Extra: {n_extra} segs |
 Fusion: {n_fusion} new segs |
-Total pool: {len(snap_data[0]['pts'])*2 + n_fusion} |
+Symmetry: {n_sym} structures |
 Peaks: {n_peaks} | Valleys: {n_valleys}
 </div>
 
@@ -137,6 +156,7 @@ Peaks: {n_peaks} | Valleys: {n_valleys}
 <button class="btn" id="topBtn" onclick="toggleTop()" style="background:#2a1a4a;color:#f8f;">ImpPts</button>
 <button class="btn" id="impValBtn" onclick="toggleImpVal()" style="background:#1a2a3a;color:#adf;">Values</button>
 <button class="btn" id="fusionBtn" onclick="toggleFusion()" style="background:#3a1a3a;color:#c8f;">Fusion</button>
+<button class="btn" id="symBtn" onclick="toggleSym()" style="background:#1a3a1a;color:#4f8;">Symmetry</button>
 <button class="btn" onclick="showStep(1)">Step+</button>
 <button class="btn" onclick="showStep(-1)">Step-</button>
 </div>
@@ -152,6 +172,10 @@ Peaks: {n_peaks} | Valleys: {n_valleys}
 <span class="slider-box" style="color:#c8f;">
   Fusion Top: <input type="range" id="fusionSlider" min="0" max="{n_fusion}" value="50" oninput="updateFusionN(this.value)">
   <span id="fusionN">50</span>/{n_fusion}
+</span>
+<span class="slider-box" style="color:#4f8;">
+  Sym Top: <input type="range" id="symSlider" min="0" max="{n_sym}" value="{min(20, n_sym)}" oninput="updateSymN(this.value)">
+  <span id="symN">{min(20, n_sym)}</span>/{n_sym}
 </span>
 <span class="slider-box" style="color:#ffa;">
   Min imp: <input type="range" id="impSlider" min="0" max="100" value="0" oninput="updateMinImp(this.value)">
@@ -183,6 +207,7 @@ const S = {json.dumps(snap_data)};
 const EX = {json.dumps(extra_groups)};
 const TOP = {json.dumps(top_marks)};
 const FUS = {json.dumps(fusion_data)};
+const SYM = {json.dumps(sym_data)};
 // Separate peaks and valleys from TOP array
 const PEAKS = TOP.filter(m => m.dir === 1);
 const VALS = TOP.filter(m => m.dir === -1);
@@ -192,6 +217,8 @@ let peakTopN = Math.min(10, PEAKS.length);
 let valleyTopN = Math.min(10, VALS.length);
 let showFusion = true;
 let fusionTopN = Math.min(50, FUS.length);
+let showSym = true;
+let symTopN = Math.min(20, SYM.length);
 let minImp = 0;
 
 function snapColor(i) {{
@@ -242,6 +269,7 @@ function toggleExtra(){{ const on=exVis.some(v=>v); exVis.fill(!on); sync(); dra
 function toggleTop(){{ showTop=!showTop; document.getElementById('topBtn').classList.toggle('active',showTop); draw(); }}
 function toggleImpVal(){{ showImpVal=!showImpVal; document.getElementById('impValBtn').classList.toggle('active',showImpVal); draw(); }}
 function toggleFusion(){{ showFusion=!showFusion; document.getElementById('fusionBtn').classList.toggle('active',showFusion); draw(); }}
+function toggleSym(){{ showSym=!showSym; document.getElementById('symBtn').classList.toggle('active',showSym); draw(); }}
 
 function updatePeakN(v) {{
     peakTopN = parseInt(v);
@@ -256,6 +284,11 @@ function updateValleyN(v) {{
 function updateFusionN(v) {{
     fusionTopN = parseInt(v);
     document.getElementById('fusionN').textContent = fusionTopN;
+    draw();
+}}
+function updateSymN(v) {{
+    symTopN = parseInt(v);
+    document.getElementById('symN').textContent = symTopN;
     draw();
 }}
 function updateMinImp(v) {{
@@ -362,6 +395,66 @@ function draw(){{
             cx.moveTo(xS(f.b1), yS(f.p1));
             cx.lineTo(xS(f.b2), yS(f.p2));
             cx.stroke();
+        }}
+        cx.setLineDash([]); cx.globalAlpha=1;
+    }}
+
+    // === Symmetry structures (three-wave A-B-C) ===
+    if(showSym && SYM.length > 0) {{
+        const n = Math.min(symTopN, SYM.length);
+        for(let i=n-1; i>=0; i--) {{
+            const s = SYM[i];
+            const t = i / Math.max(n-1, 1);
+            const alpha = Math.max(0.2, 0.85 - t*0.6);
+            const lw = Math.max(1.0, 3.5 - t*2.5);
+            
+            // A段: p1→p2 (绿色系)
+            const gA = s.dir === 1 ? `rgba(80,255,120,${{alpha}})` : `rgba(255,120,80,${{alpha}})`;
+            cx.strokeStyle = gA;
+            cx.lineWidth = lw;
+            cx.setLineDash([]);
+            cx.beginPath();
+            cx.moveTo(xS(s.p1), yS(s.pp1));
+            cx.lineTo(xS(s.p2), yS(s.pp2));
+            cx.stroke();
+            
+            // B段: p2→p3 (灰色, 虚线)
+            cx.strokeStyle = `rgba(180,180,180,${{alpha*0.6}})`;
+            cx.lineWidth = lw * 0.6;
+            cx.setLineDash([4, 3]);
+            cx.beginPath();
+            cx.moveTo(xS(s.p2), yS(s.pp2));
+            cx.lineTo(xS(s.p3), yS(s.pp3));
+            cx.stroke();
+            
+            // C段: p3→p4 (与A同色, 虚线表示"对称预期")
+            cx.strokeStyle = gA;
+            cx.lineWidth = lw;
+            cx.setLineDash([6, 3]);
+            cx.beginPath();
+            cx.moveTo(xS(s.p3), yS(s.pp3));
+            cx.lineTo(xS(s.p4), yS(s.pp4));
+            cx.stroke();
+            
+            // 对称轴标记 (B段中点的竖线)
+            if(i < 10) {{
+                const midBar = (s.p2 + s.p3) / 2;
+                const midPrice = (s.pp2 + s.pp3) / 2;
+                cx.strokeStyle = `rgba(255,255,100,${{alpha*0.3}})`;
+                cx.lineWidth = 0.5;
+                cx.setLineDash([2, 2]);
+                cx.beginPath();
+                cx.moveTo(xS(midBar), yS(s.pp2));
+                cx.lineTo(xS(midBar), yS(s.pp3));
+                cx.stroke();
+                
+                // Score label
+                cx.fillStyle = `rgba(200,255,100,${{alpha}})`;
+                cx.font = '9px monospace';
+                cx.textAlign = 'center';
+                cx.fillText(`S${{i+1}} ${{s.sym.toFixed(2)}}`, xS(midBar), yS(midPrice) - 5);
+                cx.textAlign = 'start';
+            }}
         }}
         cx.setLineDash([]); cx.globalAlpha=1;
     }}
@@ -564,6 +657,32 @@ cv.addEventListener('mousemove',(e)=>{{
         }}
     }}
 
+    // Check if hovering near a symmetry structure
+    if(showSym && SYM.length > 0) {{
+        const n = Math.min(symTopN, SYM.length);
+        let bestSym = null, bestSymDist = 20;
+        for(let i=0; i<n; i++) {{
+            const s = SYM[i];
+            // Check each of the 3 segments
+            const segs = [[s.p1,s.pp1,s.p2,s.pp2],[s.p2,s.pp2,s.p3,s.pp3],[s.p3,s.pp3,s.p4,s.pp4]];
+            for(const seg of segs) {{
+                const x1=xS(seg[0]),y1=yS(seg[1]),x2=xS(seg[2]),y2=yS(seg[3]);
+                const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+                if(len2===0) continue;
+                let t=((mx_-x1)*dx+(my_-y1)*dy)/len2;
+                t=Math.max(0,Math.min(1,t));
+                const px=x1+t*dx,py=y1+t*dy;
+                const d=Math.sqrt((mx_-px)*(mx_-px)+(my_-py)*(my_-py));
+                if(d<bestSymDist) {{ bestSymDist=d; bestSym=s; }}
+            }}
+        }}
+        if(bestSym) {{
+            const s = bestSym;
+            const d = s.dir===1?'↑':'↓';
+            infoText += ` | SYM[${{s.type}}${{d}}] ${{s.p1}}→${{s.p2}}→${{s.p3}}→${{s.p4}} score=${{s.score.toFixed(4)}} sym=${{s.sym.toFixed(3)}} | amp=${{s.va.toFixed(3)}} time=${{s.vt.toFixed(3)}} mod=${{s.vm.toFixed(3)}} slope=${{s.vs.toFixed(3)}} cplx=${{s.vc.toFixed(3)}}`;
+        }}
+    }}
+
     // Check if hovering near a fusion segment
     if(showFusion) {{
         const n = Math.min(fusionTopN, FUS.length);
@@ -594,6 +713,7 @@ cv.addEventListener('mousemove',(e)=>{{
 
 draw();
 document.getElementById('fusionBtn').classList.add('active');
+document.getElementById('symBtn').classList.add('active');
 document.getElementById('topBtn').classList.add('active');
 document.getElementById('impValBtn').classList.add('active');
 </script></body></html>"""
@@ -607,7 +727,7 @@ def main():
     df = load_kline("/home/ubuntu/DataBase/base_kline/EURUSD_H1.csv", limit=200)
     base = calculate_base_zg(df['high'].values, df['low'].values)
     results = full_merge_engine(base)
-    pivot_info = compute_pivot_importance(results)
+    pivot_info = compute_pivot_importance(results, total_bars=len(df))
     pool = build_segment_pool(results, pivot_info)
     full_pool, fusion_segs, fusion_log = pool_fusion(pool, pivot_info)
 
@@ -616,8 +736,12 @@ def main():
     for entry in fusion_log:
         print(f"  {entry}")
 
+    # 对称结构识别
+    sym_structures = find_symmetric_structures(full_pool, pivot_info, df=df, top_n=200)
+    print(f"Symmetry structures: {len(sym_structures)}")
+
     generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v3.html",
-                  pivot_info=pivot_info, fusion_segs=fusion_segs)
+                  pivot_info=pivot_info, fusion_segs=fusion_segs, sym_structures=sym_structures)
 
 
 if __name__ == '__main__':
