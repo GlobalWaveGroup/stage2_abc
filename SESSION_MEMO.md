@@ -1,5 +1,5 @@
 # 天枢 TianShu — Session Memo (给下一个AI session)
-# 写于: 2026-02-25
+# 写于: 2026-02-25 (v3 session)
 # 写给: 下一次对话的AI，请完整阅读后再动手
 
 ---
@@ -10,6 +10,7 @@
 2. 再读本文件 — 当前工作状态、已踩的坑、待解决的问题
 3. **不要信任本目录下任何.py文件的注释/docstring版本号** — 代码多次被覆盖，注释可能是旧的
 4. **以代码实际行为为准，不以注释为准**
+5. **当前可信代码: merge_engine_v3.py + visualize_v3.py** — v2文件保留但已被v3取代
 
 ---
 
@@ -17,17 +18,17 @@
 
 给定外汇K线数据，构建完整的波段池（Segment Pool）：
 - 输入：raw OHLC K线
-- 处理：基础ZG（zigzag）→ 幅度归并 + 横向归并 → 交替迭代至不动点
-- 输出：所有尺度的波段共存于一个池中，每条波段有来源标记和重要性评分
+- 处理：基础ZG → 逐级归并(初始池) → **pool_fusion(消融级别界限)** → 完整波段池
+- 输出：所有尺度的波段共存于一个池中，线段就是线段，不分级别
 
-波段池是后续步骤（可比性度量、R(X,Y)→P(Z|R)映射、策略向量）的基础。
-当前处于**第1步：波段生成**，尚未进入第2步。
+**v3 里程碑**: 波段池被用户确认为"可作为商用底层基础架构"。
+当前处于**第1步：波段生成**，静态池已基本完成，下一步是增强功能（见第8节）。
 
 ---
 
 ## 2. 环境
 
-- **本地工作目录**: `/home/ubuntu/stage2_abc/` （已初始化git）
+- **本地工作目录**: `/home/ubuntu/stage2_abc/` （已初始化git，5+ commits）
 - **远程m5**: `ssh m5` (47.111.129.50:6006), 80核/503G RAM/8×V100, SSH不稳定
 - **原始数据**: `/home/ubuntu/DataBase/base_kline/` — 48对×5TF, TSV格式, 25年
 - **验证数据**: EURUSD_H1.csv, 当前用末尾200根 (2024-12-18 ~ 2024-12-31)
@@ -37,192 +38,174 @@
 
 ## 3. 核心代码文件 (可信赖的)
 
-### 3.1 merge_engine_v2.py (625行) — 归并引擎
+### 3.1 merge_engine_v3.py (~888行) — 归并引擎
 
 关键函数:
 - `load_kline()` — TSV加载
-- `calculate_base_zg(high, low, rb=0.5)` — KZig风格基础zigzag，**不是标准zigzag(2,1,1)**，每个拐点约2根K线
-- `_check_amp_merge(p1,p2,p3,p4)` — 幅度归并条件：P1和P4为4点中的极值对
-- `amplitude_merge_one_pass(pivots)` — 幅度归并一轮，返回(新拐点, changed, 滑窗发现的所有对)
+- `calculate_base_zg(high, low, rb=0.5)` — KZig风格基础zigzag
+- `_check_amp_merge(p1,p2,p3,p4)` — 幅度归并条件
+- `amplitude_merge_one_pass(pivots)` — 幅度归并一轮 (滑窗+贪心)
 - `classify_three_segments(pivots, i)` — 横向归并4类分类
-- `_check_lat_merge(pivots, i)` — 横向归并条件检查
-- `lateral_merge_one_pass(pivots)` — 横向归并一轮，返回(新拐点, changed, 滑窗发现的所有对)
-- `full_merge_engine(pivots)` — **主引擎**，交替迭代至不动点
-- `compute_pivot_importance(results)` — 拐点重要性(快照出现次数 + 端点次数)
-- `build_segment_pool(results, pivot_info)` — 构建去重波段池（含extra_segments）
-- `prune_redundant(pool)` — 冗余删除（**用户说暂不执行**，逻辑存在但不应调用）
+- `lateral_merge_one_pass(pivots)` — 横向归并一轮 (滑窗+贪心)
+- `full_merge_engine(pivots)` — 逐级交替迭代至不动点
+- `compute_pivot_importance(results)` — 多维拐点重要性(7维)
+- `build_segment_pool(results, pivot_info)` — 构建初始去重波段池
+- **`pool_fusion(pool, pivot_info)`** — 🔑 **v3核心**: 池内三波归并，消融级别
+- `prune_redundant(pool)` — 冗余删除（**暂不执行**）
 
-数据结构:
-- 拐点: `(bar_index, price, direction)`, direction=1峰/-1谷
-- 快照: `(type, label, pivots_list)`, type='base'|'amp'|'lat'
-- extra_segments: `[(p_start, p_end, source_label)]` — 滑窗收集的被贪心跳过的线段
+### 3.2 visualize_v3.py (~524行) — HTML可视化生成器
 
-### 3.2 visualize_v2.py (335行) — HTML可视化生成器
+- 快照层：base(金色) / amp(红色渐变) / lat(青色虚线)
+- Extra层：滑窗收集的额外线段（绿色/橙色虚线）
+- **Fusion层**：池内三波归并产出的新线段（**紫色系，虚线**）
+- Fusion Top N 滑块：控制显示最重要的前N条
+- Min imp 滑块：按重要性过滤
+- 鼠标悬停fusion线段显示详情（来源、via路径、幅度、重要性）
+- Top20重要拐点标记 (H1-H10, L1-L10)
+- Step+/- 逐步回放
+- 输出: merge_v3.html (429KB)
 
-- 读取引擎输出，生成交互式Canvas图表
-- 快照层：base(金色细线) / amp(红色渐变实线) / lat(青色虚线)
-- Extra层：滑窗收集的额外线段（绿色/橙色虚线，半透明）
-- 控件：Show All / Amp Only / Lat Only / Extra开关 / Step+/- 逐步回放
-- 输出: merge_v2.html
+### 3.3 GROUND_TRUTH.md — 权威逻辑链文档
 
-### 3.3 GROUND_TRUTH.md (326行) — 权威逻辑链文档
+### 3.4 k-zg归并all-2.3.1m.mq5 — MT5原始幅度归并指标源码
 
-用户亲自确认的核心设计。**修改前必须与用户确认**。
-Section 1-7 是多个session积累的稳定内容。
-Section 8 (归并引擎设计) 在本session中被多次修改，**以代码实际行为为准**。
-
-### 3.4 k-zg归并all-2.3.1m.mq5 — MT5原始指标源码 (UTF-16LE, 378行)
-
-用户MT5端的幅度归并指标。本session已读取并据此实现Python版本。
+### 3.5 旧版文件 (保留但已被v3取代)
+- merge_engine_v2.py, visualize_v2.py, merge_v2.html — v2版本
+- merge_engine.py — v1版本
 
 ---
 
-## 4. 当前引擎架构 (v2.1)
+## 4. v3 架构
 
 ```
-full_merge_engine(pivots):
-    current = 基础ZG拐点
-    记录快照: L0
-    
-    while(有变化):
-        # 尝试幅度归并一轮
-        if 幅度有变化:
-            滑窗收集: 所有满足amp条件的拐点对 → extra_segments
-            横向滑窗收集: 当前序列上满足lat条件的拐点对 → extra_segments
-            贪心推进: 产生下一级拐点序列
-            记录快照: A1, A2, ...
-            continue
-        
-        # 幅度无机会 → 横向归并一轮
-        if 横向有变化:
-            滑窗收集: 满足lat条件的拐点对 → extra_segments
-            贪心推进: 产生下一级拐点序列
-            记录快照: T1, T2, ...
-            continue  # 回馈给幅度归并
-        
-        break  # 不动点
+Phase 1: 逐级归并（和v2相同）
+    基础ZG(109pv) → 幅度+横向交替 → 不动点(3pv)
+    产出: 初始池 301条 + 快照9个 + extra_segments 229条
+
+Phase 2: pool_fusion() — 消融级别界限 🔑
+    核心原则: 线段就是线段，不分级别/来源
+    算法: 
+      1. 用端点建邻接索引
+      2. 搜索所有首尾相连的三段组合
+      3. 无条件产出新线段(首→尾)
+      4. 新线段参与下一轮搜索
+      5. 循环至不动点
+    结果: 301 → 2970条 (+2669 fusion), 3轮不动点, 0.166秒
 ```
 
-### 200根K线的实际运行结果:
-
-```
-L0(109) → A1(63) → A2(41) → A3(25) → A4(15) → A5(9) → A6(7) → T1(5) → T2(3)
-9轮迭代, 波段池301条
-```
+### 验证通过的关键连接:
+| 连接 | 路径(via) | 状态 |
+|------|-----------|------|
+| H1(bar3)→L8(bar72) | — | OK |
+| H1(bar3)→L5(bar98) | — | OK |
+| L4(bar39)→H2(bar166) | via(52,98) | OK |
+| H7(bar142)→L2(bar195) | — | OK |
 
 ---
 
 ## 5. 用户已确认的关键决策
 
-1. **基础ZG用KZig(rb=0.5)而非标准zigzag(2,1,1)** — 可接受作为原子度量工具
-2. **幅度归并和横向归并双向互生** — 不是单向依附，横向结果必须回馈幅度
+1. **基础ZG用KZig(rb=0.5)而非标准zigzag(2,1,1)** — 可接受
+2. **幅度归并和横向归并双向互生** — 交替迭代
 3. **横向归并4类分类**: 收敛→连, 扩张→连, b最长有交错→连, b最长无交错→不连
-4. **所有中间级别的线段都有意义** — 不应因贪心跳跃而丢失
-5. **滑窗收集+贪心推进**: 线段收集不遗漏，拐点序列正常递进
-6. **冗余删除暂不执行** — 在横向/纵向归并完全交互完成之前，冗余是"过程中必要的"
-7. **验证窗口用200根K线** — 计算量和输出可控
+4. **滑窗收集+贪心推进**: 不遗漏中间结构
+5. **冗余删除暂不执行**
+6. **验证窗口200根K线**
+7. **🔑 消融级别界限**: 线段就是线段，三条首尾相连→无条件产出
+8. **🔑 v3是商用底层基础架构**: 可用于数量统计、特征统计、向量统计等方向
+9. **300K旧HTML只是因为2000根K线导致数据量大，不是逻辑更好** — 已澄清
 
 ---
 
-## 6. 已知问题和未解决的争议
+## 6. 已知问题
 
-### 6.1 [严重] 300K HTML版本已被覆盖
+### 6.1 [已解决] 高层级连接缺失
+H1→L8, L4→H2, H7→L2 等连接在v2中缺失。
+**原因**: 逐级归并的贪心吃掉了重要中间拐点（如L4在A5消失）。
+**解决**: pool_fusion()在池内无条件三波归并，消融级别界限。
 
-之前某个session生成的merge_v2.html达到300K+，包含旧引擎（每个幅度级别独立做横向归并穷尽）的全部可视化数据。那个版本的横向归并产出了124条线段（200根K线场景下），用户评价"接近想要的效果"。
+### 6.2 [低] 基础ZG vs MT5 zigzag(2,1,1)细微差异
+用户说"可接受"但未逐点对比。
 
-当前版本43K，使用新引擎（交替迭代+滑窗收集），横向归并主链只产出2条线段，但通过extra_segments收集了229条额外线段，波段池301条（vs旧版248条）。
-
-**问题**：新引擎的可视化中extra_segments的展示方式（半透明虚线）可能不如旧引擎（每个级别有独立的横向zigzag连线）直观。用户正在看图验证，结论未出。
-
-**教训**：在覆盖文件前应该git commit或备份。已初始化git。
-
-### 6.2 [中等] 幅度归并的贪心遗漏问题
-
-贪心从左到右扫描，找到4拐点极值对就跳3步。但被跳过的位置可能也有满足条件的三波。
-当前通过"滑窗收集"解决——滑窗逐个检查所有位置，满足的都记录进extra_segments。
-**但这些extra线段没有快照**，不参与后续的归并迭代，只进入波段池。
-
-用户说"考虑到你的上下文"，可能暗示对这个方案不完全满意。需要下次确认。
-
-### 6.3 [中等] 横向归并分类的Fallback逻辑
-
-`classify_three_segments`中，当三段不严格匹配类型1/2/3时有个fallback检查交错。这个fallback的几何含义不够清晰，可能导致一些不该连的被连了。需要用具体案例验证。
-
-### 6.4 [低] 基础ZG vs MT5 zigzag(2,1,1)
-
-Python的KZig和MT5的zigzag(2,1,1)可能有细微差异。用户说"可接受"但未做过逐点对比验证。如果后续移植到MT5，需要确认一致性。
-
-### 6.5 [低] 冗余删除逻辑
-
-`prune_redundant()`用的是"80%时间重叠 + 60%幅度相似"的硬阈值。用户说暂不执行。这个函数代码保留但main()中不调用。
+### 6.3 [低] 横向归并分类的Fallback逻辑
+`classify_three_segments`的fallback几何含义不够清晰。
 
 ---
 
-## 7. 不可信赖的文件 (前序session遗留)
+## 7. 不可信赖的文件
 
 以下文件来自之前多个AI session，**逻辑未经用户验证，不要使用**:
-
-- abc_v5_ablation.py, strategy_engine.py, comparability_quality.py — 旧版策略/评分代码
-- abc_collector*.py, abc_v2/v3/v4*.py — 旧版数据收集器
-- full_system.py, integrated_strategy*.py — 旧版完整系统
-- multilevel*.py, pyramid_strategy.py — 旧版多层策略
-- scoring_system.py, fuzzy_score.py — 旧版评分
-- merge_engine.py (无v2后缀) — v1引擎，已被v2替代
-- ABC_TianShu_EA.mq5, ABC_TianShu_TV.pine — 旧版MT5/TV指标，未验证
+- abc_v5_ablation.py, strategy_engine.py, comparability_quality.py
+- full_system.py, integrated_strategy*.py, multilevel*.py, pyramid_strategy.py
+- scoring_system.py, fuzzy_score.py
+- merge_engine.py (v1), merge_engine_v2.py (已被v3取代)
 
 ---
 
-## 8. 下一步工作 (按优先级)
+## 8. 下一步功能方向（用户明确要求，按编号）
 
-### 8.1 [等待] 用户验证当前可视化
+### 8.1 点的重要性 — 增加时间衰减维度
+- **新维度 D8: recency（时间临近性）** — 离最后一根K线越近，权重越大
+- 设计: 可用指数衰减 exp(-lambda * (total_bars - bar_idx)) 或线性衰减
+- 需加入 `compute_pivot_importance()` 的维度和权重中
 
-用户正在看 merge_v2.html。需要他确认：
-- 幅度归并的快照层是否正确反映了趋势结构
-- extra_segments（横向滑窗收集的线段）是否覆盖了他看到的横向整理结构
-- 是否还有遗漏的结构类型
+### 8.2 点的重要性 — 可调百分比截断 + 赋值
+- 当前: Top10峰+Top10谷，按排名序号标记
+- **需要改为**: 可调百分比（缺省前50%），并给出一个重要性赋值（不是序号）
+- 比如: 如果有54个峰，前50%=27个峰，每个有一个归一化的重要性得分
+- 不是按排名1,2,3...而是按实际importance值
 
-### 8.2 [可能需要] 重审旧引擎的横向归并方式
+### 8.3 线的重要性 — 端点重要性的乘积
+- **当前**: importance = min(两端点重要性) — 短板决定
+- **修改为**: importance = 两端点重要性的**乘积**
+- 乘积比min更合理：两端都重要时乘积远大于只有一端重要的
 
-旧引擎在每个幅度级别上独立做横向归并穷尽，产出了更丰富的可视化。如果用户对新引擎的extra_segments展示不满意，可能需要**保留两种模式**：
-- 主链：交替迭代至不动点（用于序列推进）
-- 辅助：每个中间级别独立做横向归并穷尽（只用于线段收集，不影响主链）
+### 8.4 对称结构识别（5种维度对称）
+- 在波段池中寻找**对称结构**
+- **5种维度对称（AI初步理解，待用户确认）**:
+  1. **幅度对称**: |seg_A| ≈ |seg_C| （经典ABC等幅）
+  2. **时间对称**: time_A ≈ time_C （等时间发展）
+  3. **斜率对称**: slope_A ≈ -slope_C （镜像倾斜）
+  4. **内部结构对称**: complexity_A ≈ complexity_C （相似的内部波段数）
+  5. **幅度-时间复合对称**: (amp_A/time_A) ≈ (amp_C/time_C) 即速率对称
+- **每个对称结构的结束位置 = 重要转折点** — 这是对称预测的核心价值
+- 实现方向: 对池中每对(seg_A, seg_B, seg_C)三波，计算5维对称度向量
 
-### 8.3 [待做] MT5指标移植
-
-Python验证通过后，需要移植到MQL5在MT5中可视化验证。
-
-### 8.4 [待做] 第2步：可比性度量
-
-波段池确认完成后，进入(X,Y)配对和R(X,Y)关系向量的设计。
+### 8.5 动态K线生命周期 — 从静态到动态
+- 把静态的波段池过程，用**动态K线逐步生成**来表达
+- 每条线段有**生命周期**: 产生(哪根K线开始)→发展→结束
+- 在K线推进过程中，多条线段同时存活，各自在发展中
+- **关键**: 当多条线段同时达到对称均衡状态 → **转折概率大增**
+- 这个"多线段对称均衡共振"信号 → 用于**机器学习**的特征
+- 实现方向: 
+  - 为每条线段标记 birth_bar 和 death_bar（或当前是否存活）
+  - 在每根K线上，计算当前存活线段的对称均衡度
+  - 多线段均衡共振 → 转折概率 → ML特征向量
 
 ---
 
 ## 9. 与用户沟通的注意事项
 
 - **中文沟通**，代码/数据可英文
-- **不要美化结果**，用户要求"brutal honesty"和统计严格性
-- **每步必须验证** — 4层验证框架（概念→单案例→小批量→统计）
+- **不要美化结果**，用户要求brutal honesty和统计严格性
+- **每步必须验证** — 4层验证框架
 - **不要主动推进到下一步** — 当前步未经用户确认绝不进下一步
-- **任何AI总结都不可信** — 包括本文件。以用户确认为准。
-- **文件修改前git commit** — 已有过300K文件被覆盖的教训
+- **文件修改前git commit**
 - 用户的表达方式有时引用道家哲学，但背后是严格的数学/工程思维
+- **v3被视为商用基础架构** — 后续修改要慎重，保持向后兼容
 
 ---
 
 ## 10. 快速验证命令
 
 ```bash
-# 运行引擎 (200根K线)
-python3 /home/ubuntu/stage2_abc/merge_engine_v2.py
+# 运行v3引擎 (200根K线)
+python3 /home/ubuntu/stage2_abc/merge_engine_v3.py
 
-# 生成可视化
-python3 /home/ubuntu/stage2_abc/visualize_v2.py
-# 输出: /home/ubuntu/stage2_abc/merge_v2.html
+# 生成v3可视化
+python3 /home/ubuntu/stage2_abc/visualize_v3.py
+# 输出: /home/ubuntu/stage2_abc/merge_v3.html
 
 # 查看git状态
 cd /home/ubuntu/stage2_abc && git log --oneline
-
-# 调整K线数量: 修改两个文件中的 limit=200
-# merge_engine_v2.py 第545行
-# visualize_v2.py 第329行(main函数)
 ```
