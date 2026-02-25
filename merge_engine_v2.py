@@ -381,52 +381,161 @@ def full_merge_engine(pivots, max_iterations=200):
 # 6. 点重要性 → 线段重要性 → 波段池
 # =============================================================================
 
-def compute_pivot_importance(results):
+def compute_pivot_importance(results, high=None, low=None):
     """
-    计算每个拐点的重要性。
+    多维度拐点重要性评分。
     
-    基于 all_snapshots: 一个拐点出现在越多快照中，越重要。
+    维度：
+    D1. line_count — 经过该点的线段数量（快照+extra中作为端点的次数）
+    D2. snapshot_survival — 出现在多少个快照中（存活轮数，越久越重要）
+    D3. amplitude — 该点参与的最大幅度线段的幅度（价格影响力）
+    D4. time_span — 该点参与的最长线段的时间跨度（时间影响力）
+    D5. extremity — 该点价格在同方向(峰/谷)中的极端程度（接近全局极值越重要）
+    D6. isolation — 与相邻拐点的时间距离（越孤立越是结构性转折）
+    D7. price_range_dominance — 该点到最近反向拐点的价格差占全局价格范围的比例
     
-    重要性维度:
-    1. snapshot_count: 出现在多少个快照中（核心）
-    2. endpoint_count: 作为线段端点的总次数
-    
-    返回: dict[bar_index] -> { ... importance: float 0~1 }
+    各维度归一化到0~1后加权求和。
     """
     from collections import Counter
     
     snapshots = results['all_snapshots']
-    base = snapshots[0][2]  # 第一个快照是基础ZG
+    extra_segments = results.get('extra_segments', [])
+    base = snapshots[0][2]  # 基础ZG拐点序列
     
-    # 1. 出现在多少个快照中
+    if len(base) < 2:
+        return {}
+    
+    # 全局统计
+    all_prices = [p[1] for p in base]
+    global_high = max(all_prices)
+    global_low = min(all_prices)
+    global_range = global_high - global_low
+    if global_range == 0:
+        global_range = 1e-10
+    
+    peak_prices = [p[1] for p in base if p[2] == 1]
+    valley_prices = [p[1] for p in base if p[2] == -1]
+    
+    # --- D1: line_count (经过该点的线段数量) ---
+    line_count = Counter()
+    for snap_type, label, pvts in snapshots:
+        for j in range(len(pvts) - 1):
+            line_count[pvts[j][0]] += 1
+            line_count[pvts[j+1][0]] += 1
+    for p_start, p_end, label in extra_segments:
+        line_count[p_start[0]] += 1
+        line_count[p_end[0]] += 1
+    
+    # --- D2: snapshot_survival ---
     snapshot_count = Counter()
     for snap_type, label, pvts in snapshots:
         seen = set(p[0] for p in pvts)
         for bar in seen:
             snapshot_count[bar] += 1
     
-    # 2. 作为线段端点的次数
-    endpoint_count = Counter()
+    # --- D3: amplitude (参与的最大幅度线段) ---
+    max_amplitude = {}
     for snap_type, label, pvts in snapshots:
         for j in range(len(pvts) - 1):
-            endpoint_count[pvts[j][0]] += 1
-            endpoint_count[pvts[j+1][0]] += 1
+            amp = abs(pvts[j+1][1] - pvts[j][1])
+            for bar in [pvts[j][0], pvts[j+1][0]]:
+                max_amplitude[bar] = max(max_amplitude.get(bar, 0), amp)
+    for p_start, p_end, label in extra_segments:
+        amp = abs(p_end[1] - p_start[1])
+        for bar in [p_start[0], p_end[0]]:
+            max_amplitude[bar] = max(max_amplitude.get(bar, 0), amp)
     
-    # 构建拐点信息
+    # --- D4: time_span (参与的最长线段时间跨度) ---
+    max_span = {}
+    for snap_type, label, pvts in snapshots:
+        for j in range(len(pvts) - 1):
+            span = pvts[j+1][0] - pvts[j][0]
+            for bar in [pvts[j][0], pvts[j+1][0]]:
+                max_span[bar] = max(max_span.get(bar, 0), span)
+    for p_start, p_end, label in extra_segments:
+        span = p_end[0] - p_start[0]
+        for bar in [p_start[0], p_end[0]]:
+            max_span[bar] = max(max_span.get(bar, 0), span)
+    
+    # --- D6: isolation (与相邻拐点的平均时间距离) ---
+    isolation = {}
+    for idx, p in enumerate(base):
+        bar = p[0]
+        dists = []
+        if idx > 0:
+            dists.append(bar - base[idx-1][0])
+        if idx < len(base) - 1:
+            dists.append(base[idx+1][0] - bar)
+        isolation[bar] = sum(dists) / len(dists) if dists else 0
+    
+    # --- 归一化辅助 ---
+    def _norm(d, keys):
+        vals = [d.get(k, 0) for k in keys]
+        mx = max(vals) if vals else 1
+        if mx == 0:
+            mx = 1
+        return {k: d.get(k, 0) / mx for k in keys}
+    
+    bars = [p[0] for p in base]
+    n_lc = _norm(line_count, bars)
+    n_sc = _norm(snapshot_count, bars)
+    n_amp = _norm(max_amplitude, bars)
+    n_span = _norm(max_span, bars)
+    n_iso = _norm(isolation, bars)
+    
+    # --- 构建拐点信息 ---
     pivot_info = {}
-    max_sc = max(snapshot_count.values()) if snapshot_count else 1
-    max_ec = max(endpoint_count.values()) if endpoint_count else 1
-    
     for p in base:
         bar, price, direction = p
-        sc = snapshot_count.get(bar, 0)
-        ec = endpoint_count.get(bar, 0)
-        importance = 0.7 * (sc / max_sc) + 0.3 * (ec / max_ec)
+        
+        # D5: extremity — 峰在所有峰中的排名, 谷在所有谷中的排名
+        if direction == 1 and peak_prices:
+            extremity = (price - min(peak_prices)) / (max(peak_prices) - min(peak_prices)) if max(peak_prices) != min(peak_prices) else 0.5
+        elif direction == -1 and valley_prices:
+            extremity = (max(valley_prices) - price) / (max(valley_prices) - min(valley_prices)) if max(valley_prices) != min(valley_prices) else 0.5
+        else:
+            extremity = 0.5
+        
+        # D7: price_range_dominance — 与最近反向拐点的价差占全局range
+        idx_in_base = bars.index(bar)
+        max_local_range = 0
+        for offset in [-1, 1]:
+            ni = idx_in_base + offset
+            if 0 <= ni < len(base):
+                max_local_range = max(max_local_range, abs(price - base[ni][1]))
+        dominance = max_local_range / global_range
+        
+        # 加权综合 (权重可调)
+        w = {
+            'line_count': 0.20,
+            'survival': 0.15,
+            'amplitude': 0.20,
+            'time_span': 0.10,
+            'extremity': 0.15,
+            'isolation': 0.10,
+            'dominance': 0.10,
+        }
+        
+        importance = (
+            w['line_count'] * n_lc.get(bar, 0) +
+            w['survival'] * n_sc.get(bar, 0) +
+            w['amplitude'] * n_amp.get(bar, 0) +
+            w['time_span'] * n_span.get(bar, 0) +
+            w['extremity'] * extremity +
+            w['isolation'] * n_iso.get(bar, 0) +
+            w['dominance'] * dominance
+        )
         
         pivot_info[bar] = {
             'bar': bar, 'price': price, 'dir': direction,
-            'snapshot_count': sc, 'endpoint_count': ec,
-            'importance': importance,
+            'd1_line_count': line_count.get(bar, 0),
+            'd2_survival': snapshot_count.get(bar, 0),
+            'd3_amplitude': round(max_amplitude.get(bar, 0), 5),
+            'd4_time_span': max_span.get(bar, 0),
+            'd5_extremity': round(extremity, 3),
+            'd6_isolation': round(isolation.get(bar, 0), 1),
+            'd7_dominance': round(dominance, 3),
+            'importance': round(importance, 4),
         }
     
     return pivot_info
@@ -577,29 +686,32 @@ def main():
     for entry in results['log']:
         print(f"  {entry}")
 
-    # ===== 点重要性 =====
+    # ===== 点重要性 (多维度) =====
     print("\n" + "=" * 70)
-    print("点重要性分析")
+    print("多维度拐点重要性分析")
     print("=" * 70)
     
     pivot_info = compute_pivot_importance(results)
     
-    from collections import Counter
-    sc_dist = Counter(v['snapshot_count'] for v in pivot_info.values())
-    print(f"\n拐点出现快照数分布 ({len(pivot_info)}个拐点):")
-    for k in sorted(sc_dist.keys(), reverse=True):
-        bar = '|' * sc_dist[k]
-        if len(bar) > 60:
-            bar = bar[:60] + '...'
-        print(f"  {k:2d}次: {sc_dist[k]:4d}个  {bar}")
+    # Top 10 峰 + Top 10 谷
+    peaks = sorted([v for v in pivot_info.values() if v['dir'] == 1], key=lambda x: -x['importance'])
+    valleys = sorted([v for v in pivot_info.values() if v['dir'] == -1], key=lambda x: -x['importance'])
     
-    top_pivots = sorted(pivot_info.values(), key=lambda x: -x['importance'])[:10]
-    print(f"\nTop 10 重要拐点:")
-    for p in top_pivots:
-        d = '峰' if p['dir'] == 1 else '谷'
+    print(f"\nTop 10 重要峰 (共{len(peaks)}峰):")
+    print(f"  {'bar':>4s} {'price':>9s} | {'imp':>6s} | {'lines':>5s} {'surv':>4s} {'amp':>8s} {'span':>4s} {'extm':>5s} {'isol':>5s} {'dom':>5s} | datetime")
+    for p in peaks[:10]:
         dt = df.iloc[p['bar']]['datetime']
-        print(f"  bar={p['bar']:4d} {d} {p['price']:.5f} | imp={p['importance']:.3f} | "
-              f"snap={p['snapshot_count']:2d} ep={p['endpoint_count']:3d} | {dt}")
+        print(f"  {p['bar']:4d} {p['price']:.5f} | {p['importance']:.4f} | "
+              f"{p['d1_line_count']:5d} {p['d2_survival']:4d} {p['d3_amplitude']:.5f} {p['d4_time_span']:4d} "
+              f"{p['d5_extremity']:.3f} {p['d6_isolation']:5.1f} {p['d7_dominance']:.3f} | {dt}")
+    
+    print(f"\nTop 10 重要谷 (共{len(valleys)}谷):")
+    print(f"  {'bar':>4s} {'price':>9s} | {'imp':>6s} | {'lines':>5s} {'surv':>4s} {'amp':>8s} {'span':>4s} {'extm':>5s} {'isol':>5s} {'dom':>5s} | datetime")
+    for p in valleys[:10]:
+        dt = df.iloc[p['bar']]['datetime']
+        print(f"  {p['bar']:4d} {p['price']:.5f} | {p['importance']:.4f} | "
+              f"{p['d1_line_count']:5d} {p['d2_survival']:4d} {p['d3_amplitude']:.5f} {p['d4_time_span']:4d} "
+              f"{p['d5_extremity']:.3f} {p['d6_isolation']:5.1f} {p['d7_dominance']:.3f} | {dt}")
 
     # ===== 波段池 =====
     print("\n" + "=" * 70)

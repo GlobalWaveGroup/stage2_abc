@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, '/home/ubuntu/stage2_abc')
 from merge_engine_v2 import *
 
-def generate_html(df, results, output_path):
+def generate_html(df, results, output_path, pivot_info=None):
     snapshots = results['all_snapshots']
     extra_segs = results.get('extra_segments', [])
 
@@ -47,6 +47,24 @@ def generate_html(df, results, output_path):
             'l': round(df.iloc[i]['low'], 5),
             'c': round(df.iloc[i]['close'], 5),
         })
+
+    # Top 20 重要拐点 (峰10 + 谷10)
+    top_marks = []
+    if pivot_info:
+        peaks = sorted([v for v in pivot_info.values() if v['dir'] == 1], key=lambda x: -x['importance'])[:10]
+        valleys = sorted([v for v in pivot_info.values() if v['dir'] == -1], key=lambda x: -x['importance'])[:10]
+        for rank, p in enumerate(peaks):
+            top_marks.append({
+                'bar': p['bar'], 'price': round(p['price'], 5), 'dir': 1,
+                'rank': rank + 1, 'imp': round(p['importance'], 3),
+                'label': f"H{rank+1}",
+            })
+        for rank, p in enumerate(valleys):
+            top_marks.append({
+                'bar': p['bar'], 'price': round(p['price'], 5), 'dir': -1,
+                'rank': rank + 1, 'imp': round(p['importance'], 3),
+                'label': f"L{rank+1}",
+            })
 
     n_snap = len(snap_data)
     n_amp = sum(1 for s in snap_data if s['type'] == 'amp')
@@ -86,6 +104,7 @@ Pool: 301 unique
 <button class="btn" onclick="showType('lat')">Lat</button>
 <button class="btn" onclick="showBase()">Base</button>
 <button class="btn" onclick="toggleExtra()">Extra</button>
+<button class="btn" onclick="toggleTop()" style="background:#2a1a4a;color:#f8f;">Top20</button>
 <button class="btn" onclick="showStep(1)">Step+</button>
 <button class="btn" onclick="showStep(-1)">Step-</button>
 </div>
@@ -112,6 +131,8 @@ Step: <span id="cursor_info">all</span>
 const K = {json.dumps(kline_data)};
 const S = {json.dumps(snap_data)};
 const EX = {json.dumps(extra_groups)};
+const TOP = {json.dumps(top_marks)};
+let showTop = true;
 
 function snapColor(i) {{
     const s = S[i];
@@ -151,6 +172,7 @@ function hideAll(){{ vis.fill(false); exVis.fill(false); stepCursor=0; sync(); d
 function showType(t){{ vis.fill(false); exVis.fill(false); S.forEach((s,i)=>vis[i]=s.type===t); sync(); draw(); }}
 function showBase(){{ vis.fill(false); exVis.fill(false); vis[0]=true; sync(); draw(); }}
 function toggleExtra(){{ const on=exVis.some(v=>v); exVis.fill(!on); sync(); draw(); }}
+function toggleTop(){{ showTop=!showTop; draw(); }}
 
 function showStep(d){{
     stepCursor=Math.max(0,Math.min(S.length,stepCursor+d));
@@ -305,6 +327,50 @@ function draw(){{
         }}
         cx.setLineDash([]); cx.globalAlpha=1;
     }}
+
+    // === Top 20 pivot markers ===
+    if(showTop && TOP.length > 0) {{
+        cx.globalAlpha = 1;
+        cx.setLineDash([]);
+        cx.font = 'bold 11px monospace';
+        cx.textAlign = 'center';
+
+        for(const m of TOP) {{
+            const x = xS(m.bar);
+            const y = yS(m.price);
+            const isPeak = m.dir === 1;
+            const color = isPeak ? '#FF4444' : '#44FF44';
+            const yOff = isPeak ? -14 : 16;
+
+            // Marker circle
+            cx.fillStyle = color;
+            cx.beginPath();
+            cx.arc(x, y, 5, 0, Math.PI*2);
+            cx.fill();
+            cx.strokeStyle = '#fff';
+            cx.lineWidth = 1;
+            cx.stroke();
+
+            // Label: H1/L1 + price
+            cx.fillStyle = color;
+            cx.fillText(`${{m.label}}`, x, y + yOff);
+            cx.font = '9px monospace';
+            cx.fillStyle = '#aaa';
+            cx.fillText(`${{m.price.toFixed(4)}}`, x, y + yOff + (isPeak ? -11 : 11));
+            cx.font = 'bold 11px monospace';
+
+            // Vertical line to price
+            cx.strokeStyle = color;
+            cx.lineWidth = 0.5;
+            cx.globalAlpha = 0.4;
+            cx.beginPath();
+            cx.moveTo(x, y);
+            cx.lineTo(x, y + yOff * 0.6);
+            cx.stroke();
+            cx.globalAlpha = 1;
+        }}
+        cx.textAlign = 'start';
+    }}
 }}
 
 cv.addEventListener('mousemove',(e)=>{{
@@ -329,7 +395,8 @@ def main():
     df = load_kline("/home/ubuntu/DataBase/base_kline/EURUSD_H1.csv", limit=200)
     base = calculate_base_zg(df['high'].values, df['low'].values)
     results = full_merge_engine(base)
-    generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v2.html")
+    pivot_info = compute_pivot_importance(results)
+    generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v2.html", pivot_info=pivot_info)
 
 if __name__ == '__main__':
     main()
