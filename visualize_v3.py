@@ -15,7 +15,7 @@ sys.path.insert(0, '/home/ubuntu/stage2_abc')
 from merge_engine_v3 import *
 
 
-def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None, sym_structures=None):
+def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None, sym_structures=None, predictions=None):
     snapshots = results['all_snapshots']
     extra_segs = results.get('extra_segments', [])
 
@@ -78,6 +78,38 @@ def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None, s
             })
     n_sym = len(sym_data)
 
+    # Predictions (对称映像预测)
+    pred_data = []
+    if predictions:
+        for p in predictions:
+            pd_entry = {
+                'type': p['type'],       # 'mirror' or 'center'
+                'A_s': p['A_start'], 'A_e': p['A_end'],
+                'A_ps': round(p['A_price_start'], 5), 'A_pe': round(p['A_price_end'], 5),
+                'A_amp': round(p['A_amp'], 5), 'A_time': p['A_time'],
+                'A_dir': p['A_dir'],
+                'cbar': round(p['center_bar'], 1) if isinstance(p['center_bar'], float) else p['center_bar'],
+                'cprc': round(p['center_price'], 5),
+                'pd': p['pred_dir'],
+                'ps_bar': p['pred_start_bar'],
+                'ps_prc': round(p['pred_start_price'], 5),
+                'pt_prc': round(p['pred_target_price'], 5),
+                'pt_bar': p['pred_target_bar'],
+                'prog': round(p['actual_progress'], 3),
+                'score': round(p['score'], 6),
+                'imp': round(p['importance'], 4),
+                'rel': round(p['rel_amp'], 4),
+            }
+            # Center型额外字段
+            if p['type'] == 'center':
+                pd_entry['B_s'] = p['B_start']
+                pd_entry['B_e'] = p['B_end']
+                pd_entry['B_ps'] = round(p['B_price_start'], 5)
+                pd_entry['B_pe'] = round(p['B_price_end'], 5)
+                pd_entry['retr'] = p['retrace_ratio']
+            pred_data.append(pd_entry)
+    n_pred = len(pred_data)
+
     # K线
     kline_data = []
     for i in range(len(df)):
@@ -115,6 +147,8 @@ def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None, s
     n_lat = sum(1 for s in snap_data if s['type'] == 'lat')
     n_extra = sum(len(g['segs']) for g in extra_groups)
     n_fusion = len(fusion_data)
+    n_pred_mirror = sum(1 for p in pred_data if p['type'] == 'mirror')
+    n_pred_center = sum(1 for p in pred_data if p['type'] == 'center')
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -143,6 +177,7 @@ Snap: {n_snap} (A:{n_amp} T:{n_lat}) |
 Extra: {n_extra} segs |
 Fusion: {n_fusion} new segs |
 Symmetry: {n_sym} structures |
+Predictions: {n_pred} (M:{n_pred_mirror} C:{n_pred_center}) |
 Peaks: {n_peaks} | Valleys: {n_valleys}
 </div>
 
@@ -157,6 +192,7 @@ Peaks: {n_peaks} | Valleys: {n_valleys}
 <button class="btn" id="impValBtn" onclick="toggleImpVal()" style="background:#1a2a3a;color:#adf;">Values</button>
 <button class="btn" id="fusionBtn" onclick="toggleFusion()" style="background:#3a1a3a;color:#c8f;">Fusion</button>
 <button class="btn" id="symBtn" onclick="toggleSym()" style="background:#1a3a1a;color:#4f8;">Symmetry</button>
+<button class="btn" id="predBtn" onclick="togglePred()" style="background:#3a2a0a;color:#fc4;">Predict</button>
 <button class="btn" onclick="showStep(1)">Step+</button>
 <button class="btn" onclick="showStep(-1)">Step-</button>
 </div>
@@ -176,6 +212,10 @@ Peaks: {n_peaks} | Valleys: {n_valleys}
 <span class="slider-box" style="color:#4f8;">
   Sym Top: <input type="range" id="symSlider" min="0" max="{n_sym}" value="{min(20, n_sym)}" oninput="updateSymN(this.value)">
   <span id="symN">{min(20, n_sym)}</span>/{n_sym}
+</span>
+<span class="slider-box" style="color:#fc4;">
+  Pred Top: <input type="range" id="predSlider" min="0" max="{n_pred}" value="{min(30, n_pred)}" oninput="updatePredN(this.value)">
+  <span id="predN">{min(30, n_pred)}</span>/{n_pred}
 </span>
 <span class="slider-box" style="color:#ffa;">
   Min imp: <input type="range" id="impSlider" min="0" max="100" value="0" oninput="updateMinImp(this.value)">
@@ -208,6 +248,7 @@ const EX = {json.dumps(extra_groups)};
 const TOP = {json.dumps(top_marks)};
 const FUS = {json.dumps(fusion_data)};
 const SYM = {json.dumps(sym_data)};
+const PRED = {json.dumps(pred_data)};
 // Separate peaks and valleys from TOP array
 const PEAKS = TOP.filter(m => m.dir === 1);
 const VALS = TOP.filter(m => m.dir === -1);
@@ -219,6 +260,8 @@ let showFusion = true;
 let fusionTopN = Math.min(50, FUS.length);
 let showSym = true;
 let symTopN = Math.min(20, SYM.length);
+let showPred = true;
+let predTopN = Math.min(30, PRED.length);
 let minImp = 0;
 
 function snapColor(i) {{
@@ -289,6 +332,12 @@ function updateFusionN(v) {{
 function updateSymN(v) {{
     symTopN = parseInt(v);
     document.getElementById('symN').textContent = symTopN;
+    draw();
+}}
+function togglePred(){{ showPred=!showPred; document.getElementById('predBtn').classList.toggle('active',showPred); draw(); }}
+function updatePredN(v) {{
+    predTopN = parseInt(v);
+    document.getElementById('predN').textContent = predTopN;
     draw();
 }}
 function updateMinImp(v) {{
@@ -454,6 +503,115 @@ function draw(){{
                 cx.textAlign = 'center';
                 cx.fillText(`S${{i+1}} ${{s.sym.toFixed(2)}}`, xS(midBar), yS(midPrice) - 5);
                 cx.textAlign = 'start';
+            }}
+        }}
+        cx.setLineDash([]); cx.globalAlpha=1;
+    }}
+
+    // === Predictions (对称映像预测) ===
+    if(showPred && PRED.length > 0) {{
+        const n = Math.min(predTopN, PRED.length);
+        for(let i=n-1; i>=0; i--) {{
+            const p = PRED[i];
+            const t = i / Math.max(n-1, 1);
+            const alpha = Math.max(0.25, 0.9 - t*0.6);
+            const lw = Math.max(1.0, 3.0 - t*2.0);
+            
+            // 颜色: mirror=橙色系, center=青色系
+            const baseColor = p.type === 'mirror' 
+                ? `rgba(255,180,50,${{alpha}})` 
+                : `rgba(50,220,255,${{alpha}})`;
+            const predColor = p.type === 'mirror'
+                ? `rgba(255,140,0,${{alpha}})`
+                : `rgba(0,200,255,${{alpha}})`;
+            
+            // 1. 画左臂A (实线)
+            cx.strokeStyle = baseColor;
+            cx.lineWidth = lw;
+            cx.setLineDash([]);
+            cx.beginPath();
+            cx.moveTo(xS(p.A_s), yS(p.A_ps));
+            cx.lineTo(xS(p.A_e), yS(p.A_pe));
+            cx.stroke();
+            
+            // 2. Center型: 画B段 (细虚线)
+            if(p.type === 'center' && p.B_s !== undefined) {{
+                cx.strokeStyle = `rgba(180,180,180,${{alpha*0.5}})`;
+                cx.lineWidth = lw * 0.5;
+                cx.setLineDash([3, 3]);
+                cx.beginPath();
+                cx.moveTo(xS(p.B_s), yS(p.B_ps));
+                cx.lineTo(xS(p.B_e), yS(p.B_pe));
+                cx.stroke();
+            }}
+            
+            // 3. 画预测C' (粗虚线 + 箭头)
+            cx.strokeStyle = predColor;
+            cx.lineWidth = lw * 1.3;
+            cx.setLineDash([8, 4]);
+            cx.beginPath();
+            cx.moveTo(xS(p.ps_bar), yS(p.ps_prc));
+            cx.lineTo(xS(p.pt_bar), yS(p.pt_prc));
+            cx.stroke();
+            
+            // 箭头
+            const ax2 = xS(p.pt_bar), ay2 = yS(p.pt_prc);
+            const ax1 = xS(p.ps_bar), ay1 = yS(p.ps_prc);
+            const angle = Math.atan2(ay2-ay1, ax2-ax1);
+            const arrLen = 8;
+            cx.setLineDash([]);
+            cx.beginPath();
+            cx.moveTo(ax2, ay2);
+            cx.lineTo(ax2 - arrLen*Math.cos(angle-0.4), ay2 - arrLen*Math.sin(angle-0.4));
+            cx.moveTo(ax2, ay2);
+            cx.lineTo(ax2 - arrLen*Math.cos(angle+0.4), ay2 - arrLen*Math.sin(angle+0.4));
+            cx.stroke();
+            
+            // 4. 目标价格水平线 (淡色虚线)
+            cx.strokeStyle = predColor;
+            cx.lineWidth = 0.5;
+            cx.globalAlpha = alpha * 0.3;
+            cx.setLineDash([2, 4]);
+            cx.beginPath();
+            cx.moveTo(xS(p.ps_bar), yS(p.pt_prc));
+            cx.lineTo(xS(p.pt_bar), yS(p.pt_prc));
+            cx.stroke();
+            cx.globalAlpha = 1;
+            
+            // 5. 对称中心标记
+            if(i < 15) {{
+                const cxP = xS(p.cbar), cyP = yS(p.cprc);
+                cx.fillStyle = p.type === 'mirror' ? `rgba(255,200,80,${{alpha}})` : `rgba(80,200,255,${{alpha}})`;
+                cx.beginPath();
+                // 菱形标记
+                cx.moveTo(cxP, cyP-4);
+                cx.lineTo(cxP+4, cyP);
+                cx.lineTo(cxP, cyP+4);
+                cx.lineTo(cxP-4, cyP);
+                cx.closePath();
+                cx.fill();
+                
+                // 标签
+                cx.font = '9px monospace';
+                cx.textAlign = 'center';
+                const lbl = p.type === 'mirror' ? 'M' : 'C';
+                const progStr = p.prog > 0 ? ` ${{(p.prog*100).toFixed(0)}}%` : '';
+                cx.fillText(`${{lbl}}${{i+1}}${{progStr}}`, cxP, cyP - 8);
+                cx.textAlign = 'start';
+            }}
+            
+            // 6. 进度指示 (如果C段已部分展开)
+            if(p.prog > 0) {{
+                // 从起点到进度位置画实线
+                const progBar = p.ps_bar + (p.pt_bar - p.ps_bar) * p.prog;
+                const progPrc = p.ps_prc + (p.pt_prc - p.ps_prc) * p.prog;
+                cx.strokeStyle = `rgba(0,255,120,${{alpha}})`;
+                cx.lineWidth = lw * 1.5;
+                cx.setLineDash([]);
+                cx.beginPath();
+                cx.moveTo(xS(p.ps_bar), yS(p.ps_prc));
+                cx.lineTo(xS(progBar), yS(progPrc));
+                cx.stroke();
             }}
         }}
         cx.setLineDash([]); cx.globalAlpha=1;
@@ -683,6 +841,42 @@ cv.addEventListener('mousemove',(e)=>{{
         }}
     }}
 
+    // Check if hovering near a prediction
+    if(showPred && PRED.length > 0) {{
+        const n = Math.min(predTopN, PRED.length);
+        let bestPred = null, bestPredDist = 15, bestPredIdx = -1;
+        for(let i=0; i<n; i++) {{
+            const p = PRED[i];
+            // Check predicted segment line
+            const x1=xS(p.ps_bar),y1=yS(p.ps_prc),x2=xS(p.pt_bar),y2=yS(p.pt_prc);
+            const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+            if(len2===0) continue;
+            let t=((mx_-x1)*dx+(my_-y1)*dy)/len2;
+            t=Math.max(0,Math.min(1,t));
+            const px=x1+t*dx,py=y1+t*dy;
+            const d=Math.sqrt((mx_-px)*(mx_-px)+(my_-py)*(my_-py));
+            if(d<bestPredDist) {{ bestPredDist=d; bestPred=p; bestPredIdx=i; }}
+            // Also check A segment
+            const ax1=xS(p.A_s),ay1=yS(p.A_ps),ax2=xS(p.A_e),ay2=yS(p.A_pe);
+            const adx=ax2-ax1,ady=ay2-ay1,alen2=adx*adx+ady*ady;
+            if(alen2>0) {{
+                let at=((mx_-ax1)*adx+(my_-ay1)*ady)/alen2;
+                at=Math.max(0,Math.min(1,at));
+                const apx=ax1+at*adx,apy=ay1+at*ady;
+                const ad=Math.sqrt((mx_-apx)*(mx_-apx)+(my_-apy)*(my_-apy));
+                if(ad<bestPredDist) {{ bestPredDist=ad; bestPred=p; bestPredIdx=i; }}
+            }}
+        }}
+        if(bestPred) {{
+            const p = bestPred;
+            const tStr = p.type==='mirror'?'Mirror':'Center';
+            const dStr = p.pd===1?'↑':'↓';
+            let extra = '';
+            if(p.type === 'center' && p.retr !== undefined) extra = ` retr=${{p.retr.toFixed(2)}}`;
+            infoText += ` | PRED[${{tStr}}${{dStr}}#${{bestPredIdx+1}}] A:bar${{p.A_s}}→${{p.A_e}} amp=${{p.A_amp}} t=${{p.A_time}} | target: ${{p.pt_prc.toFixed(5)}}@bar${{p.pt_bar}} prog=${{(p.prog*100).toFixed(0)}}% score=${{p.score.toFixed(4)}}${{extra}}`;
+        }}
+    }}
+
     // Check if hovering near a fusion segment
     if(showFusion) {{
         const n = Math.min(fusionTopN, FUS.length);
@@ -714,6 +908,7 @@ cv.addEventListener('mousemove',(e)=>{{
 draw();
 document.getElementById('fusionBtn').classList.add('active');
 document.getElementById('symBtn').classList.add('active');
+document.getElementById('predBtn').classList.add('active');
 document.getElementById('topBtn').classList.add('active');
 document.getElementById('impValBtn').classList.add('active');
 </script></body></html>"""
@@ -736,12 +931,31 @@ def main():
     for entry in fusion_log:
         print(f"  {entry}")
 
-    # 对称结构识别
+    # 对称结构识别 (旧版v3.2, 兼容保留)
     sym_structures = find_symmetric_structures(full_pool, pivot_info, df=df, top_n=200)
     print(f"Symmetry structures: {len(sym_structures)}")
 
+    # 对称映像预测 (新: 路径一)
+    predictions = predict_symmetric_image(full_pool, pivot_info, current_bar=len(df)-1)
+    n_mirror = sum(1 for p in predictions if p['type'] == 'mirror')
+    n_center = sum(1 for p in predictions if p['type'] == 'center')
+    print(f"Predictions: {len(predictions)} (mirror:{n_mirror}, center:{n_center})")
+    
+    # 显示Top 20预测
+    print(f"\nTop 20 对称映像预测:")
+    for i, p in enumerate(predictions[:20]):
+        ptype = 'M' if p['type'] == 'mirror' else 'C'
+        d = '↑' if p['pred_dir'] == 1 else '↓'
+        prog = f" prog={p['actual_progress']:.0%}" if p['actual_progress'] > 0 else ""
+        ctr = f"@bar{p['center_bar']}" if p['type'] == 'mirror' else f"bar{p['B_start']}→{p['B_end']}"
+        print(f"  {ptype}{d}{i+1:2d} | A:bar{p['A_start']:3d}→{p['A_end']:3d} "
+              f"amp={p['A_amp']:.5f} t={p['A_time']} | "
+              f"ctr:{ctr} | → target={p['pred_target_price']:.5f}@bar{p['pred_target_bar']} "
+              f"score={p['score']:.5f}{prog}")
+
     generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v3.html",
-                  pivot_info=pivot_info, fusion_segs=fusion_segs, sym_structures=sym_structures)
+                  pivot_info=pivot_info, fusion_segs=fusion_segs, 
+                  sym_structures=sym_structures, predictions=predictions)
 
 
 if __name__ == '__main__':

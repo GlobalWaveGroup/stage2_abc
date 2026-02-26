@@ -1184,6 +1184,272 @@ def compute_symmetry_spectrum(pool, pivot_info, max_pool_size=800):
     return results
 
 
+def predict_symmetric_image(pool, pivot_info, current_bar, max_pool_size=500):
+    """
+    对称映像预测 — 路径一核心算法。
+    
+    给定当前时刻的波段池，对每个可能的对称结构（左臂A + 中心/轴），
+    用"C≈A"假设推演右臂C'的预测目标。
+    
+    两种预测类型：
+    
+    A. Mirror预测（轴对称）：
+       已知左臂A到达折返点P → 预测C'从P出发，方向相反于A
+       C'_amp ≈ A_amp, C'_time ≈ A_time
+       → 目标价格 = P_price ± A_amp (方向相反)
+       → 目标时间 = P_bar + A_time
+    
+    B. Center预测（中心对称）：
+       已知左臂A和中间段B → 预测C'从B_end出发，方向同A
+       C'_amp ≈ A_amp, C'_time ≈ A_time
+       → 目标价格 = B_end_price + A_amp * A_direction
+       → 目标时间 = B_end_bar + A_time
+    
+    筛选条件：
+    - 预测目标必须在current_bar之后（才有预测价值）
+    - 或者预测目标正在展开中（部分完成）
+    
+    返回: list of prediction dicts, 按重要性排序
+    """
+    from collections import defaultdict
+    import math
+    
+    # 限制搜索空间
+    search_pool = pool
+    if len(pool) > max_pool_size:
+        search_pool = sorted(pool, key=lambda s: -s['importance'])[:max_pool_size]
+    
+    # 建索引
+    end_at = defaultdict(list)
+    start_at = defaultdict(list)
+    for s in search_pool:
+        end_at[s['bar_end']].append(s)
+        start_at[s['bar_start']].append(s)
+    
+    # 全局统计
+    all_amps = [s['amplitude'] for s in pool if s['amplitude'] > 0]
+    global_amp = max(all_amps) if all_amps else 1
+    
+    def _seg_dir(s):
+        return 1 if s['price_end'] > s['price_start'] else -1
+    
+    predictions = []
+    seen = set()
+    
+    # === A. Mirror预测 ===
+    # seg_A到达P(fold point), 预测C'从P出发反向
+    all_bars = set(list(end_at.keys()) + list(start_at.keys()))
+    for p in all_bars:
+        segs_ending = end_at.get(p, [])
+        segs_starting = start_at.get(p, [])
+        
+        for seg_A in segs_ending:
+            dir_A = _seg_dir(seg_A)
+            amp_A = seg_A['amplitude']
+            time_A = seg_A['span']
+            p1 = seg_A['bar_start']
+            
+            if amp_A < 1e-10 or time_A < 1:
+                continue
+            if p1 >= p:
+                continue
+            
+            # 预测C': 从P出发，方向相反
+            pred_dir = -dir_A
+            p_price = seg_A['price_end']  # 折返点价格
+            
+            # C≈A 假设
+            pred_target_price = p_price + pred_dir * amp_A
+            pred_target_bar = p + time_A
+            
+            # 只保留有预测价值的（目标在未来，或部分在未来）
+            if pred_target_bar <= seg_A['bar_start']:
+                continue
+            
+            # 去重
+            key = ('M', p1, p, pred_dir)
+            if key in seen:
+                continue
+            seen.add(key)
+            
+            # 是否已有实际的C段在展开？
+            actual_C = None
+            actual_progress = 0.0
+            for seg_R in segs_starting:
+                dir_R = _seg_dir(seg_R)
+                if dir_R == pred_dir and seg_R['bar_end'] > p:
+                    # 这是一个实际展开的C段
+                    if actual_C is None or seg_R['bar_end'] > actual_C['bar_end']:
+                        actual_C = seg_R
+            
+            if actual_C:
+                actual_progress = min(1.0, actual_C['amplitude'] / max(amp_A, 1e-10))
+            
+            # 端点重要性
+            imp_A_start = pivot_info.get(p1, {}).get('importance', 0)
+            imp_P = pivot_info.get(p, {}).get('importance', 0)
+            pred_imp = (imp_A_start + imp_P) / 2
+            
+            # 相对幅度(占全局的比例)
+            rel_amp = amp_A / max(global_amp, 1e-10)
+            
+            predictions.append({
+                'type': 'mirror',
+                'sym_type': 'axial',
+                
+                # 左臂A
+                'A_start': p1,
+                'A_end': p,
+                'A_price_start': seg_A['price_start'],
+                'A_price_end': seg_A['price_end'],
+                'A_amp': amp_A,
+                'A_time': time_A,
+                'A_dir': dir_A,
+                
+                # 对称中心
+                'center_bar': p,
+                'center_price': p_price,
+                'center_type': 'point',
+                
+                # 预测C'
+                'pred_dir': pred_dir,
+                'pred_start_bar': p,
+                'pred_start_price': p_price,
+                'pred_target_price': pred_target_price,
+                'pred_target_bar': pred_target_bar,
+                'pred_amp': amp_A,
+                'pred_time': time_A,
+                
+                # 实际C展开情况
+                'actual_C': actual_C,
+                'actual_progress': actual_progress,
+                
+                # 重要性
+                'importance': pred_imp,
+                'rel_amp': rel_amp,
+                'score': pred_imp * rel_amp,
+            })
+    
+    # === B. Center预测 ===
+    # seg_A → center_B → 预测C'从B_end出发，方向同A
+    for p2 in list(end_at.keys()):
+        for seg_A in end_at[p2]:
+            dir_A = _seg_dir(seg_A)
+            amp_A = seg_A['amplitude']
+            time_A = seg_A['span']
+            p1 = seg_A['bar_start']
+            
+            if amp_A < 1e-10 or time_A < 1:
+                continue
+            
+            for center_B in start_at.get(p2, []):
+                dir_B = _seg_dir(center_B)
+                p3 = center_B['bar_end']
+                
+                # center方向应与A相反
+                if dir_B == dir_A:
+                    continue
+                if not (p1 < p2 < p3):
+                    continue
+                if center_B['amplitude'] < 1e-10:
+                    continue
+                
+                # 预测C': 从p3出发，方向同A
+                pred_dir = dir_A
+                p3_price = center_B['price_end']
+                
+                # C≈A 假设
+                pred_target_price = p3_price + pred_dir * amp_A
+                pred_target_bar = p3 + time_A
+                
+                if pred_target_bar <= p1:
+                    continue
+                
+                # 去重
+                key = ('C', p1, p2, p3, pred_dir)
+                if key in seen:
+                    continue
+                seen.add(key)
+                
+                # 是否已有实际C段在展开？
+                actual_C = None
+                actual_progress = 0.0
+                for seg_R in start_at.get(p3, []):
+                    dir_R = _seg_dir(seg_R)
+                    if dir_R == pred_dir and seg_R['bar_end'] > p3:
+                        if actual_C is None or seg_R['bar_end'] > actual_C['bar_end']:
+                            actual_C = seg_R
+                
+                if actual_C:
+                    actual_progress = min(1.0, actual_C['amplitude'] / max(amp_A, 1e-10))
+                
+                # 端点重要性
+                imp_bars = [p1, p2, p3]
+                imps = [pivot_info.get(b, {}).get('importance', 0) for b in imp_bars]
+                pred_imp = sum(imps) / len(imps)
+                
+                rel_amp = amp_A / max(global_amp, 1e-10)
+                
+                # center段信息
+                center_amp = center_B['amplitude']
+                center_span = center_B['span']
+                
+                # B段回撤比例 (B/A)
+                retrace_ratio = center_amp / max(amp_A, 1e-10)
+                
+                predictions.append({
+                    'type': 'center',
+                    'sym_type': 'rotational',
+                    
+                    # 左臂A
+                    'A_start': p1,
+                    'A_end': p2,
+                    'A_price_start': seg_A['price_start'],
+                    'A_price_end': seg_A['price_end'],
+                    'A_amp': amp_A,
+                    'A_time': time_A,
+                    'A_dir': dir_A,
+                    
+                    # 中间段B
+                    'B_start': p2,
+                    'B_end': p3,
+                    'B_price_start': center_B['price_start'],
+                    'B_price_end': center_B['price_end'],
+                    'B_amp': center_amp,
+                    'B_time': center_span,
+                    'retrace_ratio': round(retrace_ratio, 4),
+                    
+                    # 对称中心 (B段中点)
+                    'center_bar': (p2 + p3) / 2,
+                    'center_price': (center_B['price_start'] + center_B['price_end']) / 2,
+                    'center_type': 'segment_midpoint',
+                    
+                    # 预测C'
+                    'pred_dir': pred_dir,
+                    'pred_start_bar': p3,
+                    'pred_start_price': p3_price,
+                    'pred_target_price': pred_target_price,
+                    'pred_target_bar': pred_target_bar,
+                    'pred_amp': amp_A,
+                    'pred_time': time_A,
+                    
+                    # 实际C展开情况
+                    'actual_C': actual_C,
+                    'actual_progress': actual_progress,
+                    
+                    # 重要性
+                    'importance': pred_imp,
+                    'rel_amp': rel_amp,
+                    'retrace_ratio': round(retrace_ratio, 4),
+                    'score': pred_imp * rel_amp,
+                })
+    
+    # 按score排序
+    predictions.sort(key=lambda p: -p['score'])
+    
+    return predictions
+
+
 def prune_redundant(pool, keep_ratio=0.5):
     """
     冗余删除。
