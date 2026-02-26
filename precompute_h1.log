@@ -1,0 +1,29 @@
+======================================================================
+全量预计算 (滑动窗口): /home/ubuntu/DataBase/base_kline/EURUSD_H1.csv
+输出目录: /home/ubuntu/stage2_abc/precompute_h1
+======================================================================
+K线: 155227, 2000-01-03 00:00:00 ~ 2024-12-31 23:00:00
+配置: window=200, stride=50, max_pool=500
+Z horizons: [10, 20, 50, 100]
+预计窗口数: 3101
+  win    11 [   500:   700] | pivots=103 segs= 2652 spectra=12610 | 0.4% 10s (1.1w/s ETA 2899s)
+  win    22 [  1050:  1250] | pivots=106 segs= 2809 spectra=13472 | 0.7% 21s (1.1w/s ETA 2905s)
+  win    32 [  1550:  1750] | pivots=113 segs= 3192 spectra=15909 | 1.0% 31s (1.0w/s ETA 2990s)
+  win    44 [  2150:  2350] | pivots=100 segs= 2500 spectra=11933 | 1.4% 42s (1.0w/s ETA 2922s)
+  win    55 [  2700:  2900] | pivots= 98 segs= 2401 spectra=13538 | 1.8% 53s (1.0w/s ETA 2908s)
+  win    66 [  3250:  3450] | pivots=100 segs= 2500 spectra=12182 | 2.1% 63s (1.1w/s ETA 2885s)
+  win    77 [  3800:  4000] | pivots=111 segs= 3080 spectra=10530 | 2.5% 73s (1.1w/s ETA 2868s)
+  win    88 [  4350:  4550] | pivots=102 segs= 2601 spectra=10202 | 2.8% 84s (1.1w/s ETA 2859s)
+  win    99 [  4900:  5100] | pivots=123 segs= 3782 spectra=13662 | 3.2% 94s (1.1w/s ETA 2847s)
+  win   111 [  5500:  5700] | pivots=103 segs= 2652 spectra= 7722 | 3.6% 105s (1.1w/s ETA 2816s)
+  win   124 [  6150:  6350] | pivots= 95 segs= 2256 spectra=13414 | 4.0% 115s (1.1w/s ETA 2764s)
+  win   135 [  6700:  6900] | pivots=103 segs= 2652 spectra=10703 | 4.4% 126s (1.1w/s ETA 2762s)
+  win   141 [  7000:  7200] | pivots=109 segs= 2970 spectra=17345 | 4.5% 138s (1.0w/s ETA 2897s)
+  win   146 [  7250:  7450] | pivots=103 segs= 2652 spectra=15747 | 4.7% 148s (1.0w/s ETA 2996s)
+  win   157 [  7800:  8000] | pivots=111 segs= 3080 spectra=13194 | 5.1% 158s (1.0w/s ETA 2971s)
+  win   167 [  8300:  8500] | pivots=118 segs= 3481 spectra=10303 | 5.4% 169s (1.0w/s ETA 2963s)
+  win   177 [  8800:  9000] | pivots=109 segs= 2970 spectra=14740 | 5.7% 180s (1.0w/s ETA 2969s)
+  win   188 [  9350:  9550] | pivots=104 segs= 2704 spectra=10648 | 6.1% 190s (1.0w/s ETA 2942s)
+  win   199 [  9900: 10100] | pivots=108 segs= 2916 spectra= 8405 | 6.4% 201s (1.0w/s ETA 2924s)
+  win   210 [ 10450: 10650] | pivots=115 segs= 3306 spectra=11388 | 6.8% 212s (1.0w/s ETA 2913s)
+  win   220 [ 10950: 11150] | pivots=121 segs= 3660 spectra=11464 | 7.1% 222s (1.0w/s ETA 2902s)
