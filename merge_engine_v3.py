@@ -1444,10 +1444,38 @@ def predict_symmetric_image(pool, pivot_info, current_bar, max_pool_size=500):
                     'score': pred_imp * rel_amp,
                 })
     
-    # 按score排序
-    predictions.sort(key=lambda p: -p['score'])
+    # 过滤和评分优化
+    # 1. 预测目标不能完全在过去太远
+    # 2. 时效性：预测起点越接近current_bar越有价值
+    filtered = []
+    for p in predictions:
+        # 预测目标必须有一部分在"近期"（至少起点后面的50%在数据范围内）
+        pred_mid = (p['pred_start_bar'] + p['pred_target_bar']) / 2
+        if p['pred_target_bar'] < current_bar * 0.3:
+            continue  # 目标完全在早期历史中，跳过
+        
+        # 时效性: 预测起点越接近current_bar越有价值
+        # recency = 1.0 当pred_start == current_bar, 衰减到0
+        time_dist = abs(current_bar - p['pred_start_bar'])
+        recency = 1.0 / (1.0 + time_dist / max(current_bar * 0.2, 1))
+        
+        # 活跃度: 正在展开的预测加分
+        activity = 1.0 + p['actual_progress'] * 2.0 if p['actual_progress'] > 0 else 1.0
+        # 但已完成的(progress >= 1.0)降权
+        if p['actual_progress'] >= 0.95:
+            activity *= 0.3
+        
+        # 综合score
+        p['recency'] = round(recency, 4)
+        p['activity'] = round(activity, 3)
+        p['score'] = round(p['importance'] * p['rel_amp'] * recency * activity, 6)
+        
+        filtered.append(p)
     
-    return predictions
+    # 按score排序
+    filtered.sort(key=lambda p: -p['score'])
+    
+    return filtered
 
 
 def prune_redundant(pool, keep_ratio=0.5):

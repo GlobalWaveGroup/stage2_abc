@@ -953,9 +953,10 @@ def main():
               f"ctr:{ctr} | → target={p['pred_target_price']:.5f}@bar{p['pred_target_bar']} "
               f"score={p['score']:.5f}{prog}")
 
+    # 只传Top 200预测到HTML (减小文件大小)
     generate_html(df, results, "/home/ubuntu/stage2_abc/merge_v3.html",
                   pivot_info=pivot_info, fusion_segs=fusion_segs, 
-                  sym_structures=sym_structures, predictions=predictions)
+                  sym_structures=sym_structures, predictions=predictions[:200])
 
 
 if __name__ == '__main__':
