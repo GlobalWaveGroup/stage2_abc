@@ -928,6 +928,262 @@ def find_symmetric_structures(pool, pivot_info, df=None, top_n=100, max_pool_siz
     return structures[:top_n]
 
 
+# =============================================================================
+# 6c. 统一对称谱 — 多维特征向量 (v3.3)
+# =============================================================================
+
+def compute_symmetry_spectrum(pool, pivot_info, max_pool_size=800):
+    """
+    统一对称谱计算 — 覆盖所有对称模式。
+    
+    核心思想:
+    - pool_fusion已经把所有尺度的线段打平了
+    - 一条线段可能是base单跳,也可能是多段归并后的整体向量
+    - 所以只需搜索线段之间的关系,不需要枚举"2段/3段/4段/5段"
+    
+    搜索两类对称对:
+    
+    A. 镜像对(Mirror): 共享一个端点, 方向相反
+       即 seg_A→[P]←seg_B, 在点P处折返
+       覆盖: V底/V顶, 双顶/双底(当线段是多段折叠后), 头肩(当线段覆盖更大尺度)
+       
+    B. 中心对(Center): 通过一段中间线段连接, 方向相同
+       即 seg_A→[center]→seg_C, A和C同向
+       覆盖: abc调整, 12345推动(当线段是多段折叠后), 模长对称
+    
+    对每个对称对输出完整特征向量(对称谱), 不压缩为标量:
+    - amp_ratio, time_ratio, mod_ratio, slope_ratio (各维度的A/C比值)
+    - 偏离方向和程度
+    - 中心段信息
+    - 端点重要性
+    
+    返回: list of spectrum dicts, 按综合重要性排序
+    """
+    from collections import defaultdict
+    import math, bisect
+    
+    # 限制搜索空间
+    search_pool = pool
+    if len(pool) > max_pool_size:
+        search_pool = sorted(pool, key=lambda s: -s['importance'])[:max_pool_size]
+    
+    # 建索引
+    end_at = defaultdict(list)    # bar → [seg ending here]
+    start_at = defaultdict(list)  # bar → [seg starting here]
+    for s in search_pool:
+        end_at[s['bar_end']].append(s)
+        start_at[s['bar_start']].append(s)
+    
+    # 全局统计(用完整池)
+    all_amps = [s['amplitude'] for s in pool if s['amplitude'] > 0]
+    all_spans = [s['span'] for s in pool if s['span'] > 0]
+    global_amp = max(all_amps) if all_amps else 1
+    global_span = max(all_spans) if all_spans else 1
+    
+    # 子波段数(复杂度)
+    base_bars_sorted = sorted(p['bar'] for p in pivot_info.values())
+    
+    def _count_sub(bar_start, bar_end):
+        left = bisect.bisect_right(base_bars_sorted, bar_start)
+        right = bisect.bisect_left(base_bars_sorted, bar_end)
+        return right - left
+    
+    def _seg_direction(s):
+        """线段方向: +1上升, -1下降"""
+        return 1 if s['price_end'] > s['price_start'] else -1
+    
+    def _compute_mod(amp, span):
+        """归一化模长"""
+        na = amp / max(global_amp, 1e-10)
+        nt = span / max(global_span, 1)
+        return math.sqrt(na**2 + nt**2)
+    
+    def _safe_ratio(a, b):
+        """安全除法, 返回ratio和log_ratio"""
+        if b < 1e-10 and a < 1e-10:
+            return 1.0, 0.0
+        if b < 1e-10:
+            return 999.0, math.log(999)
+        r = a / b
+        return r, math.log(max(r, 1e-10))
+    
+    def _make_spectrum(seg_L, seg_R, sym_type, center_seg=None, pivot_bar=None):
+        """构造一个对称谱向量"""
+        amp_L = seg_L['amplitude']
+        amp_R = seg_R['amplitude']
+        time_L = seg_L['span']
+        time_R = seg_R['span']
+        mod_L = _compute_mod(amp_L, time_L)
+        mod_R = _compute_mod(amp_R, time_R)
+        slope_L = amp_L / max(time_L, 1)
+        slope_R = amp_R / max(time_R, 1)
+        sub_L = _count_sub(seg_L['bar_start'], seg_L['bar_end'])
+        sub_R = _count_sub(seg_R['bar_start'], seg_R['bar_end'])
+        
+        amp_ratio, amp_log = _safe_ratio(amp_L, amp_R)
+        time_ratio, time_log = _safe_ratio(time_L, time_R)
+        mod_ratio, mod_log = _safe_ratio(mod_L, mod_R)
+        slope_ratio, slope_log = _safe_ratio(slope_L, slope_R)
+        
+        # 端点重要性
+        imp_bars = [seg_L['bar_start'], seg_L['bar_end'], seg_R['bar_start'], seg_R['bar_end']]
+        imps = [pivot_info.get(b, {}).get('importance', 0) for b in imp_bars]
+        mean_imp = sum(imps) / len(imps)
+        
+        # 中心段信息
+        center_amp = 0
+        center_span = 0
+        center_bar_start = 0
+        center_bar_end = 0
+        if center_seg:
+            center_amp = center_seg['amplitude']
+            center_span = center_seg['span']
+            center_bar_start = center_seg['bar_start']
+            center_bar_end = center_seg['bar_end']
+        
+        # 对称度(接近1的程度) — 作为排序用的标量, 但完整向量才是真正的特征
+        sym_closeness = 1.0 / (1.0 + abs(amp_log) + abs(time_log) + abs(mod_log) + abs(slope_log))
+        
+        return {
+            'type': sym_type,      # 'mirror' or 'center'
+            'dir_L': _seg_direction(seg_L),
+            'dir_R': _seg_direction(seg_R),
+            
+            # 左臂
+            'L_start': seg_L['bar_start'], 'L_end': seg_L['bar_end'],
+            'L_price_start': seg_L['price_start'], 'L_price_end': seg_L['price_end'],
+            'L_amp': round(amp_L, 5), 'L_time': time_L,
+            'L_mod': round(mod_L, 6), 'L_slope': round(slope_L, 7),
+            'L_complexity': sub_L,
+            
+            # 右臂
+            'R_start': seg_R['bar_start'], 'R_end': seg_R['bar_end'],
+            'R_price_start': seg_R['price_start'], 'R_price_end': seg_R['price_end'],
+            'R_amp': round(amp_R, 5), 'R_time': time_R,
+            'R_mod': round(mod_R, 6), 'R_slope': round(slope_R, 7),
+            'R_complexity': sub_R,
+            
+            # 对称谱向量 — 各维度ratio (核心特征)
+            'amp_ratio': round(amp_ratio, 4),
+            'time_ratio': round(time_ratio, 4),
+            'mod_ratio': round(mod_ratio, 4),
+            'slope_ratio': round(slope_ratio, 4),
+            
+            # 对称谱向量 — log空间 (利于连续映射)
+            'amp_log': round(amp_log, 4),
+            'time_log': round(time_log, 4),
+            'mod_log': round(mod_log, 4),
+            'slope_log': round(slope_log, 4),
+            
+            # 复杂度差异
+            'complexity_ratio': round(_safe_ratio(max(sub_L,1), max(sub_R,1))[0], 4),
+            'complexity_diff': sub_L - sub_R,
+            
+            # 中心段
+            'center_bar_start': center_bar_start,
+            'center_bar_end': center_bar_end,
+            'center_amp': round(center_amp, 5),
+            'center_span': center_span,
+            
+            # 镜像点(仅mirror类型)
+            'pivot_bar': pivot_bar if pivot_bar else 0,
+            
+            # 端点重要性
+            'mean_imp': round(mean_imp, 4),
+            'max_imp': round(max(imps), 4),
+            
+            # 标量汇总(仅用于排序, 不作为特征)
+            'sym_closeness': round(sym_closeness, 4),
+            'score': round(sym_closeness * mean_imp, 6),
+        }
+    
+    results = []
+    seen = set()
+    
+    # === A. 镜像对: 共享一个端点P, 方向相反 ===
+    # seg_L ends at P, seg_R starts at P
+    all_bars = set(list(end_at.keys()) + list(start_at.keys()))
+    for p in all_bars:
+        segs_ending = end_at.get(p, [])
+        segs_starting = start_at.get(p, [])
+        if not segs_ending or not segs_starting:
+            continue
+        
+        for seg_L in segs_ending:
+            dir_L = _seg_direction(seg_L)
+            for seg_R in segs_starting:
+                dir_R = _seg_direction(seg_R)
+                
+                # 镜像: 方向相反 (一个上升到P, 另一个从P下降, 或反之)
+                if dir_L == dir_R:
+                    continue
+                
+                # 时间递增
+                if seg_L['bar_start'] >= p or seg_R['bar_end'] <= p:
+                    continue
+                
+                # 去重
+                key = ('M', seg_L['bar_start'], p, seg_R['bar_end'])
+                if key in seen:
+                    continue
+                seen.add(key)
+                
+                # 最小有效性
+                if seg_L['amplitude'] < 1e-10 or seg_R['amplitude'] < 1e-10:
+                    continue
+                if seg_L['span'] < 1 or seg_R['span'] < 1:
+                    continue
+                
+                spec = _make_spectrum(seg_L, seg_R, 'mirror', pivot_bar=p)
+                results.append(spec)
+    
+    # === B. 中心对: seg_L→center→seg_R, L和R同向 ===
+    for p2 in list(end_at.keys()):
+        for seg_L in end_at[p2]:
+            dir_L = _seg_direction(seg_L)
+            for center in start_at.get(p2, []):
+                p3 = center['bar_end']
+                dir_center = _seg_direction(center)
+                
+                # 中心方向应该和L/R相反
+                if dir_center == dir_L:
+                    continue
+                
+                for seg_R in start_at.get(p3, []):
+                    dir_R = _seg_direction(seg_R)
+                    
+                    # R和L同向
+                    if dir_R != dir_L:
+                        continue
+                    
+                    p1 = seg_L['bar_start']
+                    p4 = seg_R['bar_end']
+                    
+                    # 时间递增
+                    if not (p1 < p2 and p2 < p3 and p3 < p4):
+                        continue
+                    
+                    # 去重
+                    key = ('C', p1, p2, p3, p4)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    
+                    # 最小有效性
+                    if seg_L['amplitude'] < 1e-10 or seg_R['amplitude'] < 1e-10:
+                        continue
+                    if seg_L['span'] < 1 or seg_R['span'] < 1:
+                        continue
+                    
+                    spec = _make_spectrum(seg_L, seg_R, 'center', center_seg=center)
+                    results.append(spec)
+    
+    # 按score排序
+    results.sort(key=lambda s: -s['score'])
+    
+    return results
+
+
 def prune_redundant(pool, keep_ratio=0.5):
     """
     冗余删除。
@@ -1108,9 +1364,9 @@ def main():
               f"bar{s['bar_end']:4d}{d2}({s['price_end']:.5f}) | "
               f"span={s['span']:4d} amp={s['amplitude']:.5f} | imp={s['importance']:.3f}{via}")
     
-    # ===== 对称结构识别 =====
+    # ===== 对称结构识别 (旧版, 保留兼容) =====
     print("\n" + "=" * 70)
-    print("对称结构识别 — 5维对称向量")
+    print("对称结构识别 — 5维对称向量 (v3.2旧版)")
     print("=" * 70)
     
     t0 = time.time()
@@ -1120,28 +1376,88 @@ def main():
     print(f"\n发现 {len(sym_structures)} 个对称结构 ({t1-t0:.3f}s)")
     
     if sym_structures:
-        # 统计
         types = {}
         for s in sym_structures:
             t = s['type']
             types[t] = types.get(t, 0) + 1
         print(f"类型分布: {types}")
-        
-        # 高对称度统计 (sym_score > 0.8)
         high_sym = [s for s in sym_structures if s['sym_score'] > 0.8]
         print(f"高对称度(>0.8): {len(high_sym)}个")
+    
+    # ===== 统一对称谱 (v3.3新版) =====
+    print("\n" + "=" * 70)
+    print("统一对称谱 — 多维特征向量 (v3.3)")
+    print("=" * 70)
+    
+    t0 = time.time()
+    spectra = compute_symmetry_spectrum(full_pool, pivot_info, max_pool_size=800)
+    t1 = time.time()
+    
+    n_mirror = sum(1 for s in spectra if s['type'] == 'mirror')
+    n_center = sum(1 for s in spectra if s['type'] == 'center')
+    print(f"\n对称谱: {len(spectra)} 个 (mirror:{n_mirror}, center:{n_center}) {t1-t0:.3f}s")
+    
+    # 维度分布统计
+    if spectra:
+        import numpy as np
+        amp_ratios = [s['amp_ratio'] for s in spectra]
+        time_ratios = [s['time_ratio'] for s in spectra]
+        mod_ratios = [s['mod_ratio'] for s in spectra]
         
-        print(f"\nTop 30 对称结构:")
-        print(f"  {'score':>7s} {'sym':>5s} {'imp':>5s} | {'amp':>5s} {'time':>5s} {'mod':>5s} {'slp':>5s} {'cplx':>5s} | "
-              f"{'type':>12s} | p1→p2→p3→p4 | A/B/C幅度 | A/B/C时间")
-        for s in sym_structures[:30]:
-            v = s['vec']
-            d = '↑' if s['dir'] == 1 else '↓'
-            print(f"  {s['score']:.5f} {s['sym_score']:.3f} {s['endpoint_imp']:.3f} | "
-                  f"{v['amp']:.3f} {v['time']:.3f} {v['mod']:.3f} {v['slope']:.3f} {v['complexity']:.3f} | "
-                  f"{s['type']:>12s}{d} | {s['p1']:3d}→{s['p2']:3d}→{s['p3']:3d}→{s['p4']:3d} | "
-                  f"{s['amp_A']:.4f}/{s['amp_B']:.4f}/{s['amp_C']:.4f} | "
-                  f"{s['time_A']:3d}/{s['time_B']:3d}/{s['time_C']:3d}")
+        print(f"\namp_ratio 分布: mean={np.mean(amp_ratios):.2f} med={np.median(amp_ratios):.2f} "
+              f"std={np.std(amp_ratios):.2f} [0.8~1.2]={sum(1 for r in amp_ratios if 0.8<=r<=1.2)}")
+        print(f"time_ratio分布: mean={np.mean(time_ratios):.2f} med={np.median(time_ratios):.2f} "
+              f"std={np.std(time_ratios):.2f} [0.8~1.2]={sum(1 for r in time_ratios if 0.8<=r<=1.2)}")
+        print(f"mod_ratio 分布: mean={np.mean(mod_ratios):.2f} med={np.median(mod_ratios):.2f} "
+              f"std={np.std(mod_ratios):.2f} [0.8~1.2]={sum(1 for r in mod_ratios if 0.8<=r<=1.2)}")
+    
+    # Top 30
+    print(f"\nTop 30 对称谱:")
+    print(f"  {'score':>7s} {'sym':>5s} {'imp':>5s} | {'type':>7s} | {'a_rat':>5s} {'t_rat':>5s} {'m_rat':>5s} {'s_rat':>5s} {'c_dif':>4s} | "
+          f"L: start→end | R: start→end | center")
+    for s in spectra[:30]:
+        ctr = ''
+        if s['type'] == 'center':
+            ctr = f"bar{s['center_bar_start']}→{s['center_bar_end']}"
+        elif s['type'] == 'mirror':
+            ctr = f"@bar{s['pivot_bar']}"
+        dir_sym = '↑' if s['dir_L'] == 1 else '↓'
+        print(f"  {s['score']:.5f} {s['sym_closeness']:.3f} {s['mean_imp']:.3f} | "
+              f"{s['type']:>7s}{dir_sym} | "
+              f"{s['amp_ratio']:5.2f} {s['time_ratio']:5.2f} {s['mod_ratio']:5.2f} {s['slope_ratio']:5.2f} {s['complexity_diff']:+4d} | "
+              f"bar{s['L_start']:3d}→{s['L_end']:3d} | bar{s['R_start']:3d}→{s['R_end']:3d} | {ctr}")
+    
+    # 验证用户给的例子
+    print(f"\n--- 用户例子验证 ---")
+    
+    # 例1: L2(bar7)→H7(bar18) / L4(bar39)→H17(bar46), 以H7(18)→L4(39)为中心
+    example1 = [s for s in spectra if s['type']=='center' 
+                and s['L_start']==7 and s['L_end']==18 
+                and s['R_start']==39 and s['R_end']==46]
+    if example1:
+        e = example1[0]
+        print(f"\n例1 L2H7-L4H17 (中心对称H7→L4):")
+        print(f"  amp_ratio={e['amp_ratio']:.3f} time_ratio={e['time_ratio']:.3f} "
+              f"mod_ratio={e['mod_ratio']:.3f} slope_ratio={e['slope_ratio']:.3f}")
+        print(f"  complexity: L={e['L_complexity']} R={e['R_complexity']} diff={e['complexity_diff']}")
+        print(f"  → 幅度近似对称({e['amp_ratio']:.3f}), 时间不对称({e['time_ratio']:.3f}), "
+              f"模长{'对称' if 0.8<e['mod_ratio']<1.2 else '不对称'}({e['mod_ratio']:.3f})")
+    else:
+        print("\n例1 L2H7-L4H17: 未在搜索池中找到 (可能重要性不够高)")
+    
+    # 例2: L4(39)→H17(46) / L15(47)→H3(52), 以H17(46)→L15(47)为中心  
+    example2 = [s for s in spectra if s['type']=='center'
+                and s['L_start']==39 and s['L_end']==46
+                and s['R_start']==47 and s['R_end']==52]
+    if example2:
+        e = example2[0]
+        print(f"\n例2 L4H17-L15H3 (中心对称H17→L15):")
+        print(f"  amp_ratio={e['amp_ratio']:.3f} time_ratio={e['time_ratio']:.3f} "
+              f"mod_ratio={e['mod_ratio']:.3f} slope_ratio={e['slope_ratio']:.3f}")
+        print(f"  complexity: L={e['L_complexity']} R={e['R_complexity']} diff={e['complexity_diff']}")
+        print(f"  → L是3段折叠(L4H27L22H17)的整体, R是1段直达(L15H3)")
+    else:
+        print("\n例2 L4H17-L15H3: 未在搜索池中找到")
 
 if __name__ == '__main__':
     main()
