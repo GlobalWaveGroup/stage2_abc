@@ -52,6 +52,9 @@ def encode_pred(p):
         'psb': p['pred_start_bar'], 'psp': round(p['pred_start_price'], 5),
         'ptb': p['pred_target_bar'], 'ptp': round(p['pred_target_price'], 5),
         'sc': round(p['score'], 5),
+        'pt': p['pred_time'],    # C段预期持续时间 (bars)
+        'pa': round(p['pred_amp'], 5),  # C段预期幅度
+        'pd': p['pred_dir'],     # C段预期方向 (+1/-1)
     }
     if p['type'] == 'center':
         entry['bs'] = p['B_start']
@@ -439,7 +442,7 @@ function drawPanel(cid, preds, pvts, zigColor, predColorM, predColorC) {{
         }}
     }}
     
-    // === 预测线 (在空白区) ===
+    // === 预测线 + 期望轨迹 + 模长边界 + 离差 ===
     for(let i = 0; i < preds.length; i++) {{
         const p = preds[i];
         const isMirror = p.t === 'm';
@@ -465,14 +468,74 @@ function drawPanel(cid, preds, pvts, zigColor, predColorM, predColorC) {{
             cx.beginPath(); cx.moveTo(xS(p.bs), yS(p.bps)); cx.lineTo(xS(p.be), yS(p.bpe)); cx.stroke();
         }}
         
+        // ── 模长边界包络 (R boundary) ──
+        // 基于pred_amp: 从pred_start沿时间轴, 上下各留R的边界
+        // R = pred_amp * sqrt(t/pred_time) 的比例关系 (简化: 线性扩张)
+        // 上界 = expected_path + R_at_t
+        // 下界 = expected_path - R_at_t
+        if(p.pa > 0 && p.pt > 0 && i < 5) {{
+            const predAmp = p.pa;
+            const predTime = p.pt;
+            const startPrice = p.psp;
+            const signedAmp = p.ptp - p.psp;  // signed
+            
+            // 上边界 + 下边界
+            cx.strokeStyle = pCol.replace(/[\\d.]+\\)$/, (alpha * 0.25) + ')');
+            cx.lineWidth = 0.8;
+            cx.setLineDash([3, 4]);
+            
+            const nSteps = Math.min(predTime, 50);
+            // 上边界
+            cx.beginPath();
+            for(let k = 0; k <= nSteps; k++) {{
+                const t = k / predTime;
+                const bar_k = p.psb + k;
+                const expectedP = startPrice + t * signedAmp;
+                // R随时间按sqrt扩张 (模长比例: 到某时刻的不确定性)
+                const R = predAmp * Math.sqrt(t) * 0.5;
+                const upperP = expectedP + R;
+                if(k === 0) cx.moveTo(xS(bar_k), yS(upperP));
+                else cx.lineTo(xS(bar_k), yS(upperP));
+            }}
+            cx.stroke();
+            // 下边界
+            cx.beginPath();
+            for(let k = 0; k <= nSteps; k++) {{
+                const t = k / predTime;
+                const bar_k = p.psb + k;
+                const expectedP = startPrice + t * signedAmp;
+                const R = predAmp * Math.sqrt(t) * 0.5;
+                const lowerP = expectedP - R;
+                if(k === 0) cx.moveTo(xS(bar_k), yS(lowerP));
+                else cx.lineTo(xS(bar_k), yS(lowerP));
+            }}
+            cx.stroke();
+        }}
+        
+        // ── 期望轨迹线 (expected path) ──
+        if(p.pa > 0 && p.pt > 0 && i < 8) {{
+            cx.strokeStyle = pCol.replace(/[\\d.]+\\)$/, (alpha * 0.35) + ')');
+            cx.lineWidth = 1;
+            cx.setLineDash([2, 3]);
+            cx.beginPath();
+            const nSteps2 = Math.min(p.pt, 50);
+            for(let k = 0; k <= nSteps2; k++) {{
+                const t = k / p.pt;
+                const bar_k = p.psb + k;
+                const expectedP = p.psp + t * (p.ptp - p.psp);
+                if(k === 0) cx.moveTo(xS(bar_k), yS(expectedP));
+                else cx.lineTo(xS(bar_k), yS(expectedP));
+            }}
+            cx.stroke();
+        }}
+        
         // C' 预测线 (虚线+箭头, 亮色)
         cx.strokeStyle = pCol; cx.lineWidth = lw * 1.4; cx.setLineDash([7, 3]);
         cx.beginPath(); cx.moveTo(xS(p.psb), yS(p.psp)); cx.lineTo(xS(p.ptb), yS(p.ptp)); cx.stroke();
         
         // 箭头
-        const ax1 = xS(p.psb), ay1 = yS(p.psp);
         const ax2 = xS(p.ptb), ay2 = yS(p.ptp);
-        const angle = Math.atan2(ay2-ay1, ax2-ax1);
+        const angle = Math.atan2(ay2-yS(p.psp), ax2-xS(p.psb));
         cx.setLineDash([]); cx.lineWidth = lw;
         cx.beginPath();
         cx.moveTo(ax2, ay2);
@@ -480,6 +543,36 @@ function drawPanel(cid, preds, pvts, zigColor, predColorM, predColorC) {{
         cx.moveTo(ax2, ay2);
         cx.lineTo(ax2 - 7*Math.cos(angle+0.35), ay2 - 7*Math.sin(angle+0.35));
         cx.stroke();
+        
+        // ── 离差标注 (当前K线 vs 预测期望位置) ──
+        if(p.pa > 0 && p.pt > 0 && i < 6) {{
+            const elapsed = curBar - p.psb;
+            if(elapsed > 0 && elapsed <= p.pt && curBar < N) {{
+                const t = elapsed / p.pt;
+                const expectedNow = p.psp + t * (p.ptp - p.psp);
+                const actualClose = K[curBar][3];
+                const deviation = (actualClose - expectedNow) / p.pa;
+                const devSign = deviation >= 0 ? '+' : '';
+                
+                // 离差标记: 在当前bar的K线右侧
+                const devColor = Math.abs(deviation) < 0.3 ? '#44ff88' 
+                    : Math.abs(deviation) < 1.0 ? '#ffaa33' : '#ff4466';
+                cx.fillStyle = devColor;
+                cx.font = '9px monospace';
+                cx.textAlign = 'right';
+                const devY = yS(expectedNow);
+                // 小横线从期望价到实际价
+                cx.strokeStyle = devColor;
+                cx.lineWidth = 0.8;
+                cx.setLineDash([1, 1]);
+                cx.beginPath();
+                cx.moveTo(xS(curBar) + 2, devY);
+                cx.lineTo(xS(curBar) + 2, yS(actualClose));
+                cx.stroke();
+                // 离差数值
+                cx.fillText(devSign + deviation.toFixed(2), xS(curBar) - 2, devY + (deviation > 0 ? -4 : 12));
+            }}
+        }}
         
         // 目标价格标签
         if(i < 10) {{
@@ -503,9 +596,22 @@ function drawAll() {{
     if(curBar < N) {{
         const k = K[curBar];
         const na = (fd.a||[]).length, nl = (fd.l||[]).length, nf = (fd.f||[]).length;
+        // 计算top1的离差 (All panel)
+        let devStr = '';
+        const allPreds = fd.f||[];
+        if(allPreds.length > 0 && allPreds[0].pa > 0 && allPreds[0].pt > 0) {{
+            const p0 = allPreds[0];
+            const elapsed = curBar - p0.psb;
+            if(elapsed > 0 && elapsed <= p0.pt) {{
+                const t = elapsed / p0.pt;
+                const expectedNow = p0.psp + t * (p0.ptp - p0.psp);
+                const dev = (k[3] - expectedNow) / p0.pa;
+                devStr = ` | Top1 dev:${{dev>=0?'+':''}}${{dev.toFixed(3)}} (${{p0.t==='m'?'mirror':'center'}})`;
+            }}
+        }}
         document.getElementById('infoBar').textContent =
             `Bar ${{curBar}} | O:${{k[0]}} H:${{k[1]}} L:${{k[2]}} C:${{k[3]}} | ` +
-            `Amp:${{na}} | Lat:${{nl}} | All:${{nf}} preds`;
+            `Amp:${{na}} | Lat:${{nl}} | All:${{nf}} preds${{devStr}}`;
     }}
 }}
 
