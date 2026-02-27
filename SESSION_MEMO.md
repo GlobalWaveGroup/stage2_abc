@@ -1,5 +1,5 @@
 # 天枢 TianShu — Session Memo (给下一个AI session)
-# 写于: 2026-02-25 (v3 session)
+# 写于: 2026-02-27 (v4.2 session)
 # 写给: 下一次对话的AI，请完整阅读后再动手
 
 ---
@@ -10,7 +10,7 @@
 2. 再读本文件 — 当前工作状态、已踩的坑、待解决的问题
 3. **不要信任本目录下任何.py文件的注释/docstring版本号** — 代码多次被覆盖，注释可能是旧的
 4. **以代码实际行为为准，不以注释为准**
-5. **当前可信代码: merge_engine_v3.py + visualize_v3.py** — v2文件保留但已被v3取代
+5. **当前可信代码: merge_engine_v3.py + dynamic_engine.py + visualize_v4.py** — v3是静态base, v4是动态可视化
 
 ---
 
@@ -38,7 +38,7 @@
 
 ## 3. 核心代码文件 (可信赖的)
 
-### 3.1 merge_engine_v3.py (~1140行) — 归并引擎 (v3.2)
+### 3.1 merge_engine_v3.py (~1757行) — 归并引擎 (v3.2 + 对称预测)
 
 关键函数:
 - `load_kline()` — TSV加载
@@ -51,28 +51,35 @@
 - `compute_pivot_importance(results, total_bars)` — 多维拐点重要性(**8维**, 含D8 recency)
 - `build_segment_pool(results, pivot_info)` — 构建初始去重波段池 (重要性=**乘积**)
 - **`pool_fusion(pool, pivot_info)`** — 🔑 **v3核心**: 池内三波归并，消融级别
-- **`find_symmetric_structures(pool, pivot_info, top_n, max_pool_size)`** — 🔑 **v3.2核心**: 5维对称向量识别
+- **`find_symmetric_structures(pool, pivot_info, top_n, max_pool_size)`** — 5维对称向量识别
+- **`predict_symmetric_image(pool, pivot_info, current_bar)`** — 🔑 **路径一核心**: 对称映像预测
 - `prune_redundant(pool)` — 冗余删除（**暂不执行**）
 
-### 3.2 visualize_v3.py (~730行) — HTML可视化生成器 (v3.2)
+### 3.2 dynamic_engine.py (~1048行) — 动态引擎
+- `DynamicZG` — 逐K线zigzag, confirmed/tentative拐点
+- `DynamicMerger` — 增量归并 (amp+lat)
+- `DynamicPool` — 增量pool_fusion (O(n^2), 仅用于小数据)
+- 对v4.2: **只用 DynamicZG + DynamicMerger** (跳过 DynamicPool)
 
-- 快照层：base(金色) / amp(红色渐变) / lat(青色虚线)
-- Extra层：滑窗收集的额外线段（绿色/橙色虚线）
-- **Fusion层**：池内三波归并产出的新线段（**紫色系，虚线**）
-- **Symmetry层**：对称结构三波(A绿/灰B虚线/C绿虚线) + 对称轴标记 + score标签
-- Fusion Top N 滑块、Sym Top 滑块、Min imp 滑块
-- 鼠标悬停: fusion线段详情、对称结构5维向量详情
-- 可调Peak/Valley显示数量滑块 + 重要性值标注
-- Step+/- 逐步回放
-- 输出: merge_v3.html (509KB)
+### 3.3 visualize_v4.py (~540行) — 动态三窗口可视化 (v4.2)
+- 2000 bars, 从bar 50开始预测, 窗口150K+50K空白
+- 三窗口: Amp / Lat / All
+- 增量编码: CONF(confirmed pivots) + TENT_CHG + PRED_CHG
+- 交互: 方向键 / 空格播放 / slider
+- 输出: merge_v4.html (3.2MB)
 
-### 3.3 GROUND_TRUTH.md — 权威逻辑链文档
+### 3.4 visualize_v3.py (~945行) — 静态可视化 (v3.2, 200 bars)
 
-### 3.4 k-zg归并all-2.3.1m.mq5 — MT5原始幅度归并指标源码
+- 静态池可视化, 200根K线窗口
+- 输出: merge_v3.html (585KB)
 
-### 3.5 旧版文件 (保留但已被v3取代)
-- merge_engine_v2.py, visualize_v2.py, merge_v2.html — v2版本
+### 3.5 GROUND_TRUTH.md — 权威逻辑链文档
+
+### 3.6 旧版/死路文件 (保留但不要使用)
+- merge_engine_v2.py, visualize_v2.py — v2版本
 - merge_engine.py — v1版本
+- build_vector_store.py, vector_query.py, eval_fast.py — 向量搜索(无信号)
+- full_precompute.py, cluster_analysis.py — 聚类分析(无信号)
 
 ---
 
@@ -234,58 +241,111 @@ H1→L8, L4→H2, H7→L2 等连接在v2中缺失。
 - `precompute_test/precomputed.pkl` — 小规模测试结果
 - `precompute_h1/precomputed.pkl` — 全量H1结果 (计算中)
 
-## 12. 下一步方向（未完成）
+## 12. 关键负面结果 (2026-02-26~27)
 
-### 12.1 全量聚类分析
-- 等全量预计算完成后运行 cluster_analysis.py
-- 核心问题: 对称谱特征聚类后, Z分布是否集中?
-- 如果MI显著 > shuffle → 对称谱有预测力 → 进入ML阶段
-- 如果MI不显著 → 对称谱alone不够, 需要更多特征(动态birth_bar分布等)
+### 12.1 ❌ 51维聚类特征 — 无信号
+- 滑动窗口(200bar, stride 50) → 对称谱 → 51维统计向量 → k-means聚类
+- shuffle test: MI_real ≤ MI_shuffle → **特征对Z outcome无预测力**
+- 结论: 对称谱的统计分布特征不是edge
 
-### 12.2 Cross-TF验证
-- H1建索引 → M15查询, 或反向
-- 验证对称谱特征是否跨TF泛化
+### 12.2 ❌ 60M原始15D向量 k-NN — 无信号
+- faiss IVF 向量存储 → k-NN (k=50/100/200) → 4个前瞻距离
+- 所有准确率 ≈ 50% (pure random)
+- 结论: 对称spectrum的统计模式匹配彻底失败
 
-### 12.3 动态引擎增强 (如果聚类有信号)
-- birth_bar分布作为额外特征维度
-- 多线段共振信号 (多个对称谱同时birth → 转折共振)
-- T/F/S线集成
+### 12.3 用户关键洞察 — 从统计到几何
+- **统计路线已死**: 无论如何聚合/聚类/k-NN, 对称谱的统计模式没有预测力
+- **路径一: 几何推演**: 每个对称结构是独立的case-by-case几何推理
+  - 已知A + 对称中心 → 几何推演C'的目标
+  - 这不是模式匹配, 是纯几何映射
 
-### 12.4 时-空转换动态常数
-- 模长对称中的核心未解问题
-- 当前用经验归一化, 需理论推导
+## 13. 路径一: 对称映像预测 (2026-02-27) — 当前工作
+
+### 13.1 ✅ predict_symmetric_image() 
+- merge_engine_v3.py ~line 1187, ~290行
+- **Mirror预测**: A到折返点P → C'从P反向, amp≈A, time≈A
+- **Center预测**: A→B→ → C'从B_end, 同向A, amp≈A, time≈A
+- 评分: importance × log_amp × recency × activity
+  - log_amp: log(1 + rel_amp*10) / log(11) — 防大线段主导
+  - recency: 1/(1 + dist/0.15*current_bar) — 时效性衰减
+
+### 13.2 ✅ visualize_v4.py v4.2 — 三窗口动态可视化
+- **架构**: DynamicZG + DynamicMerger 逐K线推进 (跳过pool_fusion, O(n^2)太慢)
+- **数据**: 2000 K-lines, EURUSD H1 (2024-09-04 ~ 2024-12-31)
+- **三窗口**: 
+  - Amp: base+amp段 → 幅度归并级别预测
+  - Lat: lat段 → 时间归并级别预测
+  - All: 全部段 → 综合预测
+- **交互**: 方向键单K线滚动, 空格播放, 速度滑块, bar slider
+- **性能**: 2000 bars 计算 22s, HTML 3.2MB
+- **增量编码**: 
+  - Confirmed pivots: append-only list (20KB)
+  - Tentative: incremental dict (40KB)
+  - Predictions: incremental dict (3.1MB)
+  - JS端 binary search 重建每帧拐点序列
+
+### 13.3 关键数据发现
+- base(964) + amp(236) + lat(245) = 1445 segments for 2000 bars
+- 预测分布: Amp 5-9个, Lat 2-10个, All 13-15个 (每帧, max_preds=15)
+- 预测主要来自大跨度线段 (span 500+), 小线段预测很快过期
+
+### 13.4 证明死路的文件 (保留但不要使用)
+- `build_vector_store.py` — 60M向量存储构建器
+- `vector_query.py` — faiss k-NN评估
+- `eval_fast.py` — 采样快速评估
+- `full_precompute.py` — 51维聚合特征
+- `cluster_analysis.py` — k-means + shuffle test
+- `vecstore_h1/store.pkl` — 3.6GB向量存储
+
+## 14. 下一步方向（未完成）
+
+### 14.1 视觉验证
+- 打开 merge_v4.html 在浏览器中逐K线滚动
+- 观察预测线是否在合理位置, 是否随新结构出现而更新
+- 关键问题: 预测线的目标价格是否有"直觉上的合理性"?
+
+### 14.2 预测评估框架
+- 定义"预测命中": 实际价格到达预测目标价格的某个邻域
+- 对2000根K线进行回测: 命中率 / 时效性 / 方向准确率
+- 与随机预测对比 (shuffle test)
+
+### 14.3 多时间框架
+- 在M15 / H4 上运行同样的引擎, 检查结果一致性
+
+### 14.4 预测精炼
+- 当前C≈A假设太粗糙 (C的amp/time完全复制A)
+- 可能的改进: 考虑B段的回撤比例 → 调整C的预期幅度
 
 ---
 
-## 13. 与用户沟通的注意事项
+## 15. 与用户沟通的注意事项
 
 - **中文沟通**，代码/数据可英文
 - **不要美化结果**，用户要求brutal honesty和统计严格性
 - **每步必须验证** — 4层验证框架
 - **文件修改前git commit**
 - 用户的表达方式有时引用道家哲学，但背后是严格的数学/工程思维
-- **v3被视为商用基础架构** — 后续修改要慎重，保持向后兼容
+- **v3被视为商用底层基础架构** — 后续修改要慎重，保持向后兼容
 - **用户强调动态 = 无前瞻**: 不只是不看未来价格, 而是归并过程本身也是逐步的
+- **对称是多维连续特征向量**, 不是二元的。每个segment pair有"对称谱"
+- **预测是个案几何推演**, 不是统计模式匹配
 
 ---
 
-## 14. 快速验证命令
+## 16. 快速验证命令
 
 ```bash
-# 运行v3引擎 (200根K线)
+# 运行v4动态可视化 (2000 bars, ~22s, 输出3.2MB HTML)
+python3 -u /home/ubuntu/stage2_abc/visualize_v4.py
+
+# 运行v3引擎 (200根K线, 静态)
 python3 /home/ubuntu/stage2_abc/merge_engine_v3.py
 
-# 生成v3可视化
+# 生成v3可视化 (静态)
 python3 /home/ubuntu/stage2_abc/visualize_v3.py
 
 # 动态引擎验证
 python3 /home/ubuntu/stage2_abc/dynamic_engine.py
-
-# 全量预计算 (H1, ~50min)
-python3 -u /home/ubuntu/stage2_abc/full_precompute.py full
-
-# 聚类分析 (需要预计算数据)
-python3 /home/ubuntu/stage2_abc/cluster_analysis.py
 
 # 查看git状态
 cd /home/ubuntu/stage2_abc && git log --oneline
