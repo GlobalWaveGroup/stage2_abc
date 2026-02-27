@@ -93,8 +93,20 @@ def run_windowed_pipeline(df, window=200, stride=10, max_pool=300, max_preds=50)
                     'pts': gpvts
                 })
             
+            # Pool筛选: 
+            #   非fusion → 全保留 (amp/base/lat/extra 是骨架)
+            #   fusion → 分多空各Top5 by importance
+            non_fusion = [s for s in pruned if s['source'] != 'fusion']
+            fusion_segs = [s for s in pruned if s['source'] == 'fusion']
+            fusion_up = sorted([s for s in fusion_segs if s['price_end'] > s['price_start']],
+                              key=lambda s: -s.get('importance', 0))[:5]
+            fusion_dn = sorted([s for s in fusion_segs if s['price_end'] <= s['price_start']],
+                              key=lambda s: -s.get('importance', 0))[:5]
+            pool_filtered = non_fusion + fusion_up + fusion_dn
+            
             pool_global = []
-            for seg in pruned:
+            for seg in pool_filtered:
+                dr = 1 if seg['price_end'] > seg['price_start'] else -1
                 pool_global.append({
                     'bs': seg['bar_start'] + ws,
                     'be': seg['bar_end'] + ws,
@@ -103,10 +115,15 @@ def run_windowed_pipeline(df, window=200, stride=10, max_pool=300, max_preds=50)
                     'src': seg['source'][0],  # b/a/l/f
                     'imp': round(seg.get('importance', 0), 5),
                     'amp': round(seg['amplitude'], 5),
+                    'dr': dr,
                 })
             
+            # 预测筛选: 只保留 pred_time <= 50 的短程预测
+            short_preds = [p for p in preds if p['pred_time'] <= 50]
+            short_preds.sort(key=lambda p: -p['score'])
+            
             preds_global = []
-            for p in preds[:max_preds]:
+            for p in short_preds[:max_preds]:
                 pg = {
                     'tp': p['type'][0],  # m/c
                     'pd': p['pred_dir'],
@@ -278,18 +295,21 @@ function tog(btn,varName){{
 }}
 
 // 归并层级颜色
+// A1-A6 = 骨架/锚点，必须全部保留，画粗画亮
+// L0 base = 原始zigzag，可以很淡
+// T1-T2 lateral = 中等
 const snapColors = {{
-  'b': {{c:'rgba(255,215,0,A)', lw:0.5}},     // base: gold
-  'a': [                                         // amp: red-orange gradient
-    {{c:'rgba(255,100,30,A)', lw:1.0}},
-    {{c:'rgba(255,120,40,A)', lw:1.3}},
-    {{c:'rgba(255,140,50,A)', lw:1.6}},
-    {{c:'rgba(255,160,60,A)', lw:2.0}},
-    {{c:'rgba(240,170,70,A)', lw:2.3}},
-    {{c:'rgba(230,180,80,A)', lw:2.6}},
-    {{c:'rgba(220,190,90,A)', lw:3.0}},
+  'b': {{c:'rgba(255,215,0,A)', lw:0.4}},       // base L0: gold, very faint
+  'a': [                                           // amp A1-A6: 骨架! red-orange, bold
+    {{c:'rgba(255,80,20,A)',  lw:2.0}},            // A1
+    {{c:'rgba(255,110,30,A)', lw:2.5}},            // A2
+    {{c:'rgba(255,140,40,A)', lw:3.0}},            // A3
+    {{c:'rgba(255,165,50,A)', lw:3.5}},            // A4
+    {{c:'rgba(240,180,60,A)', lw:4.0}},            // A5
+    {{c:'rgba(230,195,70,A)', lw:4.5}},            // A6
+    {{c:'rgba(220,210,80,A)', lw:5.0}},            // A7+
   ],
-  'l': [                                         // lat: cyan-blue gradient
+  'l': [                                           // lat T1-T2: cyan-blue, moderate
     {{c:'rgba(50,220,255,A)', lw:1.5}},
     {{c:'rgba(70,200,245,A)', lw:2.0}},
     {{c:'rgba(90,180,235,A)', lw:2.5}},
@@ -347,20 +367,28 @@ function draw(){{
     cx.fillRect(x-bw/2,oY,bw,Math.max(1,cY-oY));
   }}
   
-  // === Pool segments ===
+  // === Pool segments (fusion top5 多空) ===
   if(showPool){{
     for(let i=0;i<pool.length;i++){{
       const s=pool[i];
       if(s.be<ws-10||s.bs>curBar+FUT)continue;
-      const alpha=Math.max(0.1, 0.5*(1-i/pool.length));
-      const lw=Math.max(0.3, 1.5*(1-i/pool.length));
       const isFusion=s.src==='f';
-      cx.strokeStyle=isFusion?
-        'rgba(180,120,255,'+alpha+')':
-        'rgba(150,150,180,'+alpha*0.5+')';
-      cx.lineWidth=lw;
-      cx.setLineDash(isFusion?[8,4]:[3,2]);
-      cx.beginPath();cx.moveTo(xS(s.bs),yS(s.ps));cx.lineTo(xS(s.be),yS(s.pe));cx.stroke();
+      if(isFusion){{
+        // Fusion: 多=青绿, 空=粉红, 粗虚线
+        const fc=s.dr===1?'rgba(60,220,160,0.55)':'rgba(220,80,120,0.55)';
+        cx.strokeStyle=fc;cx.lineWidth=1.8;cx.setLineDash([10,5]);
+        cx.beginPath();cx.moveTo(xS(s.bs),yS(s.ps));cx.lineTo(xS(s.be),yS(s.pe));cx.stroke();
+        // 端点小圆
+        cx.fillStyle=fc;cx.beginPath();cx.arc(xS(s.bs),yS(s.ps),2.5,0,Math.PI*2);cx.fill();
+        cx.beginPath();cx.arc(xS(s.be),yS(s.pe),2.5,0,Math.PI*2);cx.fill();
+      }}else{{
+        // 非fusion骨架: amp_extra浅橙, 其他很淡
+        const isAmp=s.src==='a';
+        const alpha=isAmp?0.3:0.12;
+        cx.strokeStyle=isAmp?'rgba(255,160,60,'+alpha+')':'rgba(150,150,180,'+alpha+')';
+        cx.lineWidth=isAmp?0.8:0.4;cx.setLineDash([3,2]);
+        cx.beginPath();cx.moveTo(xS(s.bs),yS(s.ps));cx.lineTo(xS(s.be),yS(s.pe));cx.stroke();
+      }}
     }}
   }}
   
@@ -372,14 +400,18 @@ function draw(){{
       if(pts.length<2)continue;
       let col,lw,dash=[];
       if(snap.t==='b'){{
-        col=snapColors.b.c.replace('A','0.25');lw=snapColors.b.lw;
+        // Base L0: very faint, just background reference
+        col=snapColors.b.c.replace('A','0.15');lw=snapColors.b.lw;
       }}else if(snap.t==='a'){{
+        // A1-A6 骨架: prominent, high alpha, bold line
         const sc=snapColors.a[Math.min(ampIdx,snapColors.a.length-1)];
-        col=sc.c.replace('A',String(0.35+ampIdx*0.08));lw=sc.lw;
+        const alpha=Math.min(0.95, 0.55+ampIdx*0.08);
+        col=sc.c.replace('A',String(alpha));lw=sc.lw;
         ampIdx++;
       }}else{{
+        // T1-T2 lateral: moderate
         const sc=snapColors.l[Math.min(latIdx,snapColors.l.length-1)];
-        col=sc.c.replace('A','0.85');lw=sc.lw;
+        col=sc.c.replace('A','0.75');lw=sc.lw;
         dash=[8+latIdx*2, 4+latIdx];
         latIdx++;
       }}
@@ -393,14 +425,25 @@ function draw(){{
       }}
       cx.stroke();
       
-      // 拐点标记 (高级快照)
-      if(pts.length<=30&&snap.t!=='b'){{
+      // 拐点标记
+      if(pts.length<=40&&snap.t!=='b'){{
         for(const pt of pts){{
           if(pt[0]<ws||pt[0]>curBar)continue;
           cx.fillStyle=col;cx.beginPath();
-          if(snap.t==='a')cx.arc(xS(pt[0]),yS(pt[1]),2,0,Math.PI*2);
-          else{{const x=xS(pt[0]),y=yS(pt[1]);cx.moveTo(x,y-3);cx.lineTo(x+3,y);cx.lineTo(x,y+3);cx.lineTo(x-3,y);}}
-          cx.fill();
+          if(snap.t==='a'){{
+            // A级别: 较大圆点，随级别递增 (3→5px)
+            const r=Math.min(5, 3+ampIdx*0.4);
+            cx.arc(xS(pt[0]),yS(pt[1]),r,0,Math.PI*2);
+            cx.fill();
+            // 高级别加白色描边
+            if(ampIdx>=3){{cx.strokeStyle='rgba(255,255,255,0.35)';cx.lineWidth=0.8;cx.stroke();}}
+          }}else{{
+            // T级别: 菱形
+            const sz=3+latIdx;
+            const x=xS(pt[0]),y=yS(pt[1]);
+            cx.moveTo(x,y-sz);cx.lineTo(x+sz,y);cx.lineTo(x,y+sz);cx.lineTo(x-sz,y);
+            cx.fill();
+          }}
         }}
       }}
     }}
