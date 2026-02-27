@@ -1,5 +1,5 @@
 # 天枢 TianShu — Session Memo (给下一个AI session)
-# 写于: 2026-02-27 (v4.2 session)
+# 写于: 2026-02-27 (FSD v5 session)
 # 写给: 下一次对话的AI，请完整阅读后再动手
 
 ---
@@ -10,7 +10,7 @@
 2. 再读本文件 — 当前工作状态、已踩的坑、待解决的问题
 3. **不要信任本目录下任何.py文件的注释/docstring版本号** — 代码多次被覆盖，注释可能是旧的
 4. **以代码实际行为为准，不以注释为准**
-5. **当前可信代码: merge_engine_v3.py + dynamic_engine.py + visualize_v4.py** — v3是静态base, v4是动态可视化
+5. **当前可信代码: merge_engine_v3.py + dynamic_engine.py + fsd_engine.py + visualize_v5.py** — v3是静态base, FSD是统一框架, v5是当前可视化
 
 ---
 
@@ -297,28 +297,79 @@ H1→L8, L4→H2, H7→L2 等连接在v2中缺失。
 - `cluster_analysis.py` — k-means + shuffle test
 - `vecstore_h1/store.pkl` — 3.6GB向量存储
 
-## 14. 下一步方向（未完成）
+## 14. FSD统一框架 (2026-02-27) — 当前核心
 
-### 14.1 视觉验证
-- 打开 merge_v4.html 在浏览器中逐K线滚动
-- 观察预测线是否在合理位置, 是否随新结构出现而更新
-- 关键问题: 预测线的目标价格是否有"直觉上的合理性"?
+### 14.1 设计哲学
+- **FSD = Full Self-Driving**: 感知→预测(多轨迹)→规划→执行→反馈
+- **三个用途共享一个引擎**:
+  1. 人眼逐K线检查 (前端可视化)
+  2. 后台大规模回测 (批量计算)
+  3. ML训练 (上帝视角标注 → 学习 state→action)
+- **策略是矩阵不是标量**: 方向、TP、SL、仓位各自是向量/矩阵
+- **每根K线必须与所有预测比较**: 正向离差(小概率大机会) vs 负向离差(常态,核心算边界)
 
-### 14.2 预测评估框架
-- 定义"预测命中": 实际价格到达预测目标价格的某个邻域
-- 对2000根K线进行回测: 命中率 / 时效性 / 方向准确率
-- 与随机预测对比 (shuffle test)
+### 14.2 ✅ fsd_engine.py (~660行)
+- `Trajectory`: 预测轨迹生命周期 (发出→追踪→过期/命中/淘汰)
+  - 每根K线 update: progress, deviation, MFE, MAE
+  - 淘汰阈值: sqrt(pred_time/10) 缩放, dev_limit=min(1.5*scale,5.0)
+- `StateSnapshot`: 一根K线时刻的完整状态快照
+  - ZG结构 + 所有活跃轨迹 + 共识 + best_deviation
+  - `to_vector()` → 63维固定向量 (15 base + 8×6 traj)
+- `FSDEngine.step(h,l,o,c) → StateSnapshot`
+  - DynamicZG + DynamicMerger → 新拐点 → predict_symmetric_image → 新轨迹
+  - 2000 bars ~30s, 保持 6-9 活跃轨迹
+- `OracleLabeler.label_batch()`: 上帝视角标注
+  - 方向(10/20/50), MFE双向, 最优TP方向, 最优R:R, 最优轨迹
 
-### 14.3 多时间框架
+### 14.3 ✅ visualize_v5.py (~520行) + fsd_v5.html (6.2MB)
+- **单窗口全景**: K线 + ZG + 所有活跃轨迹 + 预测线 + 边界包络 + 离差标注
+- **底部面板**: 每条轨迹的 type/dir/deviation/progress/MFE/MAE/score/TP 实时更新
+- **状态栏**: 共识方向, 活跃轨迹数(多/空), best deviation, Oracle信息
+- **Checkbox开关**: Oracle(上帝方向), Boundary(模长边界), Deviation(离差标注)
+- **交互**: 方向键单K, 空格播放, 速度滑块, bar slider
+- **颜色编码**: Mirror=金色, Center=青色; 多=绿, 空=红; 离差<0.3=绿, <1=橙, >1=红
+- **增量编码优化**: PVT只存visible窗口拐点, 17.5MB→6.2MB
+
+### 14.4 关键负面结果(预测评估, 已证明)
+- **方向准确率整体: 52.7%** (几乎等于随机)
+- **Center预测有信号** (z=15.32 reach100), Mirror无信号
+- **小幅(<30 pips)**: 66%方向准, 但可能是trivial均值回归
+- **大幅(>80 pips)**: 无信号
+- **目标价被系统性回避** (z=-17.14), 比随机更差
+- **根因**: 85.7%预测来自span 500+线段, horizon仅50 bars → 时间尺度错配
+- **静态TP/SL策略**: z-scores从-40到-216 (massive systematic loss)
+- **反向也失败**: 反向也是负z-score
+- **用户洞察**: 问题不是预测本身, 是机械化静态评估。需要动态追踪 — 这就是FSD的动机
+
+### 14.5 Oracle标注结果
+- 最优轨迹准确度: mean 0.625 (culling后)
+- 活跃轨迹数: mean ~7-9, max 30
+
+## 15. 下一步方向（未完成）
+
+### 15.1 ⬜ 视觉验证 (CRITICAL BLOCKER)
+- 打开 fsd_v5.html 在浏览器中逐K线滚动
+- 用户强调: **没有可视化验证，后面一切都是空中楼阁**
+- 检查: 轨迹生成/消亡是否合理, 离差演化是否直观, 边界包络是否有意义
+- 找到具体的case, 讨论"在这个时刻应该怎么做"
+
+### 15.2 ⬜ 策略矩阵设计
+- 方向: 多/空/观望 (不是0/1, 而是置信度连续值)
+- TP: 基于最优轨迹的目标价 (动态调整)
+- SL: 基于模长边界/MAE分布
+- 仓位: 基于离差和共识强度
+
+### 15.3 ⬜ ML Pipeline
+- 输入: 63维状态向量 (StateSnapshot.to_vector())
+- 标签: Oracle标注 (最优方向, 最优R:R, 最优轨迹)
+- 目标: 学习 state→strategy 映射
+
+### 15.4 ⬜ 多时间框架
 - 在M15 / H4 上运行同样的引擎, 检查结果一致性
-
-### 14.4 预测精炼
-- 当前C≈A假设太粗糙 (C的amp/time完全复制A)
-- 可能的改进: 考虑B段的回撤比例 → 调整C的预期幅度
 
 ---
 
-## 15. 与用户沟通的注意事项
+## 16. 与用户沟通的注意事项
 
 - **中文沟通**，代码/数据可英文
 - **不要美化结果**，用户要求brutal honesty和统计严格性
@@ -332,9 +383,15 @@ H1→L8, L4→H2, H7→L2 等连接在v2中缺失。
 
 ---
 
-## 16. 快速验证命令
+## 17. 快速验证命令
 
 ```bash
+# 🔑 运行FSD v5可视化 (2000 bars, ~30s, 输出6.2MB HTML)
+python3 -u /home/ubuntu/stage2_abc/visualize_v5.py
+
+# 运行FSD引擎独立测试 (2000 bars, ~30s + oracle标注)
+python3 -u /home/ubuntu/stage2_abc/fsd_engine.py
+
 # 运行v4动态可视化 (2000 bars, ~22s, 输出3.2MB HTML)
 python3 -u /home/ubuntu/stage2_abc/visualize_v4.py
 
