@@ -30,7 +30,8 @@ def run_engine(df, limit_bars=None):
     opens = df['open'].values.astype(float)[:n]
     closes = df['close'].values.astype(float)[:n]
     
-    engine = FSDEngine(start_pred=50, max_trajs=30, pred_horizon=50)
+    engine = FSDEngine(start_pred=200, max_trajs=30, pred_horizon=50,
+                       fusion_window=200, fusion_stride=10)
     
     # 每帧数据
     klines = []        # [o,h,l,c]
@@ -96,10 +97,12 @@ def run_engine(df, limit_bars=None):
     elapsed = time.time() - t0
     print(f"完成: {n} bars, {elapsed:.1f}s")
     
-    # 上帝标注
+    # 上帝标注 (复用第一遍的snapshots)
     print("上帝标注...")
+    # 需要收集snapshots for oracle
     snaps_for_oracle = []
-    engine2 = FSDEngine(start_pred=50, max_trajs=30, pred_horizon=50)
+    engine2 = FSDEngine(start_pred=200, max_trajs=30, pred_horizon=50,
+                        fusion_window=200, fusion_stride=10)
     for i in range(n):
         snap = engine2.step(highs[i], lows[i], opens[i], closes[i])
         snaps_for_oracle.append(snap)
