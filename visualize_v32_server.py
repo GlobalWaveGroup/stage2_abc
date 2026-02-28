@@ -157,14 +157,18 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
             global_span = float(window)
             
             pred_data = []
-            for p in short_preds[:30]:
+            for p in short_preds[:40]:  # 增加到40条(新增了更多类型)
                 # 归一化模长 R = sqrt((amp/global_amp)² + (time/global_span)²)
                 norm_amp = p['A_amp'] / max(global_amp, 1e-10)
                 norm_time = p['A_time'] / max(global_span, 1)
                 mod_R = math.sqrt(norm_amp**2 + norm_time**2)
                 
+                # 类型编码: m=mirror, c=center, t=triangle, o=modonly
+                tp_code = {'mirror': 'm', 'center': 'c',
+                           'triangle': 't', 'modonly': 'o'}.get(p['type'], p['type'][0])
+                
                 pg = {
-                    'tp': p['type'][0],  # m/c
+                    'tp': tp_code,
                     'pd': p['pred_dir'],
                     'as': p['A_start'] + start,
                     'ae': p['A_end'] + start,
@@ -184,11 +188,30 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
                     'ga': round(global_amp, 5),      # 全局幅度
                     'gs': global_span,               # 全局时间跨度
                 }
-                if p['type'] == 'center':
+                
+                # B段信息 (center, triangle, modonly 都有)
+                if p['type'] in ('center', 'triangle', 'modonly'):
                     pg['bs'] = p['B_start'] + start
                     pg['be'] = p['B_end'] + start
                     pg['bps'] = round(p['B_price_start'], 5)
                     pg['bpe'] = round(p['B_price_end'], 5)
+                
+                # 三角专属参数
+                if p['type'] == 'triangle':
+                    pg['st'] = p['tri_type'][0]  # 'c'=converging, 'd'=diverging
+                    pg['ar'] = p['amp_ratio']     # B/A幅度比
+                    pg['tr'] = p['time_ratio']    # B/A时间比
+                    # 三角边界线 (偏移到全局坐标)
+                    pg['bt'] = [[b[0] + start, round(b[1], 5)]
+                                for b in p['boundary_top']]
+                    pg['bb'] = [[b[0] + start, round(b[1], 5)]
+                                for b in p['boundary_bot']]
+                
+                # ModOnly专属参数
+                if p['type'] == 'modonly':
+                    pg['ms'] = p.get('mod_sym', 0)    # 模长对称度
+                    pg['asy'] = p.get('amp_sym', 0)    # 幅度对称度
+                
                 pred_data.append(pg)
     
     if show_pvt and pi:

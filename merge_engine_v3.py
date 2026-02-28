@@ -1189,9 +1189,9 @@ def predict_symmetric_image(pool, pivot_info, current_bar, max_pool_size=500):
     对称映像预测 — 路径一核心算法。
     
     给定当前时刻的波段池，对每个可能的对称结构（左臂A + 中心/轴），
-    用"C≈A"假设推演右臂C'的预测目标。
+    推演右臂C'的预测目标。
     
-    两种预测类型：
+    四种预测类型：
     
     A. Mirror预测（轴对称）：
        已知左臂A到达折返点P → 预测C'从P出发，方向相反于A
@@ -1199,11 +1199,23 @@ def predict_symmetric_image(pool, pivot_info, current_bar, max_pool_size=500):
        → 目标价格 = P_price ± A_amp (方向相反)
        → 目标时间 = P_bar + A_time
     
-    B. Center预测（中心对称）：
+    B. Center预测（中心对称 / C≈A经典）：
        已知左臂A和中间段B → 预测C'从B_end出发，方向同A
        C'_amp ≈ A_amp, C'_time ≈ A_time
        → 目标价格 = B_end_price + A_amp * A_direction
        → 目标时间 = B_end_bar + A_time
+    
+    C. Triangle预测（三角收敛/发散）：
+       已知A和B，B/A比率(r)决定C的缩放
+       收敛 (r < 0.85): amp_C = amp_B * r (等比递减)
+       发散 (r > 1.18): amp_C = amp_B * r (等比递增)
+       → 目标价格 = B_end_price + pred_dir * amp_C
+       → 目标时间 = B_end_bar + time_A * r (时间也按比率缩放)
+    
+    D. ModOnly预测（模长守恒但非经典对称）：
+       mod_C ≈ mod_A 但 amp_C ≠ amp_A
+       直接输出弧线参数，弧线本身表达所有可能的amp/time组合
+       仅在非经典、非三角时产生（避免重复）
     
     筛选条件：
     - 预测目标必须在current_bar之后（才有预测价值）
@@ -1442,6 +1454,213 @@ def predict_symmetric_image(pool, pivot_info, current_bar, max_pool_size=500):
                     'rel_amp': rel_amp,
                     'retrace_ratio': round(retrace_ratio, 4),
                     'score': pred_imp * rel_amp,
+                })
+    
+    # === C. Triangle预测（三角收敛/发散） ===
+    # 在center搜索的基础上，对B/A比率不接近1的情况，用等比缩放预测C
+    # 收敛: ratio < 0.85 → amp_C = amp_B * ratio (振幅递减)
+    # 发散: ratio > 1.18 → amp_C = amp_B * ratio (振幅递增)
+    
+    # 全局统计(用于模长计算)
+    all_spans = [s['span'] for s in pool if s['span'] > 0]
+    global_span = max(all_spans) if all_spans else 1
+    
+    for p2 in list(end_at.keys()):
+        for seg_A in end_at[p2]:
+            dir_A = _seg_dir(seg_A)
+            amp_A = seg_A['amplitude']
+            time_A = seg_A['span']
+            p1 = seg_A['bar_start']
+            
+            if amp_A < 1e-10 or time_A < 1:
+                continue
+            
+            for seg_B in start_at.get(p2, []):
+                dir_B = _seg_dir(seg_B)
+                p3 = seg_B['bar_end']
+                amp_B = seg_B['amplitude']
+                time_B = seg_B['span']
+                
+                # B方向应与A相反
+                if dir_B == dir_A:
+                    continue
+                if not (p1 < p2 < p3):
+                    continue
+                if amp_B < 1e-10 or time_B < 1:
+                    continue
+                
+                # B/A幅度比率
+                amp_ratio = amp_B / max(amp_A, 1e-10)
+                time_ratio = time_B / max(time_A, 1)
+                
+                # 判断是否为三角形态 (排除经典对称区间 0.85-1.18)
+                # 过滤极端比率: 收敛不低于0.15, 发散不超过6.0
+                is_converging = 0.15 < amp_ratio < 0.85
+                is_diverging = 1.18 < amp_ratio < 6.0
+                
+                if not (is_converging or is_diverging):
+                    continue  # 经典对称区间 → 已在上面的center预测中处理
+                
+                # === D. ModOnly预测 (附加) ===
+                # 检查此AB对是否满足模长守恒条件
+                # ModOnly与三角可以并存: 三角给出缩放直线目标, ModOnly给出弧线目标
+                norm_amp_A = amp_A / max(global_amp, 1e-10)
+                norm_time_A = time_A / max(global_span, 1)
+                mod_A = math.sqrt(norm_amp_A**2 + norm_time_A**2)
+                
+                norm_amp_B = amp_B / max(global_amp, 1e-10)
+                norm_time_B = time_B / max(global_span, 1)
+                mod_B = math.sqrt(norm_amp_B**2 + norm_time_B**2)
+                
+                mod_sym_val = min(mod_A, mod_B) / max(mod_A, mod_B, 1e-10)
+                amp_sym_val = 1.0 - abs(amp_A - amp_B) / max(amp_A, amp_B, 1e-10)
+                
+                if mod_sym_val > 0.80 and amp_sym_val < 0.85:
+                    # 模长守恒但幅度不对称 → 附加弧线预测
+                    mo_pred_dir = dir_A
+                    mo_p3_price = seg_B['price_end']
+                    mo_pred_target_price = mo_p3_price + mo_pred_dir * amp_A
+                    mo_pred_target_bar = p3 + time_A
+                    
+                    if mo_pred_target_bar > p1:
+                        mo_key = ('MO', p1, p2, p3, mo_pred_dir)
+                        if mo_key not in seen:
+                            seen.add(mo_key)
+                            
+                            mo_actual_C = None
+                            mo_actual_progress = 0.0
+                            for seg_R in start_at.get(p3, []):
+                                dr = _seg_dir(seg_R)
+                                if dr == mo_pred_dir and seg_R['bar_end'] > p3:
+                                    if mo_actual_C is None or seg_R['bar_end'] > mo_actual_C['bar_end']:
+                                        mo_actual_C = seg_R
+                            if mo_actual_C:
+                                mo_actual_progress = min(1.0, mo_actual_C['amplitude'] / max(amp_A, 1e-10))
+                            
+                            mo_imps = [pivot_info.get(b, {}).get('importance', 0) for b in [p1, p2, p3]]
+                            mo_pred_imp = sum(mo_imps) / len(mo_imps)
+                            mo_rel_amp = amp_A / max(global_amp, 1e-10)
+                            
+                            predictions.append({
+                                'type': 'modonly',
+                                'sym_type': 'modulus_conservation',
+                                
+                                'A_start': p1, 'A_end': p2,
+                                'A_price_start': seg_A['price_start'],
+                                'A_price_end': seg_A['price_end'],
+                                'A_amp': amp_A, 'A_time': time_A, 'A_dir': dir_A,
+                                
+                                'B_start': p2, 'B_end': p3,
+                                'B_price_start': seg_B['price_start'],
+                                'B_price_end': seg_B['price_end'],
+                                'B_amp': amp_B, 'B_time': time_B,
+                                'retrace_ratio': round(amp_ratio, 4),
+                                
+                                'mod_A': round(mod_A, 6),
+                                'mod_B': round(mod_B, 6),
+                                'mod_sym': round(mod_sym_val, 4),
+                                'amp_sym': round(amp_sym_val, 4),
+                                
+                                'pred_dir': mo_pred_dir,
+                                'pred_start_bar': p3,
+                                'pred_start_price': mo_p3_price,
+                                'pred_target_price': mo_pred_target_price,
+                                'pred_target_bar': mo_pred_target_bar,
+                                'pred_amp': amp_A,
+                                'pred_time': time_A,
+                                
+                                'actual_C': mo_actual_C,
+                                'actual_progress': mo_actual_progress,
+                                'importance': mo_pred_imp,
+                                'rel_amp': mo_rel_amp,
+                                'score': mo_pred_imp * mo_rel_amp * 0.7,
+                            })
+                
+                # --- 三角预测 ---
+                pred_dir = dir_A  # C方向同A
+                p3_price = seg_B['price_end']
+                
+                # 等比缩放: amp_C = amp_B * ratio
+                pred_amp_C = amp_B * amp_ratio
+                pred_time_C = max(1, int(time_B * time_ratio))
+                
+                # 三角类型
+                tri_type = 'converging' if is_converging else 'diverging'
+                
+                pred_target_price = p3_price + pred_dir * pred_amp_C
+                pred_target_bar = p3 + pred_time_C
+                
+                if pred_target_bar <= p1:
+                    continue
+                
+                key = ('T', p1, p2, p3, pred_dir, tri_type)
+                if key in seen:
+                    continue
+                seen.add(key)
+                
+                # 实际C段
+                actual_C = None
+                actual_progress = 0.0
+                for seg_R in start_at.get(p3, []):
+                    dir_R = _seg_dir(seg_R)
+                    if dir_R == pred_dir and seg_R['bar_end'] > p3:
+                        if actual_C is None or seg_R['bar_end'] > actual_C['bar_end']:
+                            actual_C = seg_R
+                if actual_C:
+                    actual_progress = min(1.0, actual_C['amplitude'] / max(pred_amp_C, 1e-10))
+                
+                imp_bars = [p1, p2, p3]
+                imps = [pivot_info.get(b, {}).get('importance', 0) for b in imp_bars]
+                pred_imp = sum(imps) / len(imps)
+                rel_amp = pred_amp_C / max(global_amp, 1e-10)
+                
+                predictions.append({
+                    'type': 'triangle',
+                    'sym_type': tri_type,  # 'converging' or 'diverging'
+                    
+                    # 左臂A
+                    'A_start': p1, 'A_end': p2,
+                    'A_price_start': seg_A['price_start'],
+                    'A_price_end': seg_A['price_end'],
+                    'A_amp': amp_A, 'A_time': time_A, 'A_dir': dir_A,
+                    
+                    # 中间段B
+                    'B_start': p2, 'B_end': p3,
+                    'B_price_start': seg_B['price_start'],
+                    'B_price_end': seg_B['price_end'],
+                    'B_amp': amp_B, 'B_time': time_B,
+                    
+                    # 三角参数
+                    'amp_ratio': round(amp_ratio, 4),       # B/A幅度比
+                    'time_ratio': round(time_ratio, 4),     # B/A时间比
+                    'tri_type': tri_type,
+                    
+                    # 预测C'
+                    'pred_dir': pred_dir,
+                    'pred_start_bar': p3,
+                    'pred_start_price': p3_price,
+                    'pred_target_price': pred_target_price,
+                    'pred_target_bar': pred_target_bar,
+                    'pred_amp': pred_amp_C,
+                    'pred_time': pred_time_C,
+                    
+                    # 三角边界线 (用于可视化)
+                    # 上边界: 连接 A段同方向端点
+                    # 下边界: 连接 A段反方向端点
+                    'boundary_top': [
+                        [p1, seg_A['price_start'] if dir_A == 1 else seg_A['price_end']],
+                        [p3, seg_B['price_start'] if dir_A == 1 else seg_B['price_end']],
+                    ],
+                    'boundary_bot': [
+                        [p2, seg_A['price_end'] if dir_A == 1 else seg_A['price_start']],
+                        [p3, seg_B['price_end'] if dir_A == 1 else seg_B['price_start']],
+                    ],
+                    
+                    'actual_C': actual_C,
+                    'actual_progress': actual_progress,
+                    'importance': pred_imp,
+                    'rel_amp': rel_amp,
+                    'score': pred_imp * rel_amp * 0.85,  # 略低于经典对称
                 })
     
     # 过滤和评分优化
