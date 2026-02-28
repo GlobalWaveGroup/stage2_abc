@@ -200,3 +200,65 @@ DPI修复完成，apple2可正常查看v32可视化。
 **重要发现**: m1↔apple2 通过WireGuard VPN互通，apple2可直接浏览器访问 `http://10.10.0.4:8765` 实时查看。这建立了 **开发(m1) → 验证(apple2)** 的闭环。
 
 ---
+
+## #003 — v32: 完整移植v3全部9项缺失功能
+
+### Commit
+
+`63e9519` — v32: port all 9 missing features from v3 (symmetry, extra segs, arrowheads, target lines, progress, deviation, 5-dim hover, sliders)
+
+### 做了什么
+
+用户明确指出v32相比v3"缺斤少两，东拼西凑"，要求以v3为标准补全所有功能。
+逐项对比v3(963行)代码，移植全部9项缺失功能到v32。
+
+**Server端 (visualize_v32_server.py):**
+- 新增 `find_symmetric_structures` 导入和调用
+- 新增 `show_sym`, `show_extra` toggle开关
+- 新增 `min_imp`, `peak_n`, `valley_n` 滑块参数
+- Extra segments: 从 `full_merge_engine` 结果中提取并按label分组
+- Symmetry: 调用 `find_symmetric_structures(pruned, pi, top_n=200)`，偏移坐标
+- Predictions: 新增 `prog` (actual_progress), `cb`/`cp` (mirror center bar/price)
+- Pivots: 改为分离peaks/valleys结构，服务端按slider截取
+
+**Frontend端 (visualize_v32.html):**
+1. **Symmetry structures**: A-B-C三波着色 (A=方向色, B=灰虚线, C=同A虚线), 轴心菱形标记, score标签
+2. **Extra segments**: 按label分组, amp/lat颜色区分, 虚线渲染
+3. **Arrowheads**: 所有预测C'线段末端箭头 (弧线末端 + 三角末端 + fallback直线末端)
+4. **Target price horizontal line**: 淡色虚线水平标记目标价
+5. **Progress indicator**: 绿色实线显示C段已展开部分
+6. **Deviation annotation**: 当前K线vs预期路径的偏差 (±N pips)
+7. **Mousemove 5-dim vector**: 悬停对称结构时显示 amp/time/mod/slope/cplx 5维向量
+8. **Min importance slider**: 全局最低重要性门槛控制
+9. **Peak/Valley sliders**: 分别控制显示的峰/谷数量
+
+新增3个helper函数: `drawArrowhead()`, `drawTargetLine()`, `drawProgress()`, `drawDeviation()`
+
+### 关键数据
+
+WebSocket测试 (window=100, end_bar=200, 全功能开启):
+- 计算时间: 175ms
+- Extra: 8组, 83段
+- Pool: 163段 (min_imp=0)
+- Symmetry: 200结构
+- Predictions: 658条 (含prog字段, mirror有cb/cp, triangle有st/ar)
+- Pivots: 10pk/10vl (总24pk/24vl)
+
+### AI评估
+
+这次修改的本质是**基于v3参考实现的功能移植**，而非重新发明。策略正确：
+- 从v3逐行对照提取每个功能的渲染逻辑
+- 适配v32的WebSocket架构（数据从server获取，而非v3的静态嵌入）
+- 保留v32已有的4种预测类型 + 弧线渲染（v3只有mirror/center直线）
+
+风险: 前端代码量从883行增至~1000行，但结构清晰（helper函数分离），可维护性可接受。
+
+### 用户反馈
+
+（待用户在apple2上验证）
+
+### 结论
+
+（待用户确认后补充）
+
+---
