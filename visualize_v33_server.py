@@ -320,6 +320,10 @@ def index(request: Request):
         html = f.read()
     os.unlink(tmp)
 
+    # === 注入CSS ===
+    extra_css = '<style>.lhItem{padding:3px 8px;cursor:pointer;color:#ccc;font-size:11px;font-family:monospace;border-bottom:1px solid #222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.lhItem:hover{background:#223;}</style>'
+    html = html.replace('</head>', extra_css + '</head>', 1)
+
     # === 注入导航栏 ===
     nav_html = f'''
 <div style="background:#1a1a2e;padding:6px 12px;margin-bottom:4px;border:1px solid #333;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -999,7 +1003,7 @@ function filterLabelHist() {
   if(filtered.length === 0) { hist.style.display='none'; return; }
   let h = '';
   for(const lb of filtered) {
-    h += '<div onclick="pickLabel(this)" style="padding:3px 8px;cursor:pointer;color:#ccc;font-size:11px;font-family:monospace;border-bottom:1px solid #222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onmouseover="this.style.background=\'#223\'" onmouseout="this.style.background=\'transparent\'">' + lb + '</div>';
+    h += '<div class="lhItem" onclick="pickLabel(this)">' + lb + '</div>';
   }
   hist.innerHTML = h;
   hist.style.display = 'block';
