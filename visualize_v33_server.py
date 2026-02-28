@@ -72,6 +72,8 @@ async def annotate(request: Request):
             'idx': i + 1,
             'b1': b1, 'p1': round(p1, 5),
             'b2': b2, 'p2': round(p2, 5),
+            'lbl1': seg.get('lbl1', f'b{b1}'),
+            'lbl2': seg.get('lbl2', f'b{b2}'),
             'amp': round(amp, 5),
             'time': time_span,
             'dir': direction,
@@ -511,9 +513,11 @@ function renderSlot(idx) {
   }
   const d = seg.p2 > seg.p1 ? '↑' : '↓';
   const dc = seg.p2 > seg.p1 ? '#4f4' : '#f44';
+  const lbl1 = seg.lbl1 || barToLabel(seg.b1);
+  const lbl2 = seg.lbl2 || barToLabel(seg.b2);
   box.innerHTML =
-    '<div style="color:#aaa;">S' + (idx+1) + ' <span style="color:' + dc + ';">' + d + '</span> <span style="color:#668;font-size:9px;">' + (seg.source||'') + '</span></div>' +
-    '<div style="color:#8cf;font-size:9px;">b' + seg.b1 + ' ' + seg.p1.toFixed(5) + '</div>' +
+    '<div style="color:#aaa;">S' + (idx+1) + ' <span style="color:#ff0;font-weight:bold;">' + lbl1 + '→' + lbl2 + '</span> <span style="color:' + dc + ';">' + d + '</span></div>' +
+    '<div style="color:#8cf;font-size:9px;">b' + seg.b1 + ' ' + seg.p1.toFixed(5) + ' <span style="color:#556;">' + (seg.source||'') + '</span></div>' +
     '<div style="color:#fc8;font-size:9px;">b' + seg.b2 + ' ' + seg.p2.toFixed(5) + '</div>';
   box.style.borderColor = (idx === annActive) ? '#f0c040' : '#4a4';
 }
@@ -606,8 +610,29 @@ function checkContinuity(slotIdx, seg) {
   if(slotIdx === 0) return true;  // first segment, no constraint
   const prev = annSlots[slotIdx - 1];
   if(!prev) return true;  // previous slot empty, allow (will validate on submit)
-  // Must share endpoint: prev.b2 == seg.b1 (bar must match)
   return prev.b2 === seg.b1;
+}
+
+// Find pivot label (H3/L5) for a given bar
+function barToLabel(bar) {
+  for(const p of PEAKS) { if(p.bar === bar) return p.label; }
+  for(const v of VALS) { if(v.bar === bar) return v.label; }
+  return 'b' + bar;
+}
+
+// Try to find a bridge segment connecting prevEnd to segStart
+function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
+  let best = null, bestImp = -1;
+  for(const s of allSegs) {
+    if(s.b1 === prevEndBar && s.b2 === segStartBar) {
+      // Prefer higher importance (fusion > lat > amp > base)
+      const imp = s.source.startsWith('FUS:') ? 3 :
+                  s.source.startsWith('L') ? 2 :
+                  s.source.startsWith('A') ? 1 : 0;
+      if(imp > bestImp) { bestImp = imp; best = s; }
+    }
+  }
+  return best;
 }
 
 // Double-click handler for segment selection
@@ -618,7 +643,7 @@ cv.addEventListener('dblclick', function(e) {
   const my = e.clientY - rect.top;
 
   const allSegs = collectVisibleSegs();
-  let best = null, bestDist = 20;  // 20px threshold
+  let best = null, bestDist = 20;
 
   for(const seg of allSegs) {
     const d = distToSeg(mx, my, seg);
@@ -633,22 +658,40 @@ cv.addEventListener('dblclick', function(e) {
     return;
   }
 
-  // Check continuity
+  // Check continuity — if not continuous, try to auto-fill bridge (B segment)
   if(!checkContinuity(annActive, best)) {
     const prev = annSlots[annActive - 1];
-    setAnnotStatus('Not continuous! S' + annActive + ' end=b' + prev.b2 + ' but clicked b' + best.b1 + '→b' + best.b2, '#f88');
-    return;
+    if(prev) {
+      // Try to find a bridge segment: prev.b2 → best.b1
+      const bridge = findBridgeSeg(prev.b2, best.b1, allSegs);
+      if(bridge) {
+        // Auto-fill bridge as current slot, then put best in next slot
+        annSlots[annActive] = { b1: bridge.b1, p1: bridge.p1, b2: bridge.b2, p2: bridge.p2, source: bridge.source, lbl1: barToLabel(bridge.b1), lbl2: barToLabel(bridge.b2) };
+        renderSlot(annActive);
+        const bridgeSlot = annActive;
+        annActive++;
+        if(annActive < ANN_MAX) {
+          annSlots[annActive] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2, source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
+          renderSlot(annActive);
+          setAnnotStatus('Auto-filled S' + (bridgeSlot+1) + ' as bridge (' + bridge.source + '), S' + (annActive+1) + ': ' + barToLabel(best.b1) + '→' + barToLabel(best.b2), '#8f8');
+          drawAnnotHighlights();
+          if(annActive < ANN_MAX - 1) setActiveSlot(annActive + 1);
+          return;
+        }
+      }
+      // No bridge found
+      setAnnotStatus('Not continuous! ' + barToLabel(prev.b2) + '(b' + prev.b2 + ') → ' + barToLabel(best.b1) + '(b' + best.b1 + ') no bridge found', '#f88');
+      return;
+    }
   }
 
   // Fill slot
-  annSlots[annActive] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2, source: best.source };
+  annSlots[annActive] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2, source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
   renderSlot(annActive);
-  setAnnotStatus('S' + (annActive+1) + ': b' + best.b1 + '→b' + best.b2 + ' (' + best.source + ')', '#8f8');
+  setAnnotStatus('S' + (annActive+1) + ': ' + barToLabel(best.b1) + '→' + barToLabel(best.b2) + ' (' + best.source + ')', '#8f8');
 
-  // Highlight selected segment on canvas
   drawAnnotHighlights();
 
-  // Auto-advance to next slot
   if(annActive < ANN_MAX - 1) {
     setActiveSlot(annActive + 1);
   }
@@ -720,13 +763,15 @@ function drawAnnotHighlights() {
     cx.arc(xS(seg.b2), yS(seg.p2), 4, 0, Math.PI*2);
     cx.fill();
 
-    // Label
+    // Label with pivot names
     cx.fillStyle = 'hsl(' + hue + ', 100%, 85%)';
     cx.font = 'bold 11px monospace';
     cx.textAlign = 'center';
     const smx = (xS(seg.b1) + xS(seg.b2)) / 2;
     const smy = (yS(seg.p1) + yS(seg.p2)) / 2;
-    cx.fillText('S' + (i+1), smx, smy - 8);
+    const sl1 = seg.lbl1 || barToLabel(seg.b1);
+    const sl2 = seg.lbl2 || barToLabel(seg.b2);
+    cx.fillText('S' + (i+1) + ' ' + sl1 + '→' + sl2, smx, smy - 8);
   }
   cx.restore();
   cx.setLineDash([]);
