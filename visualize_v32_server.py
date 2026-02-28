@@ -16,6 +16,7 @@ TODO: 后续集成 FSD 系统
 import sys
 import json
 import time
+import math
 import argparse
 
 sys.path.insert(0, '/home/ubuntu/stage2_abc')
@@ -150,8 +151,18 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
             short_preds = [p for p in preds if p['pred_time'] <= 50]
             short_preds.sort(key=lambda p: -p['score'])
             
+            # 归一化参数 (用于模长弧线计算)
+            # global_amp = 窗口内的价格极差, global_span = 窗口长度
+            global_amp = float(hw.max() - lw.min())
+            global_span = float(window)
+            
             pred_data = []
             for p in short_preds[:30]:
+                # 归一化模长 R = sqrt((amp/global_amp)² + (time/global_span)²)
+                norm_amp = p['A_amp'] / max(global_amp, 1e-10)
+                norm_time = p['A_time'] / max(global_span, 1)
+                mod_R = math.sqrt(norm_amp**2 + norm_time**2)
+                
                 pg = {
                     'tp': p['type'][0],  # m/c
                     'pd': p['pred_dir'],
@@ -166,6 +177,12 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
                     'pa': round(p['pred_amp'], 5),
                     'pt': p['pred_time'],
                     'sc': round(p['score'], 5),
+                    # 弧线参数
+                    'aa': round(p['A_amp'], 5),     # A段原始幅度
+                    'at': p['A_time'],               # A段原始时间跨度
+                    'mr': round(mod_R, 6),           # 归一化模长 R
+                    'ga': round(global_amp, 5),      # 全局幅度
+                    'gs': global_span,               # 全局时间跨度
                 }
                 if p['type'] == 'center':
                     pg['bs'] = p['B_start'] + start

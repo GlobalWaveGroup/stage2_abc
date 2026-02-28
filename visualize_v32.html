@@ -303,11 +303,17 @@ function draw() {
         pMn = Math.min(pMn, klines[i][2]); // low
         pMx = Math.max(pMx, klines[i][1]); // high
     }
-    // Expand for predictions
+    // Expand for predictions (弧线 + 包络)
     if (d.predictions) {
         for (const p of d.predictions) {
             pMn = Math.min(pMn, p.ptp, p.psp);
             pMx = Math.max(pMx, p.ptp, p.psp);
+            // 弧线起点的极值（弧线在 t=0 时幅度最大 = pred_amp）
+            if (p.pa) {
+                const arcMax = p.psp + p.pd * p.pa * 1.2;
+                pMn = Math.min(pMn, arcMax, p.psp);
+                pMx = Math.max(pMx, arcMax, p.psp);
+            }
         }
     }
     if (pMn === Infinity) { pMn = 1.0; pMx = 1.1; }
@@ -540,21 +546,33 @@ function draw() {
         cx.textAlign = 'start';
     }
     
-    // === Predictions ===
+    // === Predictions (模长守恒弧线) ===
+    // 核心几何: mod_C ≈ mod_A, 即 R = sqrt(norm_amp² + norm_time²) 守恒
+    // C段的目标不是一个点，而是一条弧线:
+    //   随着时间 t 增加 (0 → pred_time*1.5)
+    //   norm_time(t) = t / global_span
+    //   norm_amp(t) = sqrt(R² - norm_time(t)²)   当 norm_time ≤ R
+    //   amp(t) = norm_amp(t) * global_amp
+    //   price(t) = pred_start_price + pred_dir * amp(t)
+    // 这形成一个四分之一圆弧在价格-时间坐标系的投影
+    
     if (showPred && d.predictions) {
         for (let i = 0; i < d.predictions.length; i++) {
             const pr = d.predictions[i];
             const isMirror = pr.tp === 'm';
-            const alpha = Math.max(0.2, 0.85 - i * 0.03);
-            const lw = Math.max(0.8, 2.5 - i * 0.08);
+            const alpha = Math.max(0.15, 0.75 - i * 0.03);
+            const lw = Math.max(0.6, 2.0 - i * 0.07);
             const aCol = isMirror
                 ? `rgba(255,180,60,${alpha})`
                 : `rgba(80,200,255,${alpha})`;
             const pCol = pr.pd === 1
                 ? `rgba(80,255,120,${alpha})`
                 : `rgba(255,80,100,${alpha})`;
+            const envCol = pr.pd === 1
+                ? `rgba(80,255,120,${alpha * 0.12})`
+                : `rgba(255,80,100,${alpha * 0.12})`;
             
-            // A segment
+            // --- A segment (已发生) ---
             cx.strokeStyle = aCol;
             cx.lineWidth = lw;
             cx.setLineDash([]);
@@ -563,10 +581,10 @@ function draw() {
             cx.lineTo(xS(pr.ae), yS(pr.ape));
             cx.stroke();
             
-            // B segment (center only)
+            // --- B segment (center only) ---
             if (!isMirror && pr.bs > 0) {
-                cx.strokeStyle = `rgba(180,180,200,${alpha * 0.3})`;
-                cx.lineWidth = lw * 0.5;
+                cx.strokeStyle = `rgba(180,180,200,${alpha * 0.25})`;
+                cx.lineWidth = lw * 0.4;
                 cx.setLineDash([3, 2]);
                 cx.beginPath();
                 cx.moveTo(xS(pr.bs), yS(pr.bps));
@@ -574,35 +592,115 @@ function draw() {
                 cx.stroke();
             }
             
-            // C' prediction line
-            cx.strokeStyle = pCol;
-            cx.lineWidth = lw * 1.3;
-            cx.setLineDash([8, 4]);
-            cx.beginPath();
-            cx.moveTo(xS(pr.psb), yS(pr.psp));
-            cx.lineTo(xS(pr.ptb), yS(pr.ptp));
-            cx.stroke();
-            
-            // Arrow
-            const ax2 = xS(pr.ptb), ay2 = yS(pr.ptp);
-            const ang = Math.atan2(ay2 - yS(pr.psp), ax2 - xS(pr.psb));
-            cx.setLineDash([]);
-            cx.lineWidth = lw;
-            cx.strokeStyle = pCol;
-            cx.beginPath();
-            cx.moveTo(ax2, ay2);
-            cx.lineTo(ax2 - 7 * Math.cos(ang - 0.35), ay2 - 7 * Math.sin(ang - 0.35));
-            cx.moveTo(ax2, ay2);
-            cx.lineTo(ax2 - 7 * Math.cos(ang + 0.35), ay2 - 7 * Math.sin(ang + 0.35));
-            cx.stroke();
-            
-            // Target price label
-            if (i < 15) {
-                cx.fillStyle = pCol;
-                cx.font = '8px monospace';
-                cx.textAlign = 'left';
-                const label = (isMirror ? 'M' : 'C') + (i + 1);
-                cx.fillText(label + ' ' + pr.ptp.toFixed(4), ax2 + 4, ay2 + 3);
+            // --- 模长守恒弧线 (C' prediction arc) ---
+            // 有弧线参数时画弧线，否则 fallback 到直线
+            if (pr.mr > 0 && pr.ga > 0 && pr.gs > 0) {
+                const R = pr.mr;       // 归一化模长
+                const ga = pr.ga;      // global_amp (价格)
+                const gs = pr.gs;      // global_span (bars)
+                const dir = pr.pd;
+                const startP = pr.psp;
+                const startB = pr.psb;
+                
+                // 弧线最大时间: 当 norm_time = R 时 amp = 0
+                const maxTime = R * gs;  // bars
+                const nSteps = 30;
+                const tMax = Math.min(maxTime, pr.pt * 1.8); // 不超过1.8倍pred_time
+                
+                // 采样弧线点
+                const arcPts = [];
+                for (let s = 0; s <= nSteps; s++) {
+                    const t = (s / nSteps) * tMax;
+                    const nt = t / gs;  // 归一化时间
+                    if (nt >= R) break;  // 超出圆弧范围
+                    const na = Math.sqrt(R * R - nt * nt);  // 归一化幅度
+                    const amp = na * ga;  // 还原为价格单位
+                    const price = startP + dir * amp;
+                    const bar = startB + t;
+                    arcPts.push({ bar, price, amp });
+                }
+                
+                if (arcPts.length >= 2) {
+                    // --- 画弧线 (主线) ---
+                    cx.strokeStyle = pCol;
+                    cx.lineWidth = lw * 1.3;
+                    cx.setLineDash([]);
+                    cx.beginPath();
+                    cx.moveTo(xS(arcPts[0].bar), yS(arcPts[0].price));
+                    for (let s = 1; s < arcPts.length; s++) {
+                        cx.lineTo(xS(arcPts[s].bar), yS(arcPts[s].price));
+                    }
+                    cx.stroke();
+                    
+                    // --- R 包络 (上下边界，填充区域) ---
+                    // 包络宽度随 sqrt(t) 扩张
+                    cx.fillStyle = envCol;
+                    cx.beginPath();
+                    // 上边界 (正向)
+                    cx.moveTo(xS(arcPts[0].bar), yS(arcPts[0].price));
+                    for (let s = 1; s < arcPts.length; s++) {
+                        const t = (s / nSteps) * tMax;
+                        const envR = arcPts[s].amp * Math.sqrt(t / Math.max(tMax, 1)) * 0.4;
+                        cx.lineTo(xS(arcPts[s].bar), yS(arcPts[s].price + envR));
+                    }
+                    // 下边界 (反向)
+                    for (let s = arcPts.length - 1; s >= 1; s--) {
+                        const t = (s / nSteps) * tMax;
+                        const envR = arcPts[s].amp * Math.sqrt(t / Math.max(tMax, 1)) * 0.4;
+                        cx.lineTo(xS(arcPts[s].bar), yS(arcPts[s].price - envR));
+                    }
+                    cx.closePath();
+                    cx.fill();
+                    
+                    // --- 原始直线目标 (淡色参考线) ---
+                    cx.strokeStyle = pCol.replace(/[\d.]+\)$/, (alpha * 0.2).toFixed(2) + ')');
+                    cx.lineWidth = 0.5;
+                    cx.setLineDash([4, 4]);
+                    cx.beginPath();
+                    cx.moveTo(xS(pr.psb), yS(pr.psp));
+                    cx.lineTo(xS(pr.ptb), yS(pr.ptp));
+                    cx.stroke();
+                    
+                    // --- 标记 pred_time 位置 (A时间对称点) ---
+                    if (pr.pt > 0 && pr.pt <= tMax) {
+                        const nt_pt = pr.pt / gs;
+                        if (nt_pt < R) {
+                            const na_pt = Math.sqrt(R * R - nt_pt * nt_pt);
+                            const price_pt = startP + dir * na_pt * ga;
+                            const bar_pt = startB + pr.pt;
+                            // 小圆标记
+                            cx.fillStyle = pCol;
+                            cx.beginPath();
+                            cx.arc(xS(bar_pt), yS(price_pt), 3, 0, Math.PI * 2);
+                            cx.fill();
+                            // 白色描边
+                            cx.strokeStyle = `rgba(255,255,255,${alpha * 0.5})`;
+                            cx.lineWidth = 0.6;
+                            cx.setLineDash([]);
+                            cx.stroke();
+                        }
+                    }
+                    
+                    // --- 弧线末端标签 ---
+                    if (i < 12) {
+                        const lastPt = arcPts[arcPts.length - 1];
+                        cx.fillStyle = pCol;
+                        cx.font = '8px monospace';
+                        cx.textAlign = 'left';
+                        const label = (isMirror ? 'M' : 'C') + (i + 1);
+                        const ptLabel = pr.pt > 0 ? ` R=${pr.mr.toFixed(3)}` : '';
+                        cx.fillText(label + ptLabel, xS(lastPt.bar) + 3, yS(lastPt.price) + 3);
+                    }
+                }
+            } else {
+                // Fallback: 直线 (无弧线参数)
+                cx.strokeStyle = pCol;
+                cx.lineWidth = lw * 1.3;
+                cx.setLineDash([8, 4]);
+                cx.beginPath();
+                cx.moveTo(xS(pr.psb), yS(pr.psp));
+                cx.lineTo(xS(pr.ptb), yS(pr.ptp));
+                cx.stroke();
             }
         }
     }
