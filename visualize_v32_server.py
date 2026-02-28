@@ -29,7 +29,7 @@ import numpy as np
 from merge_engine_v3 import (
     load_kline, calculate_base_zg, full_merge_engine,
     compute_pivot_importance, build_segment_pool,
-    pool_fusion, predict_symmetric_image, find_symmetric_structures
+    pool_fusion, predict_symmetric_image
 )
 from fsd_engine import prune_redundant
 
@@ -61,13 +61,12 @@ def index():
 
 
 def compute_window(end_bar, window, show_lat=False, show_fusion=False,
-                   show_pred=False, show_pvt=False, show_sym=False,
-                   show_extra=False, min_imp=0.0, peak_n=10, valley_n=10):
+                   show_pred=False, show_pvt=False):
     """
     对指定窗口执行完整v3 pipeline，返回前端需要的数据。
     
     始终计算: base_zg → full_merge_engine → snapshots
-    可选计算: importance → pool → fusion → prune → predict → symmetry
+    可选计算: importance → pool → fusion → prune → predict
     """
     t0 = time.time()
     
@@ -105,49 +104,35 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
             round(float(G['closes'][i]), 5),
         ])
     
-    # --- Extra segments (greedy-skipped) ---
-    extra_data = None
-    if show_extra:
-        extra_segs = results.get('extra_segments', [])
-        extra_by_label = {}
-        for p_start, p_end, label in extra_segs:
-            if label not in extra_by_label:
-                extra_by_label[label] = []
-            extra_by_label[label].append({
-                'b1': int(p_start[0]) + start, 'p1': round(float(p_start[1]), 5),
-                'b2': int(p_end[0]) + start,   'p2': round(float(p_end[1]), 5),
-            })
-        extra_data = []
-        for label in sorted(extra_by_label.keys()):
-            segs = extra_by_label[label]
-            src = 'amp' if (label.startswith('A') and '_mid' not in label) else 'lat'
-            extra_data.append({'label': label, 'src': src, 'segs': segs})
-    
     # --- 可选计算 ---
     pool_data = None
     pred_data = None
     pivot_data = None
-    sym_data = None
     
-    need_pi = show_fusion or show_pred or show_pvt or show_sym
+    need_pi = show_fusion or show_pred or show_pvt
     pi = None
-    pruned = None
     
     if need_pi:
         pi = compute_pivot_importance(results, window)
     
-    if show_fusion or show_pred or show_sym:
+    if show_fusion or show_pred:
         pool = build_segment_pool(results, pi)
         fused_all, _, _ = pool_fusion(pool, pi)
         pruned = prune_redundant(fused_all, pi, merge_dist=3,
                                  max_per_start=5, max_total=300)
         
         if show_fusion:
-            # 全量显示 (不截断，时间轴拉大后自然稀疏)
+            # Fusion: 多空各Top5
+            fusion_segs = [s for s in pruned if s['source'] == 'fusion']
+            non_fusion = [s for s in pruned if s['source'] != 'fusion']
+            fusion_up = sorted([s for s in fusion_segs if s['price_end'] > s['price_start']],
+                               key=lambda s: -s.get('importance', 0))[:5]
+            fusion_dn = sorted([s for s in fusion_segs if s['price_end'] <= s['price_start']],
+                               key=lambda s: -s.get('importance', 0))[:5]
+            pool_filtered = non_fusion + fusion_up + fusion_dn
+            
             pool_data = []
-            for seg in pruned:
-                if min_imp > 0 and seg.get('importance', 0) < min_imp:
-                    continue
+            for seg in pool_filtered:
                 dr = 1 if seg['price_end'] > seg['price_start'] else -1
                 pool_data.append({
                     'bs': seg['bar_start'] + start,
@@ -172,7 +157,7 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
             global_span = float(window)
             
             pred_data = []
-            for p in short_preds:  # 全量(不截断)
+            for p in short_preds[:40]:  # 增加到40条(新增了更多类型)
                 # 归一化模长 R = sqrt((amp/global_amp)² + (time/global_span)²)
                 norm_amp = p['A_amp'] / max(global_amp, 1e-10)
                 norm_time = p['A_time'] / max(global_span, 1)
@@ -196,7 +181,6 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
                     'pa': round(p['pred_amp'], 5),
                     'pt': p['pred_time'],
                     'sc': round(p['score'], 5),
-                    'prog': round(p.get('actual_progress', 0), 3),  # 进度
                     # 弧线参数
                     'aa': round(p['A_amp'], 5),     # A段原始幅度
                     'at': p['A_time'],               # A段原始时间跨度
@@ -204,11 +188,6 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
                     'ga': round(global_amp, 5),      # 全局幅度
                     'gs': global_span,               # 全局时间跨度
                 }
-                
-                # 对称中心/轴 (mirror有center_bar/center_price, center有B段)
-                if p['type'] == 'mirror':
-                    pg['cb'] = round(p.get('center_bar', 0), 1)
-                    pg['cp'] = round(p.get('center_price', 0), 5)
                 
                 # B段信息 (center, triangle, modonly 都有)
                 if p['type'] in ('center', 'triangle', 'modonly'):
@@ -234,50 +213,17 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
                     pg['asy'] = p.get('amp_sym', 0)    # 幅度对称度
                 
                 pred_data.append(pg)
-        
-        # --- Symmetry structures ---
-        if show_sym and pruned:
-            try:
-                syms = find_symmetric_structures(pruned, pi, top_n=200,
-                                                  max_pool_size=300)
-                sym_data = []
-                for s in syms:
-                    sym_data.append({
-                        'p1': s['p1'] + start, 'p2': s['p2'] + start,
-                        'p3': s['p3'] + start, 'p4': s['p4'] + start,
-                        'pp1': round(s['price_p1'], 5), 'pp2': round(s['price_p2'], 5),
-                        'pp3': round(s['price_p3'], 5), 'pp4': round(s['price_p4'], 5),
-                        'sc': round(s['score'], 4),
-                        'sym': round(s['sym_score'], 3),
-                        'imp': round(s['endpoint_imp'], 4),
-                        'va': round(s['vec']['amp'], 3),
-                        'vt': round(s['vec']['time'], 3),
-                        'vm': round(s['vec']['mod'], 3),
-                        'vs': round(s['vec']['slope'], 3),
-                        'vc': round(s['vec']['complexity'], 3),
-                        'dr': s['dir'],
-                        'tp': s['type'],
-                    })
-            except Exception as e:
-                print(f"Symmetry error: {e}")
-                sym_data = None
     
     if show_pvt and pi:
-        # 分别排序peaks和valleys
-        peaks = sorted([v for v in pi.values() if v['dir'] == 1],
-                       key=lambda x: -x['importance'])
-        valleys = sorted([v for v in pi.values() if v['dir'] == -1],
-                         key=lambda x: -x['importance'])
-        pivot_data = {
-            'peaks': [{'b': pv['bar'] + start, 'p': round(pv['price'], 5),
-                        'imp': round(pv['importance'], 4)}
-                       for pv in peaks[:peak_n]],
-            'valleys': [{'b': pv['bar'] + start, 'p': round(pv['price'], 5),
-                          'imp': round(pv['importance'], 4)}
-                         for pv in valleys[:valley_n]],
-            'total_peaks': len(peaks),
-            'total_valleys': len(valleys),
-        }
+        pivots_sorted = sorted(pi.values(), key=lambda x: -x['importance'])[:30]
+        pivot_data = []
+        for pv in pivots_sorted:
+            pivot_data.append({
+                'b': pv['bar'] + start,
+                'p': round(pv['price'], 5),
+                'd': pv['dir'],
+                'imp': round(pv['importance'], 4),
+            })
     
     elapsed = time.time() - t0
     
@@ -288,11 +234,9 @@ def compute_window(end_bar, window, show_lat=False, show_fusion=False,
         'total_bars': G['n'],
         'klines': klines,
         'snapshots': snapshots,
-        'extra': extra_data,
         'pool': pool_data,
         'predictions': pred_data,
         'pivots': pivot_data,
-        'symmetry': sym_data,
         'compute_ms': round(elapsed * 1000, 1),
     }
 
@@ -317,11 +261,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 show_fusion=req.get('show_fusion', False),
                 show_pred=req.get('show_pred', False),
                 show_pvt=req.get('show_pvt', False),
-                show_sym=req.get('show_sym', False),
-                show_extra=req.get('show_extra', False),
-                min_imp=float(req.get('min_imp', 0)),
-                peak_n=int(req.get('peak_n', 10)),
-                valley_n=int(req.get('valley_n', 10)),
             )
             
             await websocket.send_text(json.dumps(result))

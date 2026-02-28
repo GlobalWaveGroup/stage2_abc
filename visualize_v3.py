@@ -78,35 +78,50 @@ def generate_html(df, results, output_path, pivot_info=None, fusion_segs=None, s
             })
     n_sym = len(sym_data)
 
-    # Predictions (对称映像预测)
+    # Predictions (对称映像预测 — 兼容4种类型: mirror/center/triangle/modonly)
     pred_data = []
     if predictions:
         for p in predictions:
+            # center_bar/center_price: mirror有, 其他类型用B段中点替代
+            if 'center_bar' in p:
+                cbar = round(p['center_bar'], 1) if isinstance(p['center_bar'], float) else p['center_bar']
+                cprc = round(p['center_price'], 5)
+            elif 'B_start' in p:
+                cbar = round((p['B_start'] + p['B_end']) / 2, 1)
+                cprc = round((p['B_price_start'] + p['B_price_end']) / 2, 5)
+            else:
+                cbar = round((p['A_end'] + p['pred_start_bar']) / 2, 1)
+                cprc = round(p['pred_start_price'], 5)
+
             pd_entry = {
-                'type': p['type'],       # 'mirror' or 'center'
+                'type': p['type'],
                 'A_s': p['A_start'], 'A_e': p['A_end'],
                 'A_ps': round(p['A_price_start'], 5), 'A_pe': round(p['A_price_end'], 5),
                 'A_amp': round(p['A_amp'], 5), 'A_time': p['A_time'],
                 'A_dir': p['A_dir'],
-                'cbar': round(p['center_bar'], 1) if isinstance(p['center_bar'], float) else p['center_bar'],
-                'cprc': round(p['center_price'], 5),
+                'cbar': cbar,
+                'cprc': cprc,
                 'pd': p['pred_dir'],
                 'ps_bar': p['pred_start_bar'],
                 'ps_prc': round(p['pred_start_price'], 5),
                 'pt_prc': round(p['pred_target_price'], 5),
                 'pt_bar': p['pred_target_bar'],
-                'prog': round(p['actual_progress'], 3),
+                'prog': round(p.get('actual_progress', 0), 3),
                 'score': round(p['score'], 6),
-                'imp': round(p['importance'], 4),
-                'rel': round(p['rel_amp'], 4),
+                'imp': round(p.get('importance', 0), 4),
+                'rel': round(p.get('rel_amp', 0), 4),
             }
             # Center型额外字段
-            if p['type'] == 'center':
+            if p['type'] in ('center', 'triangle', 'modonly') and 'B_start' in p:
                 pd_entry['B_s'] = p['B_start']
                 pd_entry['B_e'] = p['B_end']
                 pd_entry['B_ps'] = round(p['B_price_start'], 5)
                 pd_entry['B_pe'] = round(p['B_price_end'], 5)
-                pd_entry['retr'] = p['retrace_ratio']
+                pd_entry['retr'] = p.get('retrace_ratio', 0)
+            # Triangle额外字段
+            if p['type'] == 'triangle':
+                pd_entry['tri_type'] = p.get('tri_type', 'unknown')
+                pd_entry['amp_ratio'] = round(p.get('amp_ratio', 0), 4)
             pred_data.append(pd_entry)
     n_pred = len(pred_data)
 
