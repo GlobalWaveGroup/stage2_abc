@@ -226,6 +226,50 @@ def get_annotations():
     return JSONResponse([])
 
 
+@app.delete("/annotate/{record_id}")
+def delete_annotation(record_id: str):
+    """删除指定标注"""
+    if not os.path.exists(ANNOTATIONS_FILE):
+        return JSONResponse({'error': 'No annotations'}, status_code=404)
+    with open(ANNOTATIONS_FILE, 'r') as f:
+        all_annots = json.load(f)
+    before = len(all_annots)
+    all_annots = [a for a in all_annots if a['id'] != record_id]
+    if len(all_annots) == before:
+        return JSONResponse({'error': f'ID {record_id} not found'}, status_code=404)
+    with open(ANNOTATIONS_FILE, 'w') as f:
+        json.dump(all_annots, f, indent=2, ensure_ascii=False)
+    print(f"  DELETE: {record_id} | remaining={len(all_annots)}", flush=True)
+    return JSONResponse({'status': 'deleted', 'id': record_id, 'remaining': len(all_annots)})
+
+
+@app.put("/annotate/{record_id}")
+async def update_annotation(record_id: str, request: Request):
+    """更新标注的label"""
+    data = await request.json()
+    new_label = data.get('label', '').strip()
+    if not new_label:
+        return JSONResponse({'error': '请输入新的label'}, status_code=400)
+    if not os.path.exists(ANNOTATIONS_FILE):
+        return JSONResponse({'error': 'No annotations'}, status_code=404)
+    with open(ANNOTATIONS_FILE, 'r') as f:
+        all_annots = json.load(f)
+    found = False
+    old_label = ''
+    for a in all_annots:
+        if a['id'] == record_id:
+            old_label = a['label']
+            a['label'] = new_label
+            found = True
+            break
+    if not found:
+        return JSONResponse({'error': f'ID {record_id} not found'}, status_code=404)
+    with open(ANNOTATIONS_FILE, 'w') as f:
+        json.dump(all_annots, f, indent=2, ensure_ascii=False)
+    print(f"  UPDATE: {record_id} | '{old_label}' → '{new_label}'", flush=True)
+    return JSONResponse({'status': 'updated', 'id': record_id, 'old_label': old_label, 'new_label': new_label})
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     df_full = G['df']
@@ -318,7 +362,7 @@ def index(request: Request):
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
     <span style="color:#f0c040;font-weight:bold;font-size:13px;">Annotate</span>
     <span style="color:#888;font-size:11px;">双击图上线段选择 | 点击框激活 | 手工输入: bar1 price1 bar2 price2</span>
-    <span style="color:#555;font-size:11px;" id="annotMode">Mode: CLICK</span>
+    <span style="color:#555;font-size:11px;">双击选线 | 框内输入: b1 p1 b2 p2 或 H3 L5</span>
   </div>
   <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;">
     <div id="segBoxes" style="display:flex;gap:3px;flex-wrap:wrap;"></div>
@@ -355,15 +399,94 @@ let annLocked = false;
 (function buildAnnotUI() {
   const container = document.getElementById('segBoxes');
   for(let i = 0; i < ANN_MAX; i++) {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:1px;';
+
     const box = document.createElement('div');
     box.id = 'segBox' + i;
-    box.style.cssText = 'min-width:130px;height:48px;background:#111;border:2px solid #333;border-radius:3px;padding:3px 5px;cursor:pointer;font-size:10px;font-family:monospace;color:#777;display:flex;flex-direction:column;justify-content:center;';
+    box.style.cssText = 'min-width:130px;height:40px;background:#111;border:2px solid #333;border-top-left-radius:3px;border-top-right-radius:3px;padding:3px 5px;cursor:pointer;font-size:10px;font-family:monospace;color:#777;display:flex;flex-direction:column;justify-content:center;';
     box.innerHTML = '<div style="color:#556;text-align:center;">S' + (i+1) + '</div>';
     box.onclick = function() { setActiveSlot(i); };
-    container.appendChild(box);
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'segInp' + i;
+    inp.placeholder = 'b1 p1 b2 p2';
+    inp.style.cssText = 'width:126px;background:#0a0a18;color:#ff8;border:1px solid #333;border-top:none;border-bottom-left-radius:3px;border-bottom-right-radius:3px;padding:2px 4px;font-size:9px;font-family:monospace;';
+    inp.onfocus = function() { setActiveSlot(i); };
+    (function(idx) {
+      inp.onkeydown = function(ev) {
+        if(ev.key === 'Enter') {
+          parseManualInput(idx, inp.value.trim());
+          ev.preventDefault();
+        }
+      };
+    })(i);
+
+    wrapper.appendChild(box);
+    wrapper.appendChild(inp);
+    container.appendChild(wrapper);
   }
   setActiveSlot(0);
 })();
+
+function parseManualInput(idx, val) {
+  if(annLocked) return;
+  if(!val) return;
+  const parts = val.split(/\\s+/);
+  if(parts.length === 4) {
+    const b1 = parseInt(parts[0]), p1 = parseFloat(parts[1]);
+    const b2 = parseInt(parts[2]), p2 = parseFloat(parts[3]);
+    if(!isNaN(b1) && !isNaN(p1) && !isNaN(b2) && !isNaN(p2)) {
+      const seg = { b1, p1, b2, p2, source: 'MANUAL' };
+      if(!checkContinuity(idx, seg)) {
+        const prev = annSlots[idx - 1];
+        setAnnotStatus('Not continuous! S' + idx + ' end=b' + prev.b2 + ' but input b' + b1, '#f88');
+        return;
+      }
+      annSlots[idx] = seg;
+      renderSlot(idx);
+      drawAnnotHighlights();
+      setAnnotStatus('Manual S' + (idx+1) + ': b' + b1 + '→b' + b2, '#8f8');
+      document.getElementById('segInp' + idx).value = '';
+      if(idx < ANN_MAX - 1) setActiveSlot(idx + 1);
+      return;
+    }
+  }
+  // Try H/L notation: e.g. "H3 L5" → lookup from TOP array
+  if(parts.length === 2) {
+    const p1Info = resolvePointLabel(parts[0]);
+    const p2Info = resolvePointLabel(parts[1]);
+    if(p1Info && p2Info) {
+      const seg = { b1: p1Info.bar, p1: p1Info.price, b2: p2Info.bar, p2: p2Info.price, source: 'MANUAL:' + parts[0] + '-' + parts[1] };
+      if(!checkContinuity(idx, seg)) {
+        const prev = annSlots[idx - 1];
+        setAnnotStatus('Not continuous! S' + idx + ' end=b' + prev.b2 + ' but ' + parts[0] + '=b' + p1Info.bar, '#f88');
+        return;
+      }
+      annSlots[idx] = seg;
+      renderSlot(idx);
+      drawAnnotHighlights();
+      setAnnotStatus('Manual S' + (idx+1) + ': ' + parts[0] + '→' + parts[1], '#8f8');
+      document.getElementById('segInp' + idx).value = '';
+      if(idx < ANN_MAX - 1) setActiveSlot(idx + 1);
+      return;
+    }
+  }
+  setAnnotStatus('Format: "b1 p1 b2 p2" or "H3 L5" (point labels)', '#f88');
+}
+
+// Resolve H3, L5 etc to {bar, price} from TOP array
+function resolvePointLabel(label) {
+  const m = label.match(/^([HL])(\\d+)$/i);
+  if(!m) return null;
+  const dir = m[1].toUpperCase();
+  const rank = parseInt(m[2]);
+  const arr = dir === 'H' ? PEAKS : VALS;
+  if(rank < 1 || rank > arr.length) return null;
+  const pt = arr[rank - 1];
+  return { bar: pt.bar, price: pt.price };
+}
 
 function setActiveSlot(idx) {
   if(annLocked) return;
@@ -527,13 +650,50 @@ cv.addEventListener('dblclick', function(e) {
   }
 });
 
-// Draw highlights for selected segments
+// Draw highlights for selected segments + K-line highlighting
 function drawAnnotHighlights() {
   // Redraw base first
   draw();
 
-  // Overlay selected segments
+  // Collect bar range covered by all selected segments
+  let barMin = Infinity, barMax = -Infinity;
+  for(let i = 0; i < annSlots.length; i++) {
+    const seg = annSlots[i];
+    if(!seg) continue;
+    barMin = Math.min(barMin, seg.b1, seg.b2);
+    barMax = Math.max(barMax, seg.b1, seg.b2);
+  }
+
   cx.save();
+
+  // Highlight K-lines in the covered range
+  if(barMin <= barMax) {
+    for(let b = barMin; b <= barMax && b < K.length; b++) {
+      if(b < 0) continue;
+      const k = K[b];
+      const x = xS(b);
+      // Bright candlestick body
+      const isUp = k.c >= k.o;
+      cx.strokeStyle = isUp ? '#00cc44' : '#cc3333';
+      cx.lineWidth = 2;
+      cx.globalAlpha = 0.7;
+      // High-low wick
+      cx.beginPath();
+      cx.moveTo(x, yS(k.l));
+      cx.lineTo(x, yS(k.h));
+      cx.stroke();
+      // Body
+      const bodyTop = yS(Math.max(k.o, k.c));
+      const bodyBot = yS(Math.min(k.o, k.c));
+      const bodyH = Math.max(bodyBot - bodyTop, 1);
+      const bw = Math.max(pw / K.length * 0.6, 2);
+      cx.fillStyle = isUp ? '#00cc44' : '#cc3333';
+      cx.globalAlpha = 0.5;
+      cx.fillRect(x - bw/2, bodyTop, bw, bodyH);
+    }
+  }
+
+  // Overlay selected segments
   for(let i = 0; i < annSlots.length; i++) {
     const seg = annSlots[i];
     if(!seg) continue;
@@ -560,9 +720,9 @@ function drawAnnotHighlights() {
     cx.fillStyle = 'hsl(' + hue + ', 100%, 85%)';
     cx.font = 'bold 11px monospace';
     cx.textAlign = 'center';
-    const mx = (xS(seg.b1) + xS(seg.b2)) / 2;
-    const my = (yS(seg.p1) + yS(seg.p2)) / 2;
-    cx.fillText('S' + (i+1), mx, my - 8);
+    const smx = (xS(seg.b1) + xS(seg.b2)) / 2;
+    const smy = (yS(seg.p1) + yS(seg.p2)) / 2;
+    cx.fillText('S' + (i+1), smx, smy - 8);
   }
   cx.restore();
   cx.setLineDash([]);
@@ -704,62 +864,49 @@ function showAnnotResult(r) {
 
   html += '<div style="color:#555;font-size:9px;">same_label=' + r.same_label_count + ' total=' + r.total_annotations + '</div>';
 
+  // Action buttons
+  html += '<div style="margin-top:3px;">';
+  html += '<button onclick="deleteAnnot(\'' + r.record_id + '\', this)" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:2px 8px;border-radius:2px;cursor:pointer;font-size:10px;margin-right:4px;">Delete</button>';
+  html += '<button onclick="editAnnotLabel(\'' + r.record_id + '\', this)" style="background:#1a2a3a;color:#8cf;border:1px solid #446;padding:2px 8px;border-radius:2px;cursor:pointer;font-size:10px;">Edit Label</button>';
+  html += '</div>';
+
   // Prepend (newest first)
   log.innerHTML = html + log.innerHTML;
 }
 
-// Handle manual input in segment boxes
-// User can click a box, type "50 1.09300 80 1.09100" and press Enter
-document.addEventListener('keydown', function(e) {
-  if(e.target.tagName === 'INPUT' && e.target.id === 'annotLabel') return;
-  if(e.target.tagName === 'INPUT') return;
-  if(annLocked) return;
+async function deleteAnnot(id, btn) {
+  if(!confirm('Delete annotation ' + id + '?')) return;
+  try {
+    const resp = await fetch('/annotate/' + id, { method: 'DELETE' });
+    const r = await resp.json();
+    if(r.status === 'deleted') {
+      btn.closest('div').parentElement.style.opacity = '0.3';
+      btn.closest('div').parentElement.style.textDecoration = 'line-through';
+      btn.disabled = true;
+      setAnnotStatus('Deleted ' + id + ' | remaining=' + r.remaining, '#f88');
+    } else {
+      setAnnotStatus('Delete failed: ' + (r.error || 'unknown'), '#f88');
+    }
+  } catch(e) { setAnnotStatus('Delete error: ' + e.message, '#f88'); }
+}
 
-  // 'm' key toggles manual input mode
-  if(e.key === 'm' || e.key === 'M') {
-    const box = document.getElementById('segBox' + annActive);
-    const existing = box.querySelector('input');
-    if(existing) return;  // already in input mode
-
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.placeholder = 'b1 p1 b2 p2';
-    inp.style.cssText = 'width:120px;background:#1a1a2a;color:#ff8;border:1px solid #554;padding:2px;font-size:10px;font-family:monospace;';
-    inp.onkeydown = function(ev) {
-      if(ev.key === 'Enter') {
-        const parts = inp.value.trim().split(/\\s+/);
-        if(parts.length === 4) {
-          const b1 = parseInt(parts[0]), p1 = parseFloat(parts[1]);
-          const b2 = parseInt(parts[2]), p2 = parseFloat(parts[3]);
-          if(!isNaN(b1) && !isNaN(p1) && !isNaN(b2) && !isNaN(p2)) {
-            const seg = { b1, p1, b2, p2, source: 'MANUAL' };
-            if(!checkContinuity(annActive, seg)) {
-              setAnnotStatus('Not continuous!', '#f88');
-              return;
-            }
-            annSlots[annActive] = seg;
-            renderSlot(annActive);
-            drawAnnotHighlights();
-            setAnnotStatus('Manual S' + (annActive+1) + ': b' + b1 + '→b' + b2, '#8f8');
-            if(annActive < ANN_MAX - 1) setActiveSlot(annActive + 1);
-          } else {
-            setAnnotStatus('Parse error: need 4 numbers', '#f88');
-          }
-        } else {
-          setAnnotStatus('Need 4 values: bar1 price1 bar2 price2', '#f88');
-        }
-      }
-      if(ev.key === 'Escape') {
-        renderSlot(annActive);
-      }
-    };
-    box.innerHTML = '';
-    box.appendChild(inp);
-    inp.focus();
-    document.getElementById('annotMode').textContent = 'Mode: MANUAL';
-    e.preventDefault();
-  }
-});
+async function editAnnotLabel(id, btn) {
+  const newLabel = prompt('New label for ' + id + ':');
+  if(!newLabel || !newLabel.trim()) return;
+  try {
+    const resp = await fetch('/annotate/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: newLabel.trim() })
+    });
+    const r = await resp.json();
+    if(r.status === 'updated') {
+      setAnnotStatus('Updated ' + id + ': "' + r.old_label + '" -> "' + r.new_label + '"', '#8cf');
+    } else {
+      setAnnotStatus('Update failed: ' + (r.error || 'unknown'), '#f88');
+    }
+  } catch(e) { setAnnotStatus('Update error: ' + e.message, '#f88'); }
+}
 
 // Override the original draw to also show annotation highlights
 const _origDraw = draw;
