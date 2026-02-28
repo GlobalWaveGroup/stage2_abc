@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>v32 | Real-time Merge Visualization</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0a0a14; color: #eee; font-family: 'Consolas','Courier New',monospace; font-size: 11px; overflow: hidden; }
+
+.top {
+  background: #12121f; padding: 4px 10px; border-bottom: 1px solid #252540;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.controls {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+  background: #0e0e1a; border-bottom: 1px solid #1a1a30; flex-wrap: wrap;
+}
+.ctrl-group {
+  display: flex; align-items: center; gap: 3px;
+  padding: 0 6px; border-right: 1px solid #252540;
+}
+.ctrl-group:last-child { border-right: none; }
+
+.btn {
+  background: #22224a; color: #aac; border: 1px solid #335;
+  padding: 3px 8px; border-radius: 3px; cursor: pointer;
+  font-size: 10px; font-family: inherit; min-width: 24px; text-align: center;
+}
+.btn:hover { background: #33336a; }
+.btn.on { background: #335588; color: #fff; border-color: #4477aa; }
+.btn.off { background: #1a1a2a; color: #555; border-color: #252540; }
+
+input[type=range] { height: 14px; cursor: pointer; }
+input[type=number] {
+  background: #181830; color: #ccd; border: 1px solid #335;
+  padding: 2px 4px; width: 55px; font-family: inherit; font-size: 10px;
+  border-radius: 2px; text-align: center;
+}
+label { color: #778; font-size: 10px; }
+
+#mainCanvas { width: 100%; display: block; background: #0d0d18; }
+#infoBar {
+  background: #12121f; padding: 3px 10px; border-top: 1px solid #252540;
+  min-height: 18px; color: #778; font-size: 10px;
+}
+#statusDot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+.dot-ok { background: #4a4; }
+.dot-wait { background: #aa4; }
+.dot-err { background: #a44; }
+</style>
+</head><body>
+
+<div class="top">
+  <span>v32 | EURUSD H1 | Real-time Merge Engine</span>
+  <span id="titleInfo" style="color:#556"></span>
+</div>
+
+<div class="controls">
+  <!-- Navigation -->
+  <div class="ctrl-group">
+    <button class="btn" onclick="step(-10)" title="Back 10">&laquo;</button>
+    <button class="btn" onclick="step(-1)" title="Back 1 (ArrowLeft)">&lsaquo;</button>
+    <button class="btn" id="playBtn" onclick="togglePlay()" title="Play/Pause (Space)">&#9654;</button>
+    <button class="btn" onclick="step(1)" title="Forward 1 (ArrowRight)">&rsaquo;</button>
+    <button class="btn" onclick="step(10)" title="Forward 10">&raquo;</button>
+  </div>
+
+  <!-- Position -->
+  <div class="ctrl-group">
+    <label>Pos:</label>
+    <input type="range" id="posSlider" min="10" max="5000" value="100"
+           style="width:280px" oninput="onPosSlider(this.value)">
+    <input type="number" id="posInput" value="100" min="10" max="5000"
+           onchange="onPosInput(this.value)">
+  </div>
+
+  <!-- Window -->
+  <div class="ctrl-group">
+    <label>Win:</label>
+    <input type="range" id="winSlider" min="10" max="1000" value="25"
+           style="width:120px" oninput="onWinSlider(this.value)">
+    <input type="number" id="winInput" value="25" min="10" max="1000"
+           onchange="onWinInput(this.value)">
+  </div>
+
+  <!-- Speed -->
+  <div class="ctrl-group">
+    <label>Spd:</label>
+    <input type="range" id="spdSlider" min="1" max="20" value="3"
+           style="width:50px" oninput="playSpeed=parseInt(this.value)">
+  </div>
+
+  <!-- Toggles -->
+  <div class="ctrl-group">
+    <button class="btn on"  id="tL0"   onclick="toggle('showL0',this)">L0</button>
+    <button class="btn on"  id="tAmp"  onclick="toggle('showAmp',this)">Amp</button>
+    <button class="btn off" id="tLat"  onclick="toggle('showLat',this)">Lat</button>
+    <button class="btn off" id="tFus"  onclick="toggle('showFus',this)">Fus</button>
+    <button class="btn off" id="tPred" onclick="toggle('showPred',this)">Pred</button>
+    <button class="btn off" id="tPvt"  onclick="toggle('showPvt',this)">Pvt</button>
+  </div>
+</div>
+
+<canvas id="mainCanvas"></canvas>
+<div id="infoBar"><span id="statusDot" class="dot-wait"></span>Connecting...</div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let endBar = 100;
+let winSize = 25;
+let playSpeed = 3;
+let playing = false;
+let playTimer = null;
+let totalBars = 5000;
+
+// Toggle states
+let showL0 = true, showAmp = true, showLat = false;
+let showFus = false, showPred = false, showPvt = false;
+
+// Current data from server
+let curData = null;
+let pendingRequest = false;
+let wsReady = false;
+
+// ============================================================
+// WebSocket
+// ============================================================
+let ws = null;
+let reconnectTimer = null;
+
+function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws`);
+    
+    ws.onopen = () => {
+        wsReady = true;
+        setStatus('ok', 'Connected');
+        requestData();
+    };
+    
+    ws.onmessage = (e) => {
+        pendingRequest = false;
+        curData = JSON.parse(e.data);
+        totalBars = curData.total_bars;
+        
+        // Update slider max
+        document.getElementById('posSlider').max = totalBars;
+        document.getElementById('posInput').max = totalBars;
+        
+        setStatus('ok', `${curData.compute_ms}ms`);
+        draw();
+    };
+    
+    ws.onclose = () => {
+        wsReady = false;
+        setStatus('err', 'Disconnected');
+        reconnectTimer = setTimeout(connectWS, 2000);
+    };
+    
+    ws.onerror = () => {
+        setStatus('err', 'Error');
+    };
+}
+
+function requestData() {
+    if (!wsReady || pendingRequest) return;
+    pendingRequest = true;
+    setStatus('wait', 'Computing...');
+    
+    ws.send(JSON.stringify({
+        end_bar: endBar,
+        window: winSize,
+        show_lat: showLat,
+        show_fusion: showFus,
+        show_pred: showPred,
+        show_pvt: showPvt,
+    }));
+}
+
+function setStatus(type, text) {
+    const dot = document.getElementById('statusDot');
+    dot.className = 'dot-' + type;
+    // info bar updated in draw()
+}
+
+// ============================================================
+// Controls
+// ============================================================
+function step(delta) {
+    endBar = Math.max(winSize, Math.min(endBar + delta, totalBars));
+    syncPosUI();
+    requestData();
+}
+
+function onPosSlider(v) {
+    endBar = Math.max(winSize, Math.min(parseInt(v), totalBars));
+    document.getElementById('posInput').value = endBar;
+    requestData();
+}
+
+function onPosInput(v) {
+    endBar = Math.max(winSize, Math.min(parseInt(v) || winSize, totalBars));
+    document.getElementById('posSlider').value = endBar;
+    document.getElementById('posInput').value = endBar;
+    requestData();
+}
+
+function onWinSlider(v) {
+    winSize = Math.max(10, Math.min(parseInt(v), 1000));
+    document.getElementById('winInput').value = winSize;
+    if (endBar < winSize) { endBar = winSize; syncPosUI(); }
+    document.getElementById('posSlider').min = winSize;
+    requestData();
+}
+
+function onWinInput(v) {
+    winSize = Math.max(10, Math.min(parseInt(v) || 25, 1000));
+    document.getElementById('winSlider').value = winSize;
+    document.getElementById('winInput').value = winSize;
+    if (endBar < winSize) { endBar = winSize; syncPosUI(); }
+    document.getElementById('posSlider').min = winSize;
+    requestData();
+}
+
+function syncPosUI() {
+    document.getElementById('posSlider').value = endBar;
+    document.getElementById('posInput').value = endBar;
+}
+
+function toggle(varName, btn) {
+    window[varName] = !window[varName];
+    btn.classList.toggle('on', window[varName]);
+    btn.classList.toggle('off', !window[varName]);
+    requestData();
+}
+
+function togglePlay() {
+    playing = !playing;
+    document.getElementById('playBtn').innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
+    if (playing) {
+        playTimer = setInterval(() => {
+            step(playSpeed);
+            if (endBar >= totalBars) {
+                playing = false;
+                clearInterval(playTimer);
+                document.getElementById('playBtn').innerHTML = '&#9654;';
+            }
+        }, 80);
+    } else {
+        clearInterval(playTimer);
+    }
+}
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return; // don't capture when typing
+    if (e.key === 'ArrowRight') { e.preventDefault(); step(e.shiftKey ? 10 : 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); step(e.shiftKey ? -10 : -1); }
+    else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    else if (e.key === '[') { onWinSlider(winSize - 5); document.getElementById('winSlider').value = winSize; }
+    else if (e.key === ']') { onWinSlider(winSize + 5); document.getElementById('winSlider').value = winSize; }
+});
+
+// ============================================================
+// Drawing
+// ============================================================
+
+// Amp level colors: A1-A7
+const AMP_COLORS = [
+    { r:255, g:80,  b:20  },  // A1 orange-red
+    { r:255, g:110, b:30  },  // A2
+    { r:255, g:140, b:40  },  // A3
+    { r:255, g:165, b:50  },  // A4
+    { r:240, g:180, b:60  },  // A5
+    { r:230, g:195, b:70  },  // A6
+    { r:220, g:210, b:80  },  // A7+
+];
+
+function draw() {
+    if (!curData) return;
+    
+    const cv = document.getElementById('mainCanvas');
+    const cw = window.innerWidth;
+    const ch = window.innerHeight - 76; // top + controls + infobar
+    cv.width = cw;
+    cv.height = Math.max(ch, 300);
+    const cx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    
+    const mg = { l: 60, r: 12, t: 14, b: 14 };
+    const pw = W - mg.l - mg.r;
+    const ph = H - mg.t - mg.b;
+    
+    const d = curData;
+    const startBar = d.start_bar;
+    const klines = d.klines;
+    const n = klines.length;
+    if (n === 0) return;
+    
+    // Price range
+    let pMn = Infinity, pMx = -Infinity;
+    for (let i = 0; i < n; i++) {
+        pMn = Math.min(pMn, klines[i][2]); // low
+        pMx = Math.max(pMx, klines[i][1]); // high
+    }
+    // Expand for predictions
+    if (d.predictions) {
+        for (const p of d.predictions) {
+            pMn = Math.min(pMn, p.ptp, p.psp);
+            pMx = Math.max(pMx, p.ptp, p.psp);
+        }
+    }
+    if (pMn === Infinity) { pMn = 1.0; pMx = 1.1; }
+    const rng = pMx - pMn;
+    pMn -= rng * 0.04;
+    pMx += rng * 0.04;
+    
+    // Coordinate transforms
+    // 显示范围: startBar ~ endBar (窗口), 再留10%右侧空白给预测
+    const dispEnd = startBar + n + Math.round(n * 0.15);
+    const dispRange = dispEnd - startBar;
+    
+    function xS(bar) { return mg.l + ((bar - startBar) / dispRange) * pw; }
+    function yS(price) { return mg.t + ph - ((price - pMn) / (pMx - pMn)) * ph; }
+    
+    // === Background ===
+    cx.fillStyle = '#0d0d18';
+    cx.fillRect(0, 0, W, H);
+    // Future zone (right of current bar)
+    const futX = xS(d.end_bar);
+    if (futX < W - mg.r) {
+        cx.fillStyle = '#10101f';
+        cx.fillRect(futX, mg.t, W - mg.r - futX, ph);
+    }
+    
+    // === Grid ===
+    cx.fillStyle = '#445';
+    cx.font = '9px monospace';
+    cx.strokeStyle = '#161625';
+    cx.lineWidth = 0.5;
+    const gridSteps = 6;
+    for (let i = 0; i <= gridSteps; i++) {
+        const p = pMn + (pMx - pMn) * i / gridSteps;
+        const y = yS(p);
+        cx.beginPath(); cx.moveTo(mg.l, y); cx.lineTo(W - mg.r, y); cx.stroke();
+        cx.fillText(p.toFixed(4), 2, y + 3);
+    }
+    
+    // === K-lines ===
+    const bw = Math.max(1.2, pw / dispRange * 0.6);
+    for (let i = 0; i < n; i++) {
+        const k = klines[i];
+        const bar = startBar + i;
+        const x = xS(bar);
+        const up = k[3] >= k[0];
+        
+        // Wick
+        cx.strokeStyle = up ? '#1a6a2a' : '#6a1a2a';
+        cx.lineWidth = 0.7;
+        cx.beginPath(); cx.moveTo(x, yS(k[2])); cx.lineTo(x, yS(k[1])); cx.stroke();
+        
+        // Body
+        cx.fillStyle = up ? '#1a4a1a66' : '#4a1a1a66';
+        const oY = yS(Math.max(k[0], k[3]));
+        const cY = yS(Math.min(k[0], k[3]));
+        cx.fillRect(x - bw / 2, oY, bw, Math.max(1, cY - oY));
+    }
+    
+    // === L0 Base Zigzag ===
+    if (showL0 && d.snapshots) {
+        for (const snap of d.snapshots) {
+            if (snap.type !== 'base') continue;
+            const pts = snap.pts;
+            if (pts.length < 2) continue;
+            
+            cx.strokeStyle = 'rgba(255,215,0,0.18)';
+            cx.lineWidth = 0.6;
+            cx.setLineDash([]);
+            cx.beginPath();
+            let started = false;
+            for (const pt of pts) {
+                const x = xS(pt[0]), y = yS(pt[1]);
+                if (!started) { cx.moveTo(x, y); started = true; }
+                else cx.lineTo(x, y);
+            }
+            cx.stroke();
+        }
+    }
+    
+    // === A1-A6 Amplitude Merge (骨架) ===
+    if (showAmp && d.snapshots) {
+        let ampIdx = 0;
+        for (const snap of d.snapshots) {
+            if (snap.type !== 'amp') continue;
+            const pts = snap.pts;
+            if (pts.length < 2) continue;
+            
+            const ci = Math.min(ampIdx, AMP_COLORS.length - 1);
+            const c = AMP_COLORS[ci];
+            const alpha = Math.min(0.95, 0.50 + ampIdx * 0.09);
+            const lw = Math.min(5.0, 2.0 + ampIdx * 0.6);
+            
+            // Line
+            cx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${alpha})`;
+            cx.lineWidth = lw;
+            cx.setLineDash([]);
+            cx.beginPath();
+            let started = false;
+            for (const pt of pts) {
+                const x = xS(pt[0]), y = yS(pt[1]);
+                if (!started) { cx.moveTo(x, y); started = true; }
+                else cx.lineTo(x, y);
+            }
+            cx.stroke();
+            
+            // Pivot markers
+            const markerR = Math.min(5, 2.5 + ampIdx * 0.5);
+            cx.fillStyle = `rgba(${c.r},${c.g},${c.b},${alpha})`;
+            for (const pt of pts) {
+                cx.beginPath();
+                cx.arc(xS(pt[0]), yS(pt[1]), markerR, 0, Math.PI * 2);
+                cx.fill();
+                // White outline for higher levels
+                if (ampIdx >= 2) {
+                    cx.strokeStyle = `rgba(255,255,255,${alpha * 0.3})`;
+                    cx.lineWidth = 0.7;
+                    cx.stroke();
+                }
+            }
+            
+            // Label at last pivot
+            if (pts.length > 0) {
+                const last = pts[pts.length - 1];
+                cx.fillStyle = `rgba(${c.r},${c.g},${c.b},${alpha * 0.8})`;
+                cx.font = '9px monospace';
+                cx.textAlign = 'left';
+                cx.fillText(snap.label, xS(last[0]) + markerR + 2, yS(last[1]) + 3);
+            }
+            
+            ampIdx++;
+        }
+    }
+    
+    // === T1-T2 Lateral Merge ===
+    if (showLat && d.snapshots) {
+        let latIdx = 0;
+        for (const snap of d.snapshots) {
+            if (snap.type !== 'lat') continue;
+            const pts = snap.pts;
+            if (pts.length < 2) continue;
+            
+            const alpha = Math.min(0.85, 0.55 + latIdx * 0.15);
+            const lw = 1.5 + latIdx * 0.5;
+            cx.strokeStyle = `rgba(60,200,255,${alpha})`;
+            cx.lineWidth = lw;
+            cx.setLineDash([8 + latIdx * 2, 4 + latIdx]);
+            
+            cx.beginPath();
+            let started = false;
+            for (const pt of pts) {
+                const x = xS(pt[0]), y = yS(pt[1]);
+                if (!started) { cx.moveTo(x, y); started = true; }
+                else cx.lineTo(x, y);
+            }
+            cx.stroke();
+            
+            // Diamond markers
+            const sz = 3 + latIdx;
+            cx.fillStyle = `rgba(60,200,255,${alpha})`;
+            for (const pt of pts) {
+                const x = xS(pt[0]), y = yS(pt[1]);
+                cx.beginPath();
+                cx.moveTo(x, y - sz); cx.lineTo(x + sz, y);
+                cx.lineTo(x, y + sz); cx.lineTo(x - sz, y);
+                cx.closePath(); cx.fill();
+            }
+            
+            latIdx++;
+        }
+    }
+    cx.setLineDash([]);
+    
+    // === Fusion Pool ===
+    if (showFus && d.pool) {
+        for (const s of d.pool) {
+            const isFusion = s.src === 'f';
+            if (isFusion) {
+                const fc = s.dr === 1 ? 'rgba(60,220,160,0.55)' : 'rgba(220,80,120,0.55)';
+                cx.strokeStyle = fc;
+                cx.lineWidth = 1.8;
+                cx.setLineDash([10, 5]);
+                cx.beginPath();
+                cx.moveTo(xS(s.bs), yS(s.ps));
+                cx.lineTo(xS(s.be), yS(s.pe));
+                cx.stroke();
+                // Endpoints
+                cx.fillStyle = fc;
+                cx.beginPath(); cx.arc(xS(s.bs), yS(s.ps), 2.5, 0, Math.PI * 2); cx.fill();
+                cx.beginPath(); cx.arc(xS(s.be), yS(s.pe), 2.5, 0, Math.PI * 2); cx.fill();
+            } else {
+                const isAmp = s.src === 'a';
+                const al = isAmp ? 0.25 : 0.12;
+                cx.strokeStyle = isAmp ? `rgba(255,160,60,${al})` : `rgba(150,150,180,${al})`;
+                cx.lineWidth = isAmp ? 0.8 : 0.4;
+                cx.setLineDash([3, 2]);
+                cx.beginPath();
+                cx.moveTo(xS(s.bs), yS(s.ps));
+                cx.lineTo(xS(s.be), yS(s.pe));
+                cx.stroke();
+            }
+        }
+    }
+    cx.setLineDash([]);
+    
+    // === Important Pivots ===
+    if (showPvt && d.pivots) {
+        for (let i = 0; i < d.pivots.length; i++) {
+            const pv = d.pivots[i];
+            if (pv.b < startBar || pv.b > d.end_bar) continue;
+            const x = xS(pv.b), y = yS(pv.p);
+            const r = Math.max(2, 5 - i * 0.15);
+            const alpha = Math.max(0.3, 1 - i * 0.025);
+            
+            cx.fillStyle = pv.d === 1
+                ? `rgba(255,68,68,${alpha})`
+                : `rgba(68,255,68,${alpha})`;
+            cx.strokeStyle = `rgba(255,255,255,${alpha * 0.4})`;
+            cx.lineWidth = 0.8;
+            cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill(); cx.stroke();
+            
+            if (i < 15) {
+                const label = (pv.d === 1 ? 'H' : 'L') + (i + 1);
+                cx.fillStyle = `rgba(255,255,255,${alpha * 0.6})`;
+                cx.font = '8px monospace';
+                cx.textAlign = 'center';
+                cx.fillText(label, x, pv.d === 1 ? y - r - 3 : y + r + 8);
+                cx.fillText(pv.p.toFixed(4), x, pv.d === 1 ? y - r - 11 : y + r + 16);
+            }
+        }
+        cx.textAlign = 'start';
+    }
+    
+    // === Predictions ===
+    if (showPred && d.predictions) {
+        for (let i = 0; i < d.predictions.length; i++) {
+            const pr = d.predictions[i];
+            const isMirror = pr.tp === 'm';
+            const alpha = Math.max(0.2, 0.85 - i * 0.03);
+            const lw = Math.max(0.8, 2.5 - i * 0.08);
+            const aCol = isMirror
+                ? `rgba(255,180,60,${alpha})`
+                : `rgba(80,200,255,${alpha})`;
+            const pCol = pr.pd === 1
+                ? `rgba(80,255,120,${alpha})`
+                : `rgba(255,80,100,${alpha})`;
+            
+            // A segment
+            cx.strokeStyle = aCol;
+            cx.lineWidth = lw;
+            cx.setLineDash([]);
+            cx.beginPath();
+            cx.moveTo(xS(pr.as), yS(pr.aps));
+            cx.lineTo(xS(pr.ae), yS(pr.ape));
+            cx.stroke();
+            
+            // B segment (center only)
+            if (!isMirror && pr.bs > 0) {
+                cx.strokeStyle = `rgba(180,180,200,${alpha * 0.3})`;
+                cx.lineWidth = lw * 0.5;
+                cx.setLineDash([3, 2]);
+                cx.beginPath();
+                cx.moveTo(xS(pr.bs), yS(pr.bps));
+                cx.lineTo(xS(pr.be), yS(pr.bpe));
+                cx.stroke();
+            }
+            
+            // C' prediction line
+            cx.strokeStyle = pCol;
+            cx.lineWidth = lw * 1.3;
+            cx.setLineDash([8, 4]);
+            cx.beginPath();
+            cx.moveTo(xS(pr.psb), yS(pr.psp));
+            cx.lineTo(xS(pr.ptb), yS(pr.ptp));
+            cx.stroke();
+            
+            // Arrow
+            const ax2 = xS(pr.ptb), ay2 = yS(pr.ptp);
+            const ang = Math.atan2(ay2 - yS(pr.psp), ax2 - xS(pr.psb));
+            cx.setLineDash([]);
+            cx.lineWidth = lw;
+            cx.strokeStyle = pCol;
+            cx.beginPath();
+            cx.moveTo(ax2, ay2);
+            cx.lineTo(ax2 - 7 * Math.cos(ang - 0.35), ay2 - 7 * Math.sin(ang - 0.35));
+            cx.moveTo(ax2, ay2);
+            cx.lineTo(ax2 - 7 * Math.cos(ang + 0.35), ay2 - 7 * Math.sin(ang + 0.35));
+            cx.stroke();
+            
+            // Target price label
+            if (i < 15) {
+                cx.fillStyle = pCol;
+                cx.font = '8px monospace';
+                cx.textAlign = 'left';
+                const label = (isMirror ? 'M' : 'C') + (i + 1);
+                cx.fillText(label + ' ' + pr.ptp.toFixed(4), ax2 + 4, ay2 + 3);
+            }
+        }
+    }
+    cx.setLineDash([]);
+    cx.textAlign = 'start';
+    
+    // === Current bar vertical line ===
+    cx.strokeStyle = '#ffffff10';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(xS(d.end_bar), mg.t);
+    cx.lineTo(xS(d.end_bar), H - mg.b);
+    cx.stroke();
+    
+    // === Info bar ===
+    const lastK = n > 0 ? klines[n - 1] : [0, 0, 0, 0];
+    const snapLabels = d.snapshots ? d.snapshots.map(s => s.label).join(',') : '';
+    const poolN = d.pool ? d.pool.length : 0;
+    const predN = d.predictions ? d.predictions.length : 0;
+    const pvtN = d.pivots ? d.pivots.length : 0;
+    
+    document.getElementById('infoBar').innerHTML =
+        `<span id="statusDot" class="dot-ok"></span>` +
+        `Bar ${d.end_bar} [${d.start_bar}..${d.end_bar}] Win=${d.window} | ` +
+        `O:${lastK[0]} H:${lastK[1]} L:${lastK[2]} C:${lastK[3]} | ` +
+        `Levels: ${snapLabels} | Pool:${poolN} Pred:${predN} Pvt:${pvtN} | ` +
+        `${d.compute_ms}ms`;
+    
+    document.getElementById('titleInfo').textContent =
+        `${d.total_bars} bars | Window ${d.window}`;
+}
+
+// ============================================================
+// Init
+// ============================================================
+window.addEventListener('resize', draw);
+
+// Connect
+connectWS();
+</script>
+</body></html>
