@@ -369,8 +369,12 @@ def index(request: Request):
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
     <span style="color:#aaa;font-size:11px;">Label:</span>
-    <input type="text" id="annotLabel" placeholder="e.g. A(B)abcC, 12345, abcde ..."
-           style="width:280px;background:#111;color:#eee;border:1px solid #444;padding:3px 6px;font-size:12px;font-family:monospace;">
+    <div style="position:relative;display:inline-block;">
+      <input type="text" id="annotLabel" placeholder="e.g. A(B)abcC, 12345, abcde ..."
+             style="width:280px;background:#111;color:#eee;border:1px solid #444;padding:3px 6px;font-size:12px;font-family:monospace;"
+             onfocus="showLabelHist()" oninput="filterLabelHist()">
+      <div id="labelHist" style="display:none;position:absolute;top:100%;left:0;width:320px;max-height:200px;overflow-y:auto;background:#111;border:1px solid #555;border-radius:3px;z-index:999;"></div>
+    </div>
     <button onclick="submitAnnotation()" style="background:#2a5a2a;color:#8f8;border:1px solid #4a4;padding:4px 14px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:bold;">Submit</button>
     <button onclick="clearAnnotation()" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Clear</button>
     <button onclick="undoLastSeg()" style="background:#2a2a1a;color:#ff8;border:1px solid #554;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Undo</button>
@@ -935,14 +939,65 @@ for(const fn of _patchedSliders) {
     };
   }
 }
+// Label history dropdown
+function showLabelHist() {
+  const hist = document.getElementById('labelHist');
+  if(!HIST_LABELS || HIST_LABELS.length === 0) { hist.style.display='none'; return; }
+  filterLabelHist();
+  hist.style.display = 'block';
+}
+
+function filterLabelHist() {
+  const hist = document.getElementById('labelHist');
+  const val = document.getElementById('annotLabel').value.toLowerCase();
+  const filtered = val ? HIST_LABELS.filter(l => l.toLowerCase().includes(val)) : HIST_LABELS;
+  if(filtered.length === 0) { hist.style.display='none'; return; }
+  let h = '';
+  for(const lb of filtered) {
+    h += '<div onclick="pickLabel(this)" style="padding:3px 8px;cursor:pointer;color:#ccc;font-size:11px;font-family:monospace;border-bottom:1px solid #222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onmouseover="this.style.background=\'#223\'" onmouseout="this.style.background=\'transparent\'">' + lb + '</div>';
+  }
+  hist.innerHTML = h;
+  hist.style.display = 'block';
+}
+
+function pickLabel(el) {
+  document.getElementById('annotLabel').value = el.textContent;
+  document.getElementById('labelHist').style.display = 'none';
+}
+
+// Hide dropdown when clicking elsewhere
+document.addEventListener('click', function(e) {
+  if(!e.target.closest || (!e.target.closest('#annotLabel') && !e.target.closest('#labelHist'))) {
+    document.getElementById('labelHist').style.display = 'none';
+  }
+});
+
 // ========== END ANNOTATION SYSTEM ==========
 '''
+
+    # 读取历史标注labels（去重，最近的在前，最多20条）
+    hist_labels = []
+    if os.path.exists(ANNOTATIONS_FILE):
+        try:
+            with open(ANNOTATIONS_FILE, 'r') as f:
+                all_a = json.load(f)
+            seen = set()
+            for a in reversed(all_a):
+                lb = a.get('label', '')
+                if lb and lb not in seen:
+                    seen.add(lb)
+                    hist_labels.append(lb)
+                if len(hist_labels) >= 20:
+                    break
+        except Exception:
+            pass
 
     # 注入窗口信息常量（供JS使用）
     window_constants = f'''
 const WINDOW_START = {start};
 const WINDOW_END = {end_bar};
 const WINDOW_WIN = {win};
+const HIST_LABELS = {json.dumps(hist_labels, ensure_ascii=False)};
 '''
 
     # 在 draw(); 之后注入
