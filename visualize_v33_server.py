@@ -32,6 +32,7 @@ from auxiliary_lines import compute_auxiliary_lines_from_pivots
 
 ANNOTATIONS_DIR = '/home/ubuntu/stage2_abc/annotations'
 ANNOTATIONS_FILE = os.path.join(ANNOTATIONS_DIR, 'all_annotations.json')
+DRAWN_LINES_FILE = os.path.join(ANNOTATIONS_DIR, 'drawn_lines.json')
 
 app = FastAPI()
 G = {}
@@ -273,6 +274,29 @@ async def update_annotation(record_id: str, request: Request):
     return JSONResponse({'status': 'updated', 'id': record_id, 'old_label': old_label, 'new_label': new_label})
 
 
+@app.get("/drawn_lines")
+def get_drawn_lines():
+    """返回所有手工画线"""
+    if os.path.exists(DRAWN_LINES_FILE):
+        with open(DRAWN_LINES_FILE, 'r') as f:
+            try:
+                return JSONResponse(json.load(f))
+            except json.JSONDecodeError:
+                return JSONResponse([])
+    return JSONResponse([])
+
+
+@app.post("/drawn_lines")
+async def save_drawn_lines(request: Request):
+    """保存所有手工画线（全量覆盖）"""
+    data = await request.json()
+    lines = data if isinstance(data, list) else data.get('lines', [])
+    with open(DRAWN_LINES_FILE, 'w') as f:
+        json.dump(lines, f, indent=2, ensure_ascii=False)
+    print(f"  DRAWN_LINES: saved {len(lines)} lines", flush=True)
+    return JSONResponse({'status': 'ok', 'count': len(lines)})
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     df_full = G['df']
@@ -372,6 +396,8 @@ def index(request: Request):
   </span>
   <span style="color:#888;font-size:12px;">|</span>
   <span id="latBtn" onclick="toggleLatLines()" style="color:#3df;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">Lat:{n_lat_snaps}</span>
+  <span style="color:#888;font-size:12px;">|</span>
+  <span id="drawBtn" onclick="toggleDrawMode()" style="color:#ff0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;" title="Draw Mode: click/drag to draw lines">Draw</span>
   <span style="color:#888;font-size:12px;">|</span>
   <span id="tlineBtn" class="active" onclick="toggleTLines()" style="color:#0d8;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">T:{len(trendlines)}</span>
   <input type="range" min="0" max="{len(trendlines)}" value="{min(10, len(trendlines))}" oninput="updateTLineN(this.value)" style="width:50px;vertical-align:middle;">
@@ -665,6 +691,7 @@ function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
 // Double-click handler for segment selection
 cv.addEventListener('dblclick', function(e) {
   if(annLocked) return;
+  if(typeof drawMode !== 'undefined' && drawMode) return;  // 画线模式下不触发标注
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
@@ -1035,6 +1062,505 @@ function toggleLatLines() {
   if(annSlots.some(s => s)) drawAnnotHighlights();
 }
 
+// ========== DRAWING SYSTEM (MT4-style) ==========
+// 坐标逆映射
+function barFromX(x) { return (x - mg.l) / pw * K.length; }
+function priceFromY(y) { return mn + (1 - (y - mg.t) / ph) * (mx - mn); }
+
+// 手工画线数据
+let drawnLines = SAVED_DRAWN_LINES || [];  // [{id, b1, p1, b2, p2, type, color, label, active, snapped1, snapped2}]
+let drawMode = false;        // 是否在画线模式
+let drawState = 0;           // 0=idle, 1=drawing(mousedown), 2=dragging endpoint
+let drawStartX = 0, drawStartY = 0;
+let drawCurX = 0, drawCurY = 0;
+let drawSnapPivot1 = null;   // 起点吸附的pivot {bar, price, label}
+let drawSnapPivot2 = null;   // 终点吸附的pivot
+let selectedLine = null;     // 选中的线段index
+let dragEndpoint = 0;        // 拖动哪个端点: 0=none, 1=start, 2=end
+let dragOffsetB = 0, dragOffsetP = 0;  // 整体平移时的偏移
+
+const SNAP_RADIUS = 15;     // 吸附半径(px)
+const LINE_HIT_DIST = 8;    // 线段选中距离(px)
+const EP_HIT_DIST = 10;     // 端点选中距离(px)
+
+function genLineId() {
+  return 'DL_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+}
+
+// 找最近的pivot（吸附）
+function findNearPivot(mx, my) {
+  const allPivots = PEAKS.slice(0, peakTopN).concat(VALS.slice(0, valleyTopN));
+  let best = null, bestDist = SNAP_RADIUS;
+  for (const p of allPivots) {
+    const px = xS(p.bar), py = yS(p.price);
+    const d = Math.sqrt((mx - px) * (mx - px) + (my - py) * (my - py));
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best;
+}
+
+// 距线段的距离
+function distToDrawnLine(mx, my, line) {
+  const x1 = xS(line.b1), y1 = yS(line.p1);
+  const x2 = xS(line.b2), y2 = yS(line.p2);
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.sqrt((mx - x1) * (mx - x1) + (my - y1) * (my - y1));
+  let t = ((mx - x1) * dx + (my - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const px = x1 + t * dx, py = y1 + t * dy;
+  return Math.sqrt((mx - px) * (mx - px) + (my - py) * (my - py));
+}
+
+// 切换画线模式
+function toggleDrawMode() {
+  drawMode = !drawMode;
+  drawState = 0;
+  selectedLine = null;
+  const btn = document.getElementById('drawBtn');
+  if (btn) {
+    btn.style.background = drawMode ? '#4a4a00' : '';
+    btn.style.borderColor = drawMode ? '#ff0' : '#333';
+    btn.textContent = drawMode ? 'Draw*' : 'Draw';
+  }
+  cv.style.cursor = drawMode ? 'crosshair' : 'crosshair';
+  redrawAll();
+}
+
+// 全量重绘
+function redrawAll() {
+  draw();
+  drawAuxLines();
+  drawDrawnLines();
+  if (annSlots.some(s => s)) drawAnnotHighlights();
+}
+
+// 绘制所有手工线段
+function drawDrawnLines() {
+  const cvEl = document.getElementById('chart');
+  const cxEl = cvEl.getContext('2d');
+  for (let i = 0; i < drawnLines.length; i++) {
+    const ln = drawnLines[i];
+    if (!ln.active && ln.active !== undefined && ln.active !== true) {
+      // 非激活线: 灰色半透明
+      cxEl.strokeStyle = 'rgba(100,100,100,0.3)';
+      cxEl.lineWidth = 1;
+      cxEl.setLineDash([4, 4]);
+    } else {
+      cxEl.strokeStyle = ln.color || '#ff0';
+      cxEl.lineWidth = (i === selectedLine) ? 3 : 2;
+      cxEl.setLineDash(ln.dash || []);
+    }
+    cxEl.globalAlpha = (i === selectedLine) ? 1.0 : 0.8;
+    const x1 = xS(ln.b1), y1 = yS(ln.p1);
+    const x2 = xS(ln.b2), y2 = yS(ln.p2);
+    cxEl.beginPath();
+    cxEl.moveTo(x1, y1);
+    cxEl.lineTo(x2, y2);
+    cxEl.stroke();
+    cxEl.setLineDash([]);
+
+    // 端点方块
+    const epSize = (i === selectedLine) ? 5 : 3;
+    cxEl.fillStyle = ln.snapped1 ? '#0f0' : (ln.color || '#ff0');
+    cxEl.fillRect(x1 - epSize, y1 - epSize, epSize * 2, epSize * 2);
+    cxEl.fillStyle = ln.snapped2 ? '#0f0' : (ln.color || '#ff0');
+    cxEl.fillRect(x2 - epSize, y2 - epSize, epSize * 2, epSize * 2);
+
+    // 标签
+    if (ln.label || ln.snapped1 || ln.snapped2) {
+      cxEl.font = '10px monospace';
+      cxEl.fillStyle = ln.color || '#ff0';
+      cxEl.globalAlpha = 0.9;
+      const lbl = ln.label || '';
+      const snapInfo = (ln.snapped1 || '') + '→' + (ln.snapped2 || '');
+      const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
+      cxEl.fillText(lbl ? lbl + ' ' + snapInfo : snapInfo, midX + 5, midY - 5);
+    }
+    cxEl.globalAlpha = 1;
+  }
+
+  // 画线预览（正在拖动中）
+  if (drawMode && drawState === 1) {
+    cxEl.strokeStyle = '#ff0';
+    cxEl.lineWidth = 2;
+    cxEl.globalAlpha = 0.6;
+    cxEl.setLineDash([6, 3]);
+    cxEl.beginPath();
+    cxEl.moveTo(drawStartX, drawStartY);
+    cxEl.lineTo(drawCurX, drawCurY);
+    cxEl.stroke();
+    cxEl.setLineDash([]);
+    // 吸附提示圆
+    if (drawSnapPivot2) {
+      cxEl.strokeStyle = '#0f0';
+      cxEl.lineWidth = 2;
+      cxEl.beginPath();
+      cxEl.arc(xS(drawSnapPivot2.bar), yS(drawSnapPivot2.price), SNAP_RADIUS, 0, Math.PI * 2);
+      cxEl.stroke();
+    }
+    if (drawSnapPivot1) {
+      cxEl.strokeStyle = '#0f0';
+      cxEl.lineWidth = 2;
+      cxEl.beginPath();
+      cxEl.arc(xS(drawSnapPivot1.bar), yS(drawSnapPivot1.price), SNAP_RADIUS, 0, Math.PI * 2);
+      cxEl.stroke();
+    }
+    cxEl.globalAlpha = 1;
+  }
+}
+
+// 保存到服务器
+async function saveDrawnLines() {
+  try {
+    await fetch('/drawn_lines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(drawnLines)
+    });
+  } catch(e) { console.error('Save drawn lines failed:', e); }
+}
+
+// --- Mouse event handlers for drawing ---
+cv.addEventListener('mousedown', function(e) {
+  if (e.button === 2) return;  // right-click handled separately
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (!drawMode) {
+    // 非画线模式: 检查是否点击了已有线段的端点（拖动调整）
+    for (let i = drawnLines.length - 1; i >= 0; i--) {
+      const ln = drawnLines[i];
+      const x1 = xS(ln.b1), y1 = yS(ln.p1);
+      const x2 = xS(ln.b2), y2 = yS(ln.p2);
+      const d1 = Math.sqrt((mx - x1) * (mx - x1) + (my - y1) * (my - y1));
+      const d2 = Math.sqrt((mx - x2) * (mx - x2) + (my - y2) * (my - y2));
+      if (d1 < EP_HIT_DIST) {
+        selectedLine = i; dragEndpoint = 1; drawState = 2;
+        e.preventDefault(); redrawAll(); return;
+      }
+      if (d2 < EP_HIT_DIST) {
+        selectedLine = i; dragEndpoint = 2; drawState = 2;
+        e.preventDefault(); redrawAll(); return;
+      }
+    }
+    // 检查是否点击了线段中部（选中 + 整体平移准备）
+    for (let i = drawnLines.length - 1; i >= 0; i--) {
+      if (distToDrawnLine(mx, my, drawnLines[i]) < LINE_HIT_DIST) {
+        selectedLine = i; drawState = 0;
+        const ln = drawnLines[i];
+        dragOffsetB = barFromX(mx) - (ln.b1 + ln.b2) / 2;
+        dragOffsetP = priceFromY(my) - (ln.p1 + ln.p2) / 2;
+        e.preventDefault(); redrawAll(); return;
+      }
+    }
+    // 没点到任何线 → 取消选中
+    if (selectedLine !== null) {
+      selectedLine = null;
+      redrawAll();
+    }
+    return;
+  }
+
+  // 画线模式: 开始画新线
+  e.preventDefault();
+  const snap = findNearPivot(mx, my);
+  if (snap) {
+    drawStartX = xS(snap.bar);
+    drawStartY = yS(snap.price);
+    drawSnapPivot1 = snap;
+  } else {
+    drawStartX = mx;
+    drawStartY = my;
+    drawSnapPivot1 = null;
+  }
+  drawCurX = drawStartX;
+  drawCurY = drawStartY;
+  drawSnapPivot2 = null;
+  drawState = 1;
+});
+
+cv.addEventListener('mousemove', function(e) {
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (drawMode && drawState === 1) {
+    // 画线拖动中
+    const snap = findNearPivot(mx, my);
+    if (snap) {
+      drawCurX = xS(snap.bar);
+      drawCurY = yS(snap.price);
+      drawSnapPivot2 = snap;
+    } else {
+      drawCurX = mx;
+      drawCurY = my;
+      drawSnapPivot2 = null;
+    }
+    redrawAll();
+    e.preventDefault();
+    return;
+  }
+
+  if (drawState === 2 && selectedLine !== null) {
+    // 端点拖动中
+    const snap = findNearPivot(mx, my);
+    const ln = drawnLines[selectedLine];
+    if (dragEndpoint === 1) {
+      if (snap) {
+        ln.b1 = snap.bar; ln.p1 = snap.price; ln.snapped1 = snap.label;
+      } else {
+        ln.b1 = barFromX(mx); ln.p1 = priceFromY(my); ln.snapped1 = null;
+      }
+    } else if (dragEndpoint === 2) {
+      if (snap) {
+        ln.b2 = snap.bar; ln.p2 = snap.price; ln.snapped2 = snap.label;
+      } else {
+        ln.b2 = barFromX(mx); ln.p2 = priceFromY(my); ln.snapped2 = null;
+      }
+    }
+    redrawAll();
+    e.preventDefault();
+    return;
+  }
+
+  // 画线模式下的hover: 显示吸附提示
+  if (drawMode && drawState === 0) {
+    const snap = findNearPivot(mx, my);
+    cv.style.cursor = snap ? 'pointer' : 'crosshair';
+  }
+});
+
+cv.addEventListener('mouseup', function(e) {
+  if (e.button === 2) return;
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (drawMode && drawState === 1) {
+    // 完成画线
+    let b1, p1, b2, p2, snap1lbl = null, snap2lbl = null;
+    if (drawSnapPivot1) {
+      b1 = drawSnapPivot1.bar; p1 = drawSnapPivot1.price; snap1lbl = drawSnapPivot1.label;
+    } else {
+      b1 = barFromX(drawStartX); p1 = priceFromY(drawStartY);
+    }
+    const snap = findNearPivot(mx, my);
+    if (snap) {
+      b2 = snap.bar; p2 = snap.price; snap2lbl = snap.label;
+    } else {
+      b2 = barFromX(mx); p2 = priceFromY(my);
+    }
+    // 忽略太短的线
+    const pixDist = Math.sqrt((xS(b2) - xS(b1)) * (xS(b2) - xS(b1)) + (yS(p2) - yS(p1)) * (yS(p2) - yS(p1)));
+    if (pixDist > 5) {
+      const newLine = {
+        id: genLineId(),
+        b1: Math.round(b1 * 100) / 100, p1: Math.round(p1 * 100000) / 100000,
+        b2: Math.round(b2 * 100) / 100, p2: Math.round(p2 * 100000) / 100000,
+        type: 'trendline',
+        color: '#ff0',
+        label: '',
+        active: true,
+        snapped1: snap1lbl,
+        snapped2: snap2lbl,
+      };
+      drawnLines.push(newLine);
+      selectedLine = drawnLines.length - 1;
+      saveDrawnLines();
+    }
+    drawState = 0;
+    redrawAll();
+    e.preventDefault();
+    return;
+  }
+
+  if (drawState === 2 && selectedLine !== null) {
+    // 端点拖动结束
+    drawState = 0;
+    dragEndpoint = 0;
+    saveDrawnLines();
+    redrawAll();
+    e.preventDefault();
+    return;
+  }
+});
+
+// --- Right-click context menu ---
+let ctxMenu = null;
+function showCtxMenu(x, y, lineIdx) {
+  hideCtxMenu();
+  ctxMenu = document.createElement('div');
+  ctxMenu.style.cssText = 'position:fixed;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:4px 0;z-index:9999;font-size:12px;font-family:monospace;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+  ctxMenu.style.left = x + 'px';
+  ctxMenu.style.top = y + 'px';
+
+  const items = [
+    { text: 'Edit Label', icon: 'E', action: () => editLineLabel(lineIdx) },
+    { text: 'Color...', icon: 'C', action: () => changeLineColor(lineIdx) },
+    { text: 'Copy (Parallel)', icon: 'P', action: () => copyLineParallel(lineIdx) },
+    { text: 'Toggle Active', icon: 'A', action: () => toggleLineActive(lineIdx) },
+    { text: '---' },
+    { text: 'Delete', icon: 'X', action: () => deleteLine(lineIdx), color: '#f66' },
+  ];
+
+  for (const item of items) {
+    if (item.text === '---') {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'border-top:1px solid #333;margin:3px 0;';
+      ctxMenu.appendChild(sep);
+      continue;
+    }
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:5px 12px;cursor:pointer;color:' + (item.color || '#ccc') + ';';
+    row.onmouseenter = function() { this.style.background = '#2a3a5a'; };
+    row.onmouseleave = function() { this.style.background = ''; };
+    row.textContent = (item.icon ? '[' + item.icon + '] ' : '') + item.text;
+    row.onclick = function() { hideCtxMenu(); item.action(); };
+    ctxMenu.appendChild(row);
+  }
+  document.body.appendChild(ctxMenu);
+}
+
+function hideCtxMenu() {
+  if (ctxMenu && ctxMenu.parentNode) ctxMenu.parentNode.removeChild(ctxMenu);
+  ctxMenu = null;
+}
+
+document.addEventListener('click', function(e) {
+  if (ctxMenu && !ctxMenu.contains(e.target)) hideCtxMenu();
+});
+
+cv.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // 找最近的手工线段
+  let bestIdx = -1, bestDist = LINE_HIT_DIST + 5;
+  for (let i = drawnLines.length - 1; i >= 0; i--) {
+    const d = distToDrawnLine(mx, my, drawnLines[i]);
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  }
+  if (bestIdx >= 0) {
+    selectedLine = bestIdx;
+    redrawAll();
+    showCtxMenu(e.clientX, e.clientY, bestIdx);
+  } else {
+    hideCtxMenu();
+    selectedLine = null;
+    redrawAll();
+  }
+});
+
+// --- Context menu actions ---
+function editLineLabel(idx) {
+  const ln = drawnLines[idx];
+  const newLabel = prompt('Line label:', ln.label || '');
+  if (newLabel !== null) {
+    ln.label = newLabel.trim();
+    saveDrawnLines();
+    redrawAll();
+  }
+}
+
+function changeLineColor(idx) {
+  const ln = drawnLines[idx];
+  const colors = ['#ff0', '#0f0', '#f00', '#0af', '#f0f', '#fa0', '#fff', '#88f'];
+  const curIdx = colors.indexOf(ln.color || '#ff0');
+  ln.color = colors[(curIdx + 1) % colors.length];
+  saveDrawnLines();
+  redrawAll();
+}
+
+function copyLineParallel(idx) {
+  const ln = drawnLines[idx];
+  // 平行复制: 垂直偏移一点
+  const pOffset = (mx - mn) * 0.02;  // 价格范围的2%
+  const newLine = {
+    id: genLineId(),
+    b1: ln.b1, p1: ln.p1 + pOffset,
+    b2: ln.b2, p2: ln.p2 + pOffset,
+    type: ln.type,
+    color: ln.color,
+    label: (ln.label || '') + '_copy',
+    active: true,
+    snapped1: null,
+    snapped2: null,
+  };
+  drawnLines.push(newLine);
+  selectedLine = drawnLines.length - 1;
+  saveDrawnLines();
+  redrawAll();
+}
+
+function toggleLineActive(idx) {
+  const ln = drawnLines[idx];
+  ln.active = !(ln.active !== false);
+  saveDrawnLines();
+  redrawAll();
+}
+
+function deleteLine(idx) {
+  drawnLines.splice(idx, 1);
+  selectedLine = null;
+  saveDrawnLines();
+  redrawAll();
+}
+
+// === Keyboard shortcuts for drawing ===
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT') return;
+  // 'D' to toggle draw mode
+  if (e.key === 'd' || e.key === 'D') {
+    if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+      toggleDrawMode();
+      e.preventDefault();
+    }
+  }
+  // Delete/Backspace to delete selected line
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedLine !== null && e.target.tagName !== 'INPUT') {
+    deleteLine(selectedLine);
+    e.preventDefault();
+  }
+  // Escape to cancel drawing / deselect
+  if (e.key === 'Escape') {
+    if (drawState === 1) { drawState = 0; redrawAll(); }
+    else if (selectedLine !== null) { selectedLine = null; redrawAll(); }
+    else if (drawMode) { toggleDrawMode(); }
+  }
+});
+
+// Patch existing draw/toggle functions to also redraw hand-drawn lines
+const _patchedForDraw = ['showAll','hideAll','showType','showBase','toggleExtra','toggleTop',
+  'toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
+for(const fn of _patchedForDraw) {
+  const orig = window[fn];
+  if(orig && !orig._drawPatched) {
+    window[fn] = function() {
+      orig.apply(this, arguments);
+      drawDrawnLines();
+    };
+    window[fn]._drawPatched = true;
+  }
+}
+const _patchedSlidersForDraw = ['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
+for(const fn of _patchedSlidersForDraw) {
+  const orig = window[fn];
+  if(orig && !orig._drawPatched) {
+    window[fn] = function(v) {
+      orig.call(this, v);
+      drawDrawnLines();
+    };
+    window[fn]._drawPatched = true;
+  }
+}
+
+// 初始绘制手工线段
+drawDrawnLines();
+
 // ========== T线/F线绘制 ==========
 function drawAuxLines() {
   if(!showTLines && !showFLines) return;
@@ -1278,6 +1804,15 @@ document.addEventListener('click', function(e) {
         'touch_bars': f['touch_bars'],
     } for f in horizontals[:15]])
 
+    # 加载已保存的手工画线
+    saved_drawn_lines = []
+    if os.path.exists(DRAWN_LINES_FILE):
+        try:
+            with open(DRAWN_LINES_FILE, 'r') as f:
+                saved_drawn_lines = json.load(f)
+        except Exception:
+            pass
+
     # 注入窗口信息常量（供JS使用）
     window_constants = f'''
 const WINDOW_START = {start};
@@ -1290,6 +1825,7 @@ let showTLines = true;
 let tlineTopN = Math.min(10, TLINES.length);
 let showFLines = true;
 let flineTopN = Math.min(10, FLINES.length);
+const SAVED_DRAWN_LINES = {json.dumps(saved_drawn_lines, ensure_ascii=False)};
 '''
 
     # 在 draw(); 之后注入
