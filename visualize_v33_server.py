@@ -308,6 +308,9 @@ def index(request: Request):
     predictions = predict_symmetric_image(full_pool, pi, current_bar=len(df) - 1, max_pool_size=500)
     short_preds = sorted([p for p in predictions if p['pred_time'] <= 50], key=lambda p: -p['score'])
 
+    # 统计Lat快照数量
+    n_lat_snaps = sum(1 for st, lb, pv in results['all_snapshots'] if st == 'lat')
+
     # T线 + F线 (从拐点出发, 独立于zigzag归并)
     pivot_list = [(v['bar'], v['price'], v['dir']) for v in pi.values()]
     aux_lines = compute_auxiliary_lines_from_pivots(
@@ -367,6 +370,8 @@ def index(request: Request):
   <span style="color:#666;font-size:11px;">
     Sym:{len(sym_structures)} Pred:{len(short_preds)}
   </span>
+  <span style="color:#888;font-size:12px;">|</span>
+  <span id="latBtn" onclick="toggleLatLines()" style="color:#3df;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">Lat:{n_lat_snaps}</span>
   <span style="color:#888;font-size:12px;">|</span>
   <span id="tlineBtn" class="active" onclick="toggleTLines()" style="color:#0d8;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">T:{len(trendlines)}</span>
   <input type="range" min="0" max="{len(trendlines)}" value="{min(10, len(trendlines))}" oninput="updateTLineN(this.value)" style="width:50px;vertical-align:middle;">
@@ -1006,6 +1011,30 @@ for(const fn of _patchedSliders) {
     };
   }
 }
+// ========== Lat线独立开关 ==========
+let showLatLines = false;  // 默认关闭
+
+function toggleLatLines() {
+  showLatLines = !showLatLines;
+  const btn = document.getElementById('latBtn');
+  if(btn) {
+    btn.style.background = showLatLines ? '#1a3a5a' : '';
+    btn.style.borderColor = showLatLines ? '#3df' : '#333';
+  }
+  // 切换lat类型快照的可见性 (T1, T2, ...)
+  S.forEach((s, i) => {
+    if(s.type === 'lat') vis[i] = showLatLines;
+  });
+  // 同时切换lat相关的extra线段 (_mid + T级别的extra)
+  EX.forEach((g, i) => {
+    if(g.src === 'lat' || g.label.includes('_mid')) exVis[i] = showLatLines;
+  });
+  sync();
+  draw();
+  drawAuxLines();
+  if(annSlots.some(s => s)) drawAnnotHighlights();
+}
+
 // ========== T线/F线绘制 ==========
 function drawAuxLines() {
   if(!showTLines && !showFLines) return;
