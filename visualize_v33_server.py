@@ -917,10 +917,10 @@ function showAnnotResult(r) {
 
   html += '<div style="color:#555;font-size:9px;">same_label=' + r.same_label_count + ' total=' + r.total_annotations + '</div>';
 
-  // Action buttons
+  // Action buttons - use data-id to avoid quote escaping issues
   html += '<div style="margin-top:3px;">';
-  html += '<button onclick="deleteAnnot(\'' + r.record_id + '\', this)" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:2px 8px;border-radius:2px;cursor:pointer;font-size:10px;margin-right:4px;">Delete</button>';
-  html += '<button onclick="editAnnotLabel(\'' + r.record_id + '\', this)" style="background:#1a2a3a;color:#8cf;border:1px solid #446;padding:2px 8px;border-radius:2px;cursor:pointer;font-size:10px;">Edit Label</button>';
+  html += '<button data-action="delete" data-id="' + r.record_id + '" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:2px 8px;border-radius:2px;cursor:pointer;font-size:10px;margin-right:4px;">Delete</button>';
+  html += '<button data-action="edit" data-id="' + r.record_id + '" style="background:#1a2a3a;color:#8cf;border:1px solid #446;padding:2px 8px;border-radius:2px;cursor:pointer;font-size:10px;">Edit Label</button>';
   html += '</div>';
 
   // Prepend (newest first)
@@ -1019,6 +1019,16 @@ document.addEventListener('click', function(e) {
   if(!e.target.closest || (!e.target.closest('#annotLabel') && !e.target.closest('#labelHist'))) {
     document.getElementById('labelHist').style.display = 'none';
   }
+});
+
+// Event delegation for annotation action buttons (avoids inline onclick quote issues)
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button[data-action]');
+  if(!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  if(action === 'delete') deleteAnnot(id, btn);
+  if(action === 'edit') editAnnotLabel(id, btn);
 });
 
 // ========== END ANNOTATION SYSTEM ==========
