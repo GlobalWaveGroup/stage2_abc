@@ -28,6 +28,7 @@ from merge_engine_v3 import (
     pool_fusion, predict_symmetric_image, find_symmetric_structures
 )
 from visualize_v3 import generate_html as v3_generate_html
+from auxiliary_lines import compute_auxiliary_lines_from_pivots
 
 ANNOTATIONS_DIR = '/home/ubuntu/stage2_abc/annotations'
 ANNOTATIONS_FILE = os.path.join(ANNOTATIONS_DIR, 'all_annotations.json')
@@ -307,6 +308,16 @@ def index(request: Request):
     predictions = predict_symmetric_image(full_pool, pi, current_bar=len(df) - 1, max_pool_size=500)
     short_preds = sorted([p for p in predictions if p['pred_time'] <= 50], key=lambda p: -p['score'])
 
+    # T线 + F线 (从拐点出发, 独立于zigzag归并)
+    pivot_list = [(v['bar'], v['price'], v['dir']) for v in pi.values()]
+    aux_lines = compute_auxiliary_lines_from_pivots(
+        pivot_list, highs, lows,
+        t_min_touches=3, f_min_touches=2,
+        t_max_lines=20, f_max_lines=15
+    )
+    trendlines = aux_lines['trendlines']
+    horizontals = aux_lines['horizontals']
+
     elapsed = time.time() - t0
 
     # generate_html → 临时文件 → 读回
@@ -356,6 +367,13 @@ def index(request: Request):
   <span style="color:#666;font-size:11px;">
     Sym:{len(sym_structures)} Pred:{len(short_preds)}
   </span>
+  <span style="color:#888;font-size:12px;">|</span>
+  <span id="tlineBtn" class="active" onclick="toggleTLines()" style="color:#0d8;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">T:{len(trendlines)}</span>
+  <input type="range" min="0" max="{len(trendlines)}" value="{min(10, len(trendlines))}" oninput="updateTLineN(this.value)" style="width:50px;vertical-align:middle;">
+  <span id="tlineN" style="color:#0d8;font-size:10px;">{min(10, len(trendlines))}</span>
+  <span id="flineBtn" class="active" onclick="toggleFLines()" style="color:#fa0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">F:{len(horizontals)}</span>
+  <input type="range" min="0" max="{len(horizontals)}" value="{min(10, len(horizontals))}" oninput="updateFLineN(this.value)" style="width:50px;vertical-align:middle;">
+  <span id="flineN" style="color:#fa0;font-size:10px;">{min(10, len(horizontals))}</span>
 </div>
 '''
     html = html.replace('<body>', '<body>' + nav_html, 1)
@@ -988,6 +1006,160 @@ for(const fn of _patchedSliders) {
     };
   }
 }
+// ========== T线/F线绘制 ==========
+function drawAuxLines() {
+  if(!showTLines && !showFLines) return;
+  const cv = document.getElementById('chart');
+  const cx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  // 使用v3的坐标映射 (xS, yS 已在全局作用域)
+
+  // --- F线 (水平线) ---
+  if(showFLines && typeof FLINES !== 'undefined') {
+    const fShow = FLINES.slice(0, flineTopN);
+    for(let i = 0; i < fShow.length; i++) {
+      const f = fShow[i];
+      const y = yS(f.price);
+      if(y < 0 || y > H) continue;
+
+      // 颜色: support=青, resistance=橙, both=黄
+      let color = f.type === 'support' ? 'rgba(0,200,200,0.5)'
+                : f.type === 'resistance' ? 'rgba(255,160,0,0.5)'
+                : 'rgba(255,255,0,0.6)';
+      cx.strokeStyle = color;
+      cx.lineWidth = 1;
+      cx.setLineDash([6, 4]);
+
+      // 画水平线 (从bar_start到bar_end)
+      const x1 = xS(f.bar_start);
+      const x2 = xS(f.bar_end);
+      cx.beginPath();
+      cx.moveTo(x1, y);
+      cx.lineTo(x2, y);
+      cx.stroke();
+      cx.setLineDash([]);
+
+      // 触碰点标记
+      cx.fillStyle = color;
+      for(const b of f.touch_bars) {
+        const x = xS(b);
+        cx.beginPath();
+        cx.arc(x, y, 3, 0, Math.PI * 2);
+        cx.fill();
+      }
+
+      // 标签
+      cx.fillStyle = color;
+      cx.font = '9px monospace';
+      cx.fillText('F' + (i+1) + ' ' + f.price.toFixed(5) + ' (' + f.n_touches + 'T)', x2 + 4, y + 3);
+    }
+  }
+
+  // --- T线 (趋势线) ---
+  if(showTLines && typeof TLINES !== 'undefined') {
+    const tShow = TLINES.slice(0, tlineTopN);
+    for(let i = 0; i < tShow.length; i++) {
+      const t = tShow[i];
+
+      // 颜色: support=绿, resistance=红
+      let color = t.type === 'support' ? 'rgba(0,220,100,0.5)' : 'rgba(255,80,80,0.5)';
+      // 精度越高越亮
+      const alpha = 0.3 + t.precision * 0.5;
+      color = t.type === 'support'
+        ? 'rgba(0,220,100,' + alpha.toFixed(2) + ')'
+        : 'rgba(255,80,80,' + alpha.toFixed(2) + ')';
+
+      cx.strokeStyle = color;
+      cx.lineWidth = t.precision > 0.9 ? 1.5 : 1;
+      cx.setLineDash([4, 3]);
+
+      // 画斜线
+      const p1 = t.slope * t.bar_start + t.intercept;
+      const p2 = t.slope * t.bar_end + t.intercept;
+      const x1 = xS(t.bar_start);
+      const y1 = yS(p1);
+      const x2 = xS(t.bar_end);
+      const y2 = yS(p2);
+      cx.beginPath();
+      cx.moveTo(x1, y1);
+      cx.lineTo(x2, y2);
+      cx.stroke();
+      cx.setLineDash([]);
+
+      // 触碰点标记
+      cx.fillStyle = color;
+      for(const pt of t.points) {
+        const x = xS(pt[0]);
+        const y = yS(pt[1]);
+        cx.beginPath();
+        cx.arc(x, y, 3, 0, Math.PI * 2);
+        cx.fill();
+      }
+
+      // 标签 (在线的右端)
+      cx.fillStyle = color;
+      cx.font = '9px monospace';
+      const label = 'T' + (i+1) + ' ' + t.type.charAt(0).toUpperCase() + ' ' + t.n_touches + 'T p=' + t.precision.toFixed(2);
+      cx.fillText(label, x2 + 4, y2 + 3);
+    }
+  }
+}
+
+// T线/F线开关函数
+function toggleTLines() {
+  showTLines = !showTLines;
+  const btn = document.getElementById('tlineBtn');
+  if(btn) btn.classList.toggle('active', showTLines);
+  draw(); drawAuxLines();
+  if(annSlots.some(s => s)) drawAnnotHighlights();
+}
+function toggleFLines() {
+  showFLines = !showFLines;
+  const btn = document.getElementById('flineBtn');
+  if(btn) btn.classList.toggle('active', showFLines);
+  draw(); drawAuxLines();
+  if(annSlots.some(s => s)) drawAnnotHighlights();
+}
+function updateTLineN(v) {
+  tlineTopN = parseInt(v);
+  document.getElementById('tlineN').textContent = v;
+  draw(); drawAuxLines();
+  if(annSlots.some(s => s)) drawAnnotHighlights();
+}
+function updateFLineN(v) {
+  flineTopN = parseInt(v);
+  document.getElementById('flineN').textContent = v;
+  draw(); drawAuxLines();
+  if(annSlots.some(s => s)) drawAnnotHighlights();
+}
+
+// 把drawAuxLines加入到原有的draw patch链
+const _patchedFnsAux = ['showAll','hideAll','showType','showBase','toggleExtra','toggleTop',
+  'toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
+for(const fn of _patchedFnsAux) {
+  const orig = window[fn];
+  if(orig && !orig._auxPatched) {
+    window[fn] = function() {
+      orig.apply(this, arguments);
+      drawAuxLines();
+    };
+    window[fn]._auxPatched = true;
+  }
+}
+const _patchedSlidersAux = ['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
+for(const fn of _patchedSlidersAux) {
+  const orig = window[fn];
+  if(orig && !orig._auxPatched) {
+    window[fn] = function(v) {
+      orig.call(this, v);
+      drawAuxLines();
+    };
+    window[fn]._auxPatched = true;
+  }
+}
+// 初始绘制
+drawAuxLines();
+
 // Label history dropdown
 function showLabelHist() {
   const hist = document.getElementById('labelHist');
@@ -1051,12 +1223,44 @@ document.addEventListener('click', function(e) {
         except Exception:
             pass
 
+    # 序列化T线/F线数据
+    tlines_json = json.dumps([{
+        'type': t['type'],
+        'slope': t['slope'],
+        'intercept': t['intercept'],
+        'bar_start': t['bar_start'],
+        'bar_end': t['bar_end'],
+        'n_touches': t['n_touches'],
+        'importance': round(t['importance'], 2),
+        'precision': round(t['precision'], 3),
+        'point_bars': t['point_bars'],
+        'points': [(b, round(p, 6)) for b, p in t['points']],
+    } for t in trendlines[:20]])
+
+    flines_json = json.dumps([{
+        'price': round(f['price'], 6),
+        'type': f['type'],
+        'n_touches': f['n_touches'],
+        'n_peaks': f['n_peaks'],
+        'n_valleys': f['n_valleys'],
+        'bar_start': f['bar_start'],
+        'bar_end': f['bar_end'],
+        'importance': round(f['importance'], 2),
+        'touch_bars': f['touch_bars'],
+    } for f in horizontals[:15]])
+
     # 注入窗口信息常量（供JS使用）
     window_constants = f'''
 const WINDOW_START = {start};
 const WINDOW_END = {end_bar};
 const WINDOW_WIN = {win};
 const HIST_LABELS = {json.dumps(hist_labels, ensure_ascii=False)};
+const TLINES = {tlines_json};
+const FLINES = {flines_json};
+let showTLines = true;
+let tlineTopN = Math.min(10, TLINES.length);
+let showFLines = true;
+let flineTopN = Math.min(10, FLINES.length);
 '''
 
     # 在 draw(); 之后注入
