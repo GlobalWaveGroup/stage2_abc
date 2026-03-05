@@ -682,53 +682,96 @@ function isBaseLevel(seg) {
   return true;  // no internal pivots → L0
 }
 
-// Auto-decompose a segment into 3 sub-legs
-// Scoring: balance (modulus variance) + symmetric (|modA - modC|)
-// Returns { combos: [[legs],[legs],[legs]] } — top 3 candidates
+// Auto-decompose a segment into exactly 3 sub-legs (reverse of merge)
+// Conditions: 1) exactly 3 legs, 2) modulus balance, 3) symmetric (|modA-modC| small)
+// Small legs are discarded: each leg mod must be >= 10% of parent mod
+// Importance of split points is rewarded
+// Returns { combos: [[3 legs],[3 legs],[3 legs]] } — top 3 candidates
 function autoDecomposeSegment(seg) {
-  // Find all pivot points between seg.b1 and seg.b2 from all visible snapshots
-  const pivots = [];
+  const parentAmp = Math.abs(seg.p2 - seg.p1);
+  const parentTime = Math.abs(seg.b2 - seg.b1);
+  const parentMod = Math.sqrt(parentTime**2 + (parentAmp*100000)**2);
+  const minLegMod = parentMod * 0.10;  // each leg must be >= 10% of parent
+
+  // Collect ALL pivots from ALL snapshots + TOP array (importance-ranked)
+  const pivotMap = {};  // bar -> {bar, price, imp}
   for(let si = 0; si < S.length; si++) {
     if(!vis[si]) continue;
-    const pts = S[si].pts;
-    for(const pt of pts) {
+    for(const pt of S[si].pts) {
       if(pt.bar > seg.b1 && pt.bar < seg.b2) {
-        pivots.push({ bar: pt.bar, price: pt.y, level: S[si].label });
+        if(!pivotMap[pt.bar]) pivotMap[pt.bar] = { bar: pt.bar, price: pt.y, imp: 0 };
       }
     }
   }
-  if(pivots.length < 2) return { combos: [[seg]] };
-
-  const seen = new Set();
-  const uniq = [];
-  for(const p of pivots) {
-    if(!seen.has(p.bar)) { seen.add(p.bar); uniq.push(p); }
+  // Enrich with importance from TOP array
+  for(const t of TOP) {
+    if(t.bar > seg.b1 && t.bar < seg.b2) {
+      if(pivotMap[t.bar]) {
+        pivotMap[t.bar].imp = Math.max(pivotMap[t.bar].imp, t.imp || 0);
+      } else {
+        pivotMap[t.bar] = { bar: t.bar, price: t.price, imp: t.imp || 0 };
+      }
+    }
   }
-  uniq.sort((a,b) => a.bar - b.bar);
 
-  // Enumerate all C(N,2) pairs of pivots as split points → 3-leg candidates
+  const uniq = Object.values(pivotMap);
+  uniq.sort((a,b) => a.bar - b.bar);
+  if(uniq.length < 2) return { combos: [[seg]] };
+
+  // Enumerate C(N,2) pairs → 3-leg candidates
   const candidates = [];
   for(let i = 0; i < uniq.length; i++) {
     for(let j = i+1; j < uniq.length; j++) {
+      const pi = uniq[i], pj = uniq[j];
       const legs = [
-        { b1: seg.b1, p1: seg.p1, b2: uniq[i].bar, p2: uniq[i].price, source: 'sub' },
-        { b1: uniq[i].bar, p1: uniq[i].price, b2: uniq[j].bar, p2: uniq[j].price, source: 'sub' },
-        { b1: uniq[j].bar, p1: uniq[j].price, b2: seg.b2, p2: seg.p2, source: 'sub' }
+        { b1: seg.b1, p1: seg.p1, b2: pi.bar, p2: pi.price, source: 'sub' },
+        { b1: pi.bar, p1: pi.price, b2: pj.bar, p2: pj.price, source: 'sub' },
+        { b1: pj.bar, p1: pj.price, b2: seg.b2, p2: seg.p2, source: 'sub' }
       ];
-      const lens = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
-      const avgLen = (lens[0]+lens[1]+lens[2]) / 3;
-      // Balance: modulus variance (lower = more equal-length legs)
-      const variance = lens.reduce((s,l) => s + (l-avgLen)**2, 0) / 3;
-      // Symmetric: |modulus_A - modulus_C| normalized (lower = more symmetric)
-      const symDiff = Math.abs(lens[0] - lens[2]) / (avgLen || 1);
-      // Combined score: balance + symmetric (both minimize, equal weight)
-      const score = variance / (avgLen*avgLen || 1) + symDiff;
-      candidates.push({ legs, score });
+      const mods = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
+
+      // Discard if any leg too small (归并掉小腿)
+      if(mods[0] < minLegMod || mods[1] < minLegMod || mods[2] < minLegMod) continue;
+
+      const avg = (mods[0]+mods[1]+mods[2]) / 3;
+      // Balance: normalized modulus variance
+      const variance = mods.reduce((s,m) => s + (m-avg)**2, 0) / 3;
+      const normVar = variance / (avg*avg || 1);
+      // Symmetric: |modA - modC| / avg
+      const symDiff = Math.abs(mods[0] - mods[2]) / (avg || 1);
+      // Importance bonus: higher importance split points → lower score (better)
+      const impBonus = (pi.imp + pj.imp) * 0.5;  // scale ~0-1
+      // Combined: lower = better
+      const score = normVar + symDiff - impBonus;
+      candidates.push({ legs, score, mods, impBonus });
     }
   }
+
+  // If no candidate passes min-leg filter, relax to 5% and retry
+  if(candidates.length === 0) {
+    const softMin = parentMod * 0.05;
+    for(let i = 0; i < uniq.length; i++) {
+      for(let j = i+1; j < uniq.length; j++) {
+        const pi = uniq[i], pj = uniq[j];
+        const legs = [
+          { b1: seg.b1, p1: seg.p1, b2: pi.bar, p2: pi.price, source: 'sub' },
+          { b1: pi.bar, p1: pi.price, b2: pj.bar, p2: pj.price, source: 'sub' },
+          { b1: pj.bar, p1: pj.price, b2: seg.b2, p2: seg.p2, source: 'sub' }
+        ];
+        const mods = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
+        if(mods[0] < softMin || mods[1] < softMin || mods[2] < softMin) continue;
+        const avg = (mods[0]+mods[1]+mods[2]) / 3;
+        const normVar = mods.reduce((s,m) => s + (m-avg)**2, 0) / 3 / (avg*avg || 1);
+        const symDiff = Math.abs(mods[0] - mods[2]) / (avg || 1);
+        const impBonus = (pi.imp + pj.imp) * 0.5;
+        const score = normVar + symDiff - impBonus;
+        candidates.push({ legs, score, mods, impBonus });
+      }
+    }
+  }
+
   if(candidates.length === 0) return { combos: [[seg]] };
 
-  // Sort by combined score (lower = better)
   candidates.sort((a,b) => a.score - b.score);
   const top3 = candidates.slice(0, 3).map(c => c.legs);
   return { combos: top3 };
@@ -1063,58 +1106,28 @@ cv.addEventListener('dblclick', function(e) {
     ' | dblclick last seg', '#8cf');
 });
 
-// Build a natural chain of connected segments covering [startBar, endBar]
-// Tries multiple zigzag levels to find the best connected path
+// Build a 3-segment chain covering [startBar, endBar]
+// Uses same logic as autoDecomposeSegment: balance + symmetric + importance
+// This is the reverse of merge: one parent segment → 3 sub-segments
 function buildNaturalChain(rangeSegs, startBar, endBar, allSegs) {
-  // Strategy: for each snapshot level, try to find a contiguous chain
-  // Then pick the level with fewest segments (highest level = fewer, longer segments)
-  // But also consider that the selected segments might span different levels
-
-  const chains = [];
-
-  // Try each visible snapshot level
-  for(let si = 0; si < S.length; si++) {
-    if(!vis[si]) continue;
-    const pts = S[si].pts;
-    // Find the sub-chain within [startBar, endBar]
-    const chain = [];
-    let started = false;
-    for(let j = 0; j < pts.length - 1; j++) {
-      const seg = { b1: pts[j].bar, p1: pts[j].y, b2: pts[j+1].bar, p2: pts[j+1].y,
-        source: S[si].label, level: S[si].label };
-      if(seg.b1 >= startBar && !started) started = true;
-      if(started) {
-        chain.push(seg);
-        if(seg.b2 >= endBar) break;
-      }
-    }
-    // Validate: chain must cover from startBar to endBar
-    if(chain.length > 0 && chain[0].b1 <= startBar + 2 &&
-       chain[chain.length-1].b2 >= endBar - 2 && chain.length <= ANN_MAX) {
-      chains.push({ level: S[si].label, chain: chain, n: chain.length });
-    }
+  // Find prices at start and end bars
+  let startPrice = null, endPrice = null;
+  for(const s of allSegs) {
+    if(s.b1 === startBar || Math.abs(s.b1 - startBar) <= 1) startPrice = s.p1;
+    if(s.b2 === endBar || Math.abs(s.b2 - endBar) <= 1) endPrice = s.p2;
+    if(s.b2 === startBar || Math.abs(s.b2 - startBar) <= 1) startPrice = s.p2;
+    if(s.b1 === endBar || Math.abs(s.b1 - endBar) <= 1) endPrice = s.p1;
   }
+  if(startPrice === null || endPrice === null) return [];
 
-  // Also try drawn lines (if in draw or mix mode)
-  if(annotMode === 'draw' || annotMode === 'mix') {
-    const drawSegs = rangeSegs.filter(s => s.source.startsWith('DRAW:'));
-    if(drawSegs.length > 0) {
-      drawSegs.sort((a,b) => a.b1 - b.b1);
-      chains.push({ level: 'DRAW', chain: drawSegs, n: drawSegs.length });
-    }
+  // Construct virtual parent segment
+  const parent = { b1: startBar, p1: startPrice, b2: endBar, p2: endPrice, source: 'range' };
+  // Use the 3-split decomposition
+  const result = autoDecomposeSegment(parent);
+  if(result.combos.length > 0 && result.combos[0].length === 3) {
+    return result.combos[0];
   }
-
-  if(chains.length === 0) return [];
-
-  // Sort: prefer chains with moderate segment count (not too few, not too many)
-  // Ideal: 3-7 segments
-  chains.sort((a,b) => {
-    const idealA = Math.abs(a.n - 5);
-    const idealB = Math.abs(b.n - 5);
-    return idealA - idealB;
-  });
-
-  return chains[0].chain;
+  return [];
 }
 
 // Draw highlights for selected segments + K-line highlighting
@@ -1180,7 +1193,7 @@ function drawAnnotHighlights() {
     const sl1 = seg.lbl1 || barToLabel(seg.b1);
     const sl2 = seg.lbl2 || barToLabel(seg.b2);
     const letter = String.fromCharCode(97 + i);
-    cx.fillText(letter + ' ' + sl1 + '\\u2192' + sl2, smx, smy - 8);
+    cx.fillText(letter + ' ' + sl1 + sl2, smx, smy - 8);
   }
   cx.restore();
   cx.setLineDash([]);
