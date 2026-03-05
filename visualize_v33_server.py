@@ -323,14 +323,10 @@ def index(request: Request):
     pool = build_segment_pool(results, pi)
     full_pool, fusion_segs, fusion_log = pool_fusion(pool, pi)
 
-    # Symmetry + Predictions
-    try:
-        sym_structures = find_symmetric_structures(full_pool, pi, df=df, top_n=200, max_pool_size=500)
-    except Exception:
-        sym_structures = []
-
-    predictions = predict_symmetric_image(full_pool, pi, current_bar=len(df) - 1, max_pool_size=500)
-    short_preds = sorted([p for p in predictions if p['pred_time'] <= 50], key=lambda p: -p['score'])
+    # Symmetry + Predictions — 暂时关闭，腾出空间给画线系统
+    sym_structures = []
+    predictions = []
+    short_preds = []
 
     # 统计Lat快照数量
     n_lat_snaps = sum(1 for st, lb, pv in results['all_snapshots'] if st == 'lat')
@@ -351,9 +347,9 @@ def index(request: Request):
     import tempfile
     tmp = tempfile.mktemp(suffix='.html')
     v3_generate_html(df, results, tmp,
-                     pivot_info=pi, fusion_segs=fusion_segs,
-                     sym_structures=sym_structures,
-                     predictions=short_preds[:200])
+                     pivot_info=pi, fusion_segs=[],
+                     sym_structures=[],
+                     predictions=[])
     with open(tmp, 'r') as f:
         html = f.read()
     os.unlink(tmp)
@@ -391,18 +387,24 @@ def index(request: Request):
          style="width:50px;background:#111;color:#ccc;border:1px solid #444;padding:2px 4px;font-size:11px;"
          onchange="location.href='/?end={end_bar}&win='+this.value">
   <span style="color:#888;font-size:12px;">|</span>
-  <span style="color:#666;font-size:11px;">
-    Sym:{len(sym_structures)} Pred:{len(short_preds)}
-  </span>
-  <span style="color:#888;font-size:12px;">|</span>
   <span id="latBtn" onclick="toggleLatLines()" style="color:#3df;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">Lat:{n_lat_snaps}</span>
   <span style="color:#888;font-size:12px;">|</span>
   <span id="drawBtn" style="color:#ff0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;position:relative;" title="Drawing tools">
     <span onclick="toggleDrawDropdown(event)">Draw&#9660;</span>
-    <div id="drawDropdown" style="display:none;position:absolute;top:100%;left:0;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:3px 0;z-index:9999;min-width:120px;font-size:11px;">
-      <div class="lhItem" onclick="setDrawTool('trend')">Trend Line</div>
-      <div class="lhItem" onclick="setDrawTool('hline')">Horizontal</div>
-      <div class="lhItem" onclick="setDrawTool('vline')">Vertical</div>
+    <div id="drawDropdown" style="display:none;position:absolute;top:100%;left:0;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:3px 0;z-index:9999;min-width:180px;font-size:11px;">
+      <div style="color:#888;padding:2px 8px;font-size:9px;border-bottom:1px solid #333;">--- Basic Lines ---</div>
+      <div class="lhItem" onclick="setDrawTool('trend')">&#9998; Trend Line</div>
+      <div class="lhItem" onclick="setDrawTool('hline')">&#8213; Horizontal</div>
+      <div class="lhItem" onclick="setDrawTool('vline')">&#9474; Vertical</div>
+      <div class="lhItem" onclick="setDrawTool('cross')">&#10010; Cross</div>
+      <div class="lhItem" onclick="setDrawTool('ray')">&#10148; Ray</div>
+      <div class="lhItem" onclick="setDrawTool('extended')">&#8596; Extended Line</div>
+      <div style="color:#888;padding:2px 8px;font-size:9px;border-bottom:1px solid #333;">--- Wave Patterns ---</div>
+      <div class="lhItem" onclick="setDrawTool('wave3')">&#12336; 3-Wave</div>
+      <div class="lhItem" onclick="setDrawTool('wave5')">&#12336; 5-Wave</div>
+      <div class="lhItem" onclick="setDrawTool('triangle')">&#9651; Triangle</div>
+      <div style="color:#888;padding:2px 8px;font-size:9px;border-bottom:1px solid #333;">--- Mode ---</div>
+      <div class="lhItem" onclick="setDrawTool(null)">&#10006; Select Mode</div>
     </div>
   </span>
   <span style="color:#888;font-size:12px;">|</span>
@@ -419,15 +421,26 @@ def index(request: Request):
     # === 注入标注面板 (在</script>之前) ===
     # 标注面板HTML放在canvas和info之后
     annotation_panel_html = '''
-<!-- Annotation Panel -->
+<!-- Annotation Panel — Dual Layer -->
 <div id="annotPanel" style="background:#0d0d20;border:1px solid #335;border-radius:4px;padding:8px 12px;margin-top:6px;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
     <span style="color:#f0c040;font-weight:bold;font-size:13px;">Annotate</span>
-    <span style="color:#888;font-size:11px;">双击图上线段选择 | 点击框激活 | 手工输入: bar1 price1 bar2 price2</span>
-    <span style="color:#555;font-size:11px;">双击选线 | 框内输入: b1 p1 b2 p2 或 H3 L5</span>
+    <span style="color:#888;font-size:11px;">dblclick seg | Draw+select lines then [Fill] | right-click for tools</span>
+    <button id="autoFillBtn" onclick="autoFillFromSelection()" style="background:#2a3a5a;color:#6cf;border:1px solid #456;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-weight:bold;" title="Auto-fill from selected drawn lines">Fill</button>
+    <span style="color:#555;font-size:10px;">Combo:</span>
+    <select id="comboSel" onchange="switchCombo(this.value)" style="background:#111;color:#ccc;border:1px solid #444;font-size:10px;padding:1px 3px;">
+      <option value="0">1</option><option value="1">2</option><option value="2">3</option>
+    </select>
   </div>
-  <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;">
-    <div id="segBoxes" style="display:flex;gap:3px;flex-wrap:wrap;"></div>
+  <!-- Layer 1: Primary segments (up to 9) -->
+  <div style="margin-bottom:4px;">
+    <span style="color:#8af;font-size:10px;font-weight:bold;">L1 Primary</span>
+    <div id="segBoxes" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;"></div>
+  </div>
+  <!-- Layer 2: Sub-structure (up to 27) -->
+  <div id="layer2Panel" style="display:none;margin-bottom:4px;">
+    <span style="color:#fa8;font-size:10px;font-weight:bold;">L2 Sub-Structure</span>
+    <div id="subBoxes" style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px;"></div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
     <span style="color:#aaa;font-size:11px;">Label:</span>
@@ -440,6 +453,7 @@ def index(request: Request):
     <button onclick="submitAnnotation()" style="background:#2a5a2a;color:#8f8;border:1px solid #4a4;padding:4px 14px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:bold;">Submit</button>
     <button onclick="clearAnnotation()" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Clear</button>
     <button onclick="undoLastSeg()" style="background:#2a2a1a;color:#ff8;border:1px solid #554;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Undo</button>
+    <button onclick="toggleLayer2()" style="background:#2a2a3a;color:#fa8;border:1px solid #544;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">L2</button>
     <span id="annotStatus" style="color:#888;font-size:11px;margin-left:8px;"></span>
   </div>
 </div>
@@ -455,13 +469,25 @@ def index(request: Request):
     # === 注入标注JS (在最后的 draw(); 之后，</script>之前) ===
     annotation_js = '''
 
-// ========== ANNOTATION SYSTEM ==========
+// ========== ANNOTATION SYSTEM (Dual-Layer) ==========
 const ANN_MAX = 9;
-let annSlots = [];  // [{b1,p1,b2,p2,source},...] selected segments
-let annActive = 0;  // which slot is active (0-indexed)
+const SUB_MAX = 3;  // max sub-segments per L1 slot
+let annSlots = [];  // L1: [{b1,p1,b2,p2,source},...] selected segments
+let annActive = 0;  // which L1 slot is active
 let annLocked = false;
+let showLayer2 = false;
+let subSlots = [];  // L2: subSlots[i] = [{b1,p1,b2,p2},...] (up to 3) for each L1 slot
+let combos = [null, null, null];  // 3 combo alternatives
+let activeCombo = 0;
 
-// Build segment boxes UI
+function toggleLayer2() {
+  showLayer2 = !showLayer2;
+  const p = document.getElementById('layer2Panel');
+  if(p) p.style.display = showLayer2 ? 'block' : 'none';
+  if(showLayer2) buildSubBoxes();
+}
+
+// Build L1 segment boxes UI
 (function buildAnnotUI() {
   const container = document.getElementById('segBoxes');
   for(let i = 0; i < ANN_MAX; i++) {
@@ -495,6 +521,89 @@ let annLocked = false;
   }
   setActiveSlot(0);
 })();
+
+// Build L2 sub-structure boxes
+function buildSubBoxes() {
+  const container = document.getElementById('subBoxes');
+  if(!container) return;
+  container.innerHTML = '';
+  const filledL1 = annSlots.filter(s => s);
+  if(filledL1.length === 0) return;
+  subSlots = new Array(ANN_MAX);
+  for(let i = 0; i < ANN_MAX; i++) {
+    if(!annSlots[i]) continue;
+    // Try to auto-decompose each L1 segment into sub-structure
+    const subs = autoDecomposeSegment(annSlots[i]);
+    subSlots[i] = subs;
+
+    // Create a group for this L1 slot
+    const group = document.createElement('div');
+    group.style.cssText = 'display:flex;flex-direction:column;margin-right:6px;';
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'color:#666;font-size:8px;text-align:center;';
+    hdr.textContent = 'S' + (i+1);
+    group.appendChild(hdr);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:1px;';
+
+    for(let j = 0; j < subs.length; j++) {
+      const sub = subs[j];
+      const sbox = document.createElement('div');
+      sbox.style.cssText = 'min-width:75px;height:28px;background:#0a0a18;border:1px solid #443;border-radius:2px;padding:2px 3px;font-size:8px;font-family:monospace;color:#a86;display:flex;flex-direction:column;justify-content:center;';
+      const d = sub.p2 > sub.p1 ? '\\u2191' : '\\u2193';
+      const dc = sub.p2 > sub.p1 ? '#4f4' : '#f44';
+      sbox.innerHTML = '<div style="color:#886;">s'+(j+1)+' <span style="color:'+dc+';">'+d+'</span></div>' +
+        '<div style="color:#665;font-size:7px;">b'+sub.b1+'\\u2192b'+sub.b2+'</div>';
+      row.appendChild(sbox);
+    }
+    group.appendChild(row);
+    container.appendChild(group);
+  }
+}
+
+// Auto-decompose a segment into sub-structure (find best 3-leg split)
+function autoDecomposeSegment(seg) {
+  // Find all pivot points between seg.b1 and seg.b2 from all visible snapshots
+  const pivots = [];
+  for(let si = 0; si < S.length; si++) {
+    if(!vis[si]) continue;
+    const pts = S[si].pts;
+    for(const pt of pts) {
+      if(pt.bar > seg.b1 && pt.bar < seg.b2) {
+        pivots.push({ bar: pt.bar, price: pt.y, level: S[si].label });
+      }
+    }
+  }
+  if(pivots.length < 2) return [seg];  // can't decompose
+
+  // Remove duplicate bars, sort by bar
+  const seen = new Set();
+  const uniq = [];
+  for(const p of pivots) {
+    if(!seen.has(p.bar)) { seen.add(p.bar); uniq.push(p); }
+  }
+  uniq.sort((a,b) => a.bar - b.bar);
+
+  // Try all pairs (i,j) as split points to create 3-leg: seg.b1→pi→pj→seg.b2
+  const candidates = [];
+  for(let i = 0; i < uniq.length; i++) {
+    for(let j = i+1; j < uniq.length; j++) {
+      const legs = [
+        { b1: seg.b1, p1: seg.p1, b2: uniq[i].bar, p2: uniq[i].price, source: 'sub' },
+        { b1: uniq[i].bar, p1: uniq[i].price, b2: uniq[j].bar, p2: uniq[j].price, source: 'sub' },
+        { b1: uniq[j].bar, p1: uniq[j].price, b2: seg.b2, p2: seg.p2, source: 'sub' }
+      ];
+      // Score: prefer balanced modulus lengths
+      const lens = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
+      const avgLen = (lens[0]+lens[1]+lens[2]) / 3;
+      const variance = lens.reduce((s,l) => s + (l-avgLen)**2, 0) / 3;
+      candidates.push({ legs, variance, lens });
+    }
+  }
+  if(candidates.length === 0) return [seg];
+  candidates.sort((a,b) => a.variance - b.variance);
+  return candidates[0].legs;
+}
 
 function parseManualInput(idx, val) {
   if(annLocked) return;
@@ -636,15 +745,19 @@ function collectVisibleSegs() {
     }
   }
 
-  // Prediction segments (A and predicted C)
-  if(showPred) {
-    const pn = Math.min(predTopN, PRED.length);
-    for(let i = 0; i < pn; i++) {
-      const p = PRED[i];
-      segs.push({ b1: p.A_s, p1: p.A_ps, b2: p.A_e, p2: p.A_pe, source: 'PRED:A' + (i+1) });
-      segs.push({ b1: p.ps_bar, p1: p.ps_prc, b2: p.pt_bar, p2: p.pt_prc, source: 'PRED:C' + (i+1) });
-      if(p.B_s !== undefined) {
-        segs.push({ b1: p.B_s, p1: p.B_ps, b2: p.B_e, p2: p.B_pe, source: 'PRED:B' + (i+1) });
+  // Prediction segments (A and predicted C) — disabled
+  // if(showPred) { ... }
+
+  // Include hand-drawn lines that are marked as zigzag (Convert→Zigzag)
+  if(typeof drawnLines !== 'undefined') {
+    for(let i = 0; i < drawnLines.length; i++) {
+      const ln = drawnLines[i];
+      if(ln.isZigzag && ln.type === 'trendline' && ln.active !== false) {
+        segs.push({
+          b1: Math.round(ln.b1), p1: ln.p1,
+          b2: Math.round(ln.b2), p2: ln.p2,
+          source: 'DRAW:' + (ln.label || 'D' + (i+1))
+        });
       }
     }
   }
@@ -698,7 +811,7 @@ function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
 // Double-click handler for segment selection
 cv.addEventListener('dblclick', function(e) {
   if(annLocked) return;
-  if(typeof drawMode !== 'undefined' && drawMode) return;  // 画线模式下不触发标注
+  if(drawTool) return;  // 画线模式下不触发标注
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
@@ -760,8 +873,8 @@ cv.addEventListener('dblclick', function(e) {
 
 // Draw highlights for selected segments + K-line highlighting
 function drawAnnotHighlights() {
-  // Redraw base first
-  draw();
+  // Redraw base + aux + drawn lines (NOT calling drawAnnotHighlights again to avoid recursion)
+  draw(); drawAuxLines(); drawDrawnLines();
 
   // Collect bar range covered by all selected segments
   let barMin = Infinity, barMax = -Infinity;
@@ -1157,9 +1270,10 @@ function toggleDrawDropdown(ev) {
 function setDrawTool(tool) {
   document.getElementById('drawDropdown').style.display = 'none';
   if (drawTool === tool) { drawTool = null; drawPhase = 0; } // toggle off
-  else { drawTool = tool; drawPhase = 0; }
+  else { drawTool = tool; drawPhase = 0; waveClickCount = 0; wavePoints = []; }
   const btn = document.getElementById('drawBtn');
-  const labels = { trend: 'Trend*', hline: 'HLine*', vline: 'VLine*' };
+  const labels = { trend:'Trend*', hline:'HLine*', vline:'VLine*', cross:'Cross*',
+    ray:'Ray*', extended:'ExtLine*', wave3:'Wave3*', wave5:'Wave5*', triangle:'Tri*' };
   if (drawTool) {
     btn.style.background = '#4a4a00'; btn.style.borderColor = '#ff0';
     btn.querySelector('span').textContent = (labels[drawTool] || 'Draw*') + '\u25BC';
@@ -1168,6 +1282,175 @@ function setDrawTool(tool) {
     btn.querySelector('span').textContent = 'Draw\u25BC';
   }
   redrawAll();
+}
+
+// Wave drawing state
+let waveClickCount = 0;
+let wavePoints = [];  // [{b,p,snap}, ...]
+function getWaveN() { return drawTool === 'wave3' ? 4 : drawTool === 'wave5' ? 6 : drawTool === 'triangle' ? 5 : 0; }
+
+// ========== SMART AUTO-FILL FROM SELECTION ==========
+// Select multiple drawn lines → auto-compose into L1 annotation slots
+function autoFillFromSelection() {
+  if(annLocked) return;
+  // Collect selected drawn lines (or all if none selected)
+  const indices = selectedLines.size > 0 ? [...selectedLines] : [];
+  if(indices.length === 0) {
+    setAnnotStatus('Select drawn lines first (click + Shift+click)', '#f88');
+    return;
+  }
+
+  // Get the line objects
+  const lines = indices.map(i => drawnLines[i]).filter(l => l && l.type === 'trendline');
+  if(lines.length === 0) {
+    setAnnotStatus('No trendlines selected (H/V lines excluded)', '#f88');
+    return;
+  }
+
+  // Build segments from lines
+  const rawSegs = lines.map(l => ({
+    b1: Math.round(l.b1), p1: l.p1,
+    b2: Math.round(l.b2), p2: l.p2,
+    source: 'DRAW:' + (l.label || l.id.slice(-6)),
+    amp: Math.abs(l.p2 - l.p1),
+    time: Math.abs(l.b2 - l.b1),
+    modulus: Math.sqrt((l.b2 - l.b1) ** 2 + ((l.p2 - l.p1) * 100000) ** 2)
+  }));
+
+  // Normalize direction: ensure b1 < b2 for each segment
+  for(const s of rawSegs) {
+    if(s.b1 > s.b2) {
+      [s.b1, s.b2] = [s.b2, s.b1];
+      [s.p1, s.p2] = [s.p2, s.p1];
+    }
+  }
+
+  // Generate combinations: find all valid chains (segments sharing endpoints)
+  const allCombos = generateChainCombos(rawSegs);
+
+  if(allCombos.length === 0) {
+    // Fallback: just sort by bar and fill directly
+    rawSegs.sort((a, b) => a.b1 - b.b1);
+    fillL1Slots(rawSegs.slice(0, ANN_MAX));
+    setAnnotStatus('Filled ' + Math.min(rawSegs.length, ANN_MAX) + ' segs (no chain found, sorted by bar)', '#ff8');
+    return;
+  }
+
+  // Store top 3 combos, display combo 1
+  combos[0] = allCombos[0] || null;
+  combos[1] = allCombos[1] || null;
+  combos[2] = allCombos[2] || null;
+  activeCombo = 0;
+  fillL1Slots(combos[0]);
+  setAnnotStatus('Auto-filled combo 1/' + Math.min(3, allCombos.length) + ' (' + combos[0].length + ' segs)', '#8f8');
+}
+
+function switchCombo(idx) {
+  idx = parseInt(idx);
+  if(!combos[idx]) { setAnnotStatus('Combo ' + (idx+1) + ' not available', '#f88'); return; }
+  activeCombo = idx;
+  fillL1Slots(combos[idx]);
+  setAnnotStatus('Switched to combo ' + (idx+1) + ' (' + combos[idx].length + ' segs)', '#8cf');
+}
+
+function fillL1Slots(segs) {
+  annSlots = [];
+  for(let i = 0; i < Math.min(segs.length, ANN_MAX); i++) {
+    annSlots[i] = {
+      b1: segs[i].b1, p1: segs[i].p1,
+      b2: segs[i].b2, p2: segs[i].p2,
+      source: segs[i].source || 'AUTO',
+      lbl1: barToLabel(segs[i].b1),
+      lbl2: barToLabel(segs[i].b2)
+    };
+    renderSlot(i);
+  }
+  // Clear remaining slots
+  for(let i = segs.length; i < ANN_MAX; i++) {
+    annSlots[i] = undefined;
+    renderSlot(i);
+  }
+  setActiveSlot(Math.min(segs.length, ANN_MAX - 1));
+  drawAnnotHighlights();
+  if(showLayer2) buildSubBoxes();
+}
+
+// Generate all valid chain combinations from a set of segments
+// A valid chain: segs are ordered by time, each seg's start connects to previous end
+function generateChainCombos(segs) {
+  // Sort all segs by b1
+  const sorted = [...segs].sort((a, b) => a.b1 - b.b1);
+
+  // Strategy 1: Greedy chain — try to link segments sharing endpoints
+  // Build adjacency: endpoint b2 → segments starting at that bar
+  const byStart = {};
+  for(const s of sorted) {
+    if(!byStart[s.b1]) byStart[s.b1] = [];
+    byStart[s.b1].push(s);
+  }
+
+  // Find all chains starting from each segment
+  const chains = [];
+  for(const startSeg of sorted) {
+    const chain = [startSeg];
+    let cur = startSeg;
+    while(true) {
+      const next = byStart[cur.b2];
+      if(!next || next.length === 0) break;
+      // Pick the one not already in chain
+      const candidate = next.find(n => !chain.includes(n));
+      if(!candidate) break;
+      chain.push(candidate);
+      cur = candidate;
+    }
+    if(chain.length > 1) chains.push(chain);
+  }
+
+  // Strategy 2: If no chains found, try proximity matching (endpoints within 2 bars)
+  if(chains.length === 0) {
+    const TOLERANCE = 2;
+    for(const startSeg of sorted) {
+      const chain = [startSeg];
+      let cur = startSeg;
+      const used = new Set([sorted.indexOf(startSeg)]);
+      while(true) {
+        let bestNext = null, bestDist = Infinity;
+        for(let i = 0; i < sorted.length; i++) {
+          if(used.has(i)) continue;
+          const dist = Math.abs(sorted[i].b1 - cur.b2);
+          if(dist <= TOLERANCE && dist < bestDist) {
+            bestDist = dist; bestNext = i;
+          }
+        }
+        if(bestNext === null) break;
+        // Adjust: snap start to prev end
+        const ns = Object.assign({}, sorted[bestNext]);
+        ns.b1 = cur.b2;
+        chain.push(ns);
+        cur = ns;
+        used.add(bestNext);
+      }
+      if(chain.length > 1) chains.push(chain);
+    }
+  }
+
+  // Strategy 3: Just sort by b1 (fallback)
+  if(chains.length === 0 && sorted.length > 0) {
+    chains.push(sorted);
+  }
+
+  // Score chains by modulus similarity (lower variance = better)
+  const scored = chains.map(chain => {
+    const mods = chain.map(s => s.modulus || Math.sqrt((s.b2-s.b1)**2+((s.p2-s.p1)*100000)**2));
+    const avg = mods.reduce((a,b)=>a+b,0)/mods.length;
+    const variance = mods.reduce((s,m)=>s+(m-avg)**2,0)/mods.length;
+    return { chain, variance, length: chain.length };
+  });
+
+  // Sort: longer chains first, then lower variance
+  scored.sort((a,b) => b.length - a.length || a.variance - b.variance);
+
+  return scored.slice(0, 3).map(s => s.chain);
 }
 // close dropdown on outside click
 document.addEventListener('click', function(e) {
@@ -1198,6 +1481,26 @@ function drawDrawnLines() {
       x1 = xS(ln.b1); y1 = mg.t; x2 = x1; y2 = H - mg.b;
     } else {
       x1 = xS(ln.b1); y1 = yS(ln.p1); x2 = xS(ln.b2); y2 = yS(ln.p2);
+      // Ray: extend from p2 direction to edge of canvas
+      if (ln.renderMode === 'ray') {
+        const dx = x2 - x1, dy = y2 - y1;
+        if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+          const tRight = dx > 0 ? (W - x1) / dx : dx < 0 ? -x1 / dx : Infinity;
+          const tTop = dy < 0 ? -y1 / dy : Infinity;
+          const tBot = dy > 0 ? (H - y1) / dy : Infinity;
+          const tExt = Math.min(Math.max(tRight, 1), Math.max(tTop, 1), Math.max(tBot, 1), 100);
+          x2 = x1 + dx * tExt; y2 = y1 + dy * tExt;
+        }
+      }
+      // Extended: extend both directions to edges
+      if (ln.renderMode === 'extended') {
+        const dx = x2 - x1, dy = y2 - y1;
+        if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+          const scale = 10;
+          x1 = x1 - dx * scale; y1 = y1 - dy * scale;
+          x2 = x2 + dx * scale; y2 = y2 + dy * scale;
+        }
+      }
     }
     c2.strokeStyle = off ? 'rgba(100,100,100,0.3)' : (ln.color || '#ff0');
     c2.lineWidth = sel ? 3 : 2;
@@ -1256,6 +1559,34 @@ function drawDrawnLines() {
     if (drawP1.snap) { c2p.strokeStyle='#0f0'; c2p.lineWidth=2; c2p.beginPath(); c2p.arc(xS(drawP1.b),yS(drawP1.p),SNAP_RADIUS,0,Math.PI*2); c2p.stroke(); }
     if (drawPreview.snap) { c2p.strokeStyle='#0f0'; c2p.lineWidth=2; c2p.beginPath(); c2p.arc(xS(drawPreview.b),yS(drawPreview.p),SNAP_RADIUS,0,Math.PI*2); c2p.stroke(); }
   }
+  // Wave points preview
+  if (wavePoints.length > 0 && (drawTool === 'wave3' || drawTool === 'wave5' || drawTool === 'triangle')) {
+    const c2w = document.getElementById('chart').getContext('2d');
+    c2w.strokeStyle = '#f80'; c2w.lineWidth = 2; c2w.globalAlpha = 0.7;
+    // Draw completed legs
+    for(let w = 0; w < wavePoints.length - 1; w++) {
+      c2w.beginPath();
+      c2w.moveTo(xS(wavePoints[w].b), yS(wavePoints[w].p));
+      c2w.lineTo(xS(wavePoints[w+1].b), yS(wavePoints[w+1].p));
+      c2w.stroke();
+      // Label
+      c2w.fillStyle = '#f80'; c2w.font = '10px monospace';
+      c2w.fillText((w+1)+'', (xS(wavePoints[w].b)+xS(wavePoints[w+1].b))/2, (yS(wavePoints[w].p)+yS(wavePoints[w+1].p))/2 - 8);
+    }
+    // Preview line from last point to mouse
+    if (drawPreview) {
+      c2w.setLineDash([6,3]); c2w.globalAlpha = 0.4;
+      c2w.beginPath();
+      c2w.moveTo(xS(wavePoints[wavePoints.length-1].b), yS(wavePoints[wavePoints.length-1].p));
+      c2w.lineTo(xS(drawPreview.b), yS(drawPreview.p));
+      c2w.stroke(); c2w.setLineDash([]);
+    }
+    // Show remaining clicks count
+    const rem = getWaveN() - waveClickCount;
+    c2w.fillStyle = '#f80'; c2w.font = 'bold 11px monospace'; c2w.globalAlpha = 0.8;
+    c2w.fillText(drawTool + ': ' + rem + ' clicks left', mg.l + 10, mg.t + 20);
+    c2w.globalAlpha = 1;
+  }
   // placing copy preview
   if (drawPhase === 4 && placingCopyIdx >= 0 && placingCopyIdx < drawnLines.length) {
     const ln = drawnLines[placingCopyIdx];
@@ -1311,9 +1642,10 @@ cv.addEventListener('click', function(e) {
 
   // draw tool active
   if (drawTool) {
+    const pt = resolvePoint(px, py);
+
+    // Single-click tools
     if (drawTool === 'hline') {
-      // 水平线: 单击即完成
-      const pt = resolvePoint(px, py);
       const nl = { id: genLineId(), b1: 0, p1: pt.p, b2: K.length, p2: pt.p,
         type: 'hline', color: '#fa0', label: '', active: true, snapped1: pt.snap, snapped2: null };
       drawnLines.push(nl); pushUndo('add',{id:nl.id});
@@ -1321,37 +1653,73 @@ cv.addEventListener('click', function(e) {
       saveDrawnLines(); redrawAll(); return;
     }
     if (drawTool === 'vline') {
-      // 垂直线: 单击即完成
-      const pt = resolvePoint(px, py);
       const nl = { id: genLineId(), b1: Math.round(pt.b), p1: 0, b2: Math.round(pt.b), p2: 0,
         type: 'vline', color: '#0af', label: '', active: true, snapped1: pt.snap, snapped2: null };
       drawnLines.push(nl); pushUndo('add',{id:nl.id});
       selectedLines.clear(); selectedLines.add(drawnLines.length-1);
       saveDrawnLines(); redrawAll(); return;
     }
-    // trend line: click-click
-    if (drawPhase === 0) {
-      // 第一次点击: 放置起点
-      drawP1 = resolvePoint(px, py);
-      drawPreview = { b: drawP1.b, p: drawP1.p, snap: null };
-      drawPhase = 1;
-      redrawAll(); return;
+    if (drawTool === 'cross') {
+      // Cross = H + V at same point
+      const h = { id: genLineId(), b1: 0, p1: pt.p, b2: K.length, p2: pt.p,
+        type: 'hline', color: '#fa0', label: '', active: true, snapped1: pt.snap, snapped2: null };
+      const v = { id: genLineId(), b1: Math.round(pt.b), p1: 0, b2: Math.round(pt.b), p2: 0,
+        type: 'vline', color: '#0af', label: '', active: true, snapped1: pt.snap, snapped2: null };
+      drawnLines.push(h); pushUndo('add',{id:h.id});
+      drawnLines.push(v); pushUndo('add',{id:v.id});
+      selectedLines.clear(); selectedLines.add(drawnLines.length-2); selectedLines.add(drawnLines.length-1);
+      saveDrawnLines(); redrawAll(); return;
     }
-    if (drawPhase === 1) {
-      // 第二次点击: 完成线段
-      const pt2 = resolvePoint(px, py);
-      const dist = Math.sqrt((xS(pt2.b)-xS(drawP1.b))**2 + (yS(pt2.p)-yS(drawP1.p))**2);
-      if (dist > 5) {
-        const nl = { id: genLineId(),
-          b1: Math.round(drawP1.b*100)/100, p1: Math.round(drawP1.p*100000)/100000,
-          b2: Math.round(pt2.b*100)/100, p2: Math.round(pt2.p*100000)/100000,
-          type: 'trendline', color: '#ff0', label: '', active: true,
-          snapped1: drawP1.snap, snapped2: pt2.snap };
-        drawnLines.push(nl); pushUndo('add',{id:nl.id});
-        selectedLines.clear(); selectedLines.add(drawnLines.length-1);
-        saveDrawnLines();
+
+    // Two-click tools: trend, ray, extended
+    if (drawTool === 'trend' || drawTool === 'ray' || drawTool === 'extended') {
+      if (drawPhase === 0) {
+        drawP1 = pt;
+        drawPreview = { b: pt.b, p: pt.p, snap: null };
+        drawPhase = 1;
+        redrawAll(); return;
       }
-      drawPhase = 0; drawP1 = null; drawPreview = null;
+      if (drawPhase === 1) {
+        const pt2 = pt;
+        const dist = Math.sqrt((xS(pt2.b)-xS(drawP1.b))**2 + (yS(pt2.p)-yS(drawP1.p))**2);
+        if (dist > 5) {
+          const b1r = Math.round(drawP1.b*100)/100, p1r = Math.round(drawP1.p*100000)/100000;
+          const b2r = Math.round(pt2.b*100)/100, p2r = Math.round(pt2.p*100000)/100000;
+          const nl = { id: genLineId(), b1: b1r, p1: p1r, b2: b2r, p2: p2r,
+            type: 'trendline', color: '#ff0', label: '', active: true,
+            snapped1: drawP1.snap, snapped2: pt2.snap,
+            renderMode: drawTool };  // 'trend'|'ray'|'extended' affects rendering
+          drawnLines.push(nl); pushUndo('add',{id:nl.id});
+          selectedLines.clear(); selectedLines.add(drawnLines.length-1);
+          saveDrawnLines();
+        }
+        drawPhase = 0; drawP1 = null; drawPreview = null;
+        redrawAll(); return;
+      }
+      return;
+    }
+
+    // Multi-click tools: wave3 (4 clicks), wave5 (6 clicks), triangle (5 clicks)
+    if (drawTool === 'wave3' || drawTool === 'wave5' || drawTool === 'triangle') {
+      const needed = getWaveN();
+      wavePoints.push(pt);
+      waveClickCount++;
+      if (waveClickCount >= needed) {
+        // Create line segments for each leg
+        for(let w = 0; w < wavePoints.length - 1; w++) {
+          const wp1 = wavePoints[w], wp2 = wavePoints[w+1];
+          const nl = { id: genLineId(),
+            b1: Math.round(wp1.b*100)/100, p1: Math.round(wp1.p*100000)/100000,
+            b2: Math.round(wp2.b*100)/100, p2: Math.round(wp2.p*100000)/100000,
+            type: 'trendline', color: '#ff0', label: drawTool + '_' + (w+1),
+            active: true, snapped1: wp1.snap, snapped2: wp2.snap,
+            waveGroup: wavePoints[0].b + '_' + needed };
+          drawnLines.push(nl); pushUndo('add',{id:nl.id});
+        }
+        saveDrawnLines();
+        waveClickCount = 0; wavePoints = [];
+        redrawAll(); return;
+      }
       redrawAll(); return;
     }
     return;
@@ -1410,8 +1778,13 @@ cv.addEventListener('mousemove', function(e) {
   const rect = cv.getBoundingClientRect();
   const px = e.clientX - rect.left, py = e.clientY - rect.top;
 
-  // trend line preview
+  // trend/ray/extended line preview
   if (drawTool && drawPhase === 1) {
+    drawPreview = resolvePoint(px, py);
+    redrawAll(); return;
+  }
+  // wave tool preview
+  if (wavePoints.length > 0 && (drawTool === 'wave3' || drawTool === 'wave5' || drawTool === 'triangle')) {
     drawPreview = resolvePoint(px, py);
     redrawAll(); return;
   }
@@ -1461,36 +1834,130 @@ cv.addEventListener('mouseup', function(e) {
   }
 });
 
-// --- Right-click context menu ---
+// --- Right-click context menu (context-sensitive) ---
 let ctxMenu = null;
-function showCtxMenu(x, y) {
+let ctxClickPx = null, ctxClickPy = null;  // canvas coords of right-click
+
+// Find nearest pivot point to canvas coords
+function findNearPivotForCtx(px, py) {
+  const all = [];
+  for(let si = 0; si < S.length; si++) {
+    if(!vis[si]) continue;
+    for(const pt of S[si].pts) {
+      all.push({ bar: pt.bar, price: pt.y, label: S[si].label + ':b' + pt.bar, dir: pt.dir });
+    }
+  }
+  let best = null, bestD = 20;
+  for(const p of all) {
+    const d = Math.sqrt((px - xS(p.bar))**2 + (py - yS(p.price))**2);
+    if(d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+
+// Find nearest zigzag segment
+function findNearZigzagSeg(px, py) {
+  const segs = collectVisibleSegs();
+  let best = null, bestD = 15;
+  for(const seg of segs) {
+    const d = distToSeg(px, py, seg);
+    if(d < bestD) { bestD = d; best = seg; }
+  }
+  return best;
+}
+
+function showCtxMenu(x, y, contextInfo) {
   hideCtxMenu();
   ctxMenu = document.createElement('div');
-  ctxMenu.style.cssText='position:fixed;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:4px 0;z-index:9999;font-size:12px;font-family:monospace;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+  ctxMenu.style.cssText='position:fixed;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:4px 0;z-index:9999;font-size:12px;font-family:monospace;min-width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.5);max-height:500px;overflow-y:auto;';
   ctxMenu.style.left=x+'px'; ctxMenu.style.top=y+'px';
   const nSel=selectedLines.size, isSingle=nSel===1, si=isSingle?[...selectedLines][0]:-1;
   const items=[];
+
+  // Context: drawn line selected
   if (isSingle) {
+    const ln = drawnLines[si];
+    items.push({t:'--- Line: '+(ln.label||ln.id.slice(-8))+' ---', header:true});
     items.push({t:'Edit Label',k:'E',fn:()=>editLabel(si)});
     items.push({t:'Color...',k:'C',fn:()=>cycleColor(si)});
     items.push({t:'Copy Parallel',k:'P',fn:()=>startCopyParallel(si)});
     items.push({t:'Toggle Active',k:'A',fn:()=>toggleActive(si)});
+    if(ln.type === 'trendline') {
+      items.push({t:'---'});
+      items.push({t:ln.isZigzag ? 'Un-convert Zigzag' : 'Convert \\u2192 Zigzag',k:'Z',
+        fn:()=>{ ln.isZigzag = !ln.isZigzag; saveDrawnLines(); redrawAll();
+          setAnnotStatus(ln.isZigzag ? 'Line marked as zigzag' : 'Line unmarked', '#8f8'); }});
+      items.push({t:'Fibo Levels',k:'F',fn:()=>drawFiboLevels(si)});
+      items.push({t:'Parallel Channel',k:'H',fn:()=>startCopyParallel(si)});
+    }
     items.push({t:'---'}); items.push({t:'Delete',k:'X',fn:()=>delLine(si),c:'#f66'});
   }
+
+  // Context: multiple lines selected
   if (nSel>1) {
+    items.push({t:'--- '+nSel+' lines selected ---', header:true});
+    items.push({t:'\\u2192 Fill Annotation',k:'F',fn:()=>autoFillFromSelection()});
+    items.push({t:'Convert All \\u2192 Zigzag',k:'Z',fn:()=>{
+      for(const i of selectedLines) if(drawnLines[i]&&drawnLines[i].type==='trendline') drawnLines[i].isZigzag=true;
+      saveDrawnLines(); redrawAll(); setAnnotStatus('Marked '+nSel+' as zigzag','#8f8');
+    }});
     items.push({t:'Delete '+nSel,k:'X',fn:()=>delSelected(),c:'#f66'});
     items.push({t:'Color all',k:'C',fn:()=>colorSel()});
     items.push({t:'Toggle Active',k:'A',fn:()=>toggleActSel()});
   }
+
+  // Context: right-clicked on a zigzag segment (not a drawn line)
+  if (contextInfo && contextInfo.zigSeg && nSel === 0) {
+    const zs = contextInfo.zigSeg;
+    items.push({t:'--- Zigzag: '+zs.source+' ---', header:true});
+    items.push({t:'Sub-Structure',k:'S',fn:()=>{
+      // Fill the current L1 slot with this segment and show sub-decomposition
+      annSlots[annActive] = { b1:zs.b1, p1:zs.p1, b2:zs.b2, p2:zs.p2, source:zs.source,
+        lbl1:barToLabel(zs.b1), lbl2:barToLabel(zs.b2) };
+      renderSlot(annActive); drawAnnotHighlights();
+      if(showLayer2) buildSubBoxes();
+      setAnnotStatus('Filled S'+(annActive+1)+' with '+zs.source,'#8f8');
+    }});
+    items.push({t:'Fibo Trend',k:'F',fn:()=>drawFiboOnZigzag(zs, 'trend')});
+    items.push({t:'Fibo Retrace',k:'R',fn:()=>drawFiboOnZigzag(zs, 'retrace')});
+  }
+
+  // Context: right-clicked on a pivot point
+  if (contextInfo && contextInfo.pivot && nSel === 0) {
+    const pv = contextInfo.pivot;
+    items.push({t:'--- Pivot: '+pv.label+' ---', header:true});
+    items.push({t:'In-Lines (show)',k:'I',fn:()=>showInLines(pv)});
+    items.push({t:'Out-Lines (Gann)',k:'O',fn:()=>showOutLines(pv)});
+    items.push({t:'H-Line here',k:'H',fn:()=>{
+      const nl={id:genLineId(),b1:0,p1:pv.price,b2:K.length,p2:pv.price,type:'hline',color:'#fa0',label:pv.label,active:true,snapped1:pv.label,snapped2:null};
+      drawnLines.push(nl); pushUndo('add',{id:nl.id}); saveDrawnLines(); redrawAll();
+    }});
+    items.push({t:'V-Line here',k:'V',fn:()=>{
+      const nl={id:genLineId(),b1:pv.bar,p1:0,b2:pv.bar,p2:0,type:'vline',color:'#0af',label:pv.label,active:true,snapped1:pv.label,snapped2:null};
+      drawnLines.push(nl); pushUndo('add',{id:nl.id}); saveDrawnLines(); redrawAll();
+    }});
+  }
+
+  // Always-available items
+  items.push({t:'---'});
+  items.push({t:'Trend Line',k:'T',fn:()=>setDrawTool('trend')});
+  items.push({t:'H-Line',k:'H',fn:()=>setDrawTool('hline')});
+  items.push({t:'V-Line',k:'V',fn:()=>setDrawTool('vline')});
   items.push({t:'---'});
   items.push({t:'Undo (Ctrl+Z)',k:'U',fn:performUndo});
-  items.push({t:'Select All',k:'S',fn:()=>{for(let i=0;i<drawnLines.length;i++)selectedLines.add(i);redrawAll();}});
+  items.push({t:'Select All',k:'A',fn:()=>{for(let i=0;i<drawnLines.length;i++)selectedLines.add(i);redrawAll();}});
+
   for (const it of items) {
     if (it.t==='---') { const s=document.createElement('div'); s.style.cssText='border-top:1px solid #333;margin:3px 0;'; ctxMenu.appendChild(s); continue; }
     const r=document.createElement('div');
-    r.style.cssText='padding:5px 12px;cursor:pointer;color:'+(it.c||'#ccc')+';';
-    r.onmouseenter=function(){this.style.background='#2a3a5a';}; r.onmouseleave=function(){this.style.background='';};
-    r.textContent='['+it.k+'] '+it.t; r.onclick=function(){hideCtxMenu();it.fn();};
+    if(it.header) {
+      r.style.cssText='padding:3px 12px;color:#888;font-size:10px;';
+      r.textContent=it.t;
+    } else {
+      r.style.cssText='padding:5px 12px;cursor:pointer;color:'+(it.c||'#ccc')+';';
+      r.onmouseenter=function(){this.style.background='#2a3a5a';}; r.onmouseleave=function(){this.style.background='';};
+      r.textContent='['+it.k+'] '+it.t; r.onclick=function(){hideCtxMenu();it.fn();};
+    }
     ctxMenu.appendChild(r);
   }
   document.body.appendChild(ctxMenu);
@@ -1498,13 +1965,105 @@ function showCtxMenu(x, y) {
 function hideCtxMenu(){if(ctxMenu&&ctxMenu.parentNode)ctxMenu.parentNode.removeChild(ctxMenu);ctxMenu=null;}
 document.addEventListener('click',function(e){if(ctxMenu&&!ctxMenu.contains(e.target))hideCtxMenu();});
 
+// --- Fibonacci levels on a line ---
+function drawFiboLevels(idx) {
+  const ln = drawnLines[idx];
+  const fibs = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618];
+  const dp = ln.p2 - ln.p1;
+  for(const f of fibs) {
+    const price = ln.p1 + dp * f;
+    const nl = { id: genLineId(), b1: 0, p1: price, b2: K.length, p2: price,
+      type: 'hline', color: '#c8f', label: 'Fibo ' + (f*100).toFixed(1) + '%',
+      active: true, snapped1: null, snapped2: null, dash: [3,3] };
+    drawnLines.push(nl); pushUndo('add', {id: nl.id});
+  }
+  saveDrawnLines(); redrawAll();
+  setAnnotStatus('Fibo levels added (' + fibs.length + ')', '#c8f');
+}
+
+// --- Fibonacci on zigzag segment ---
+function drawFiboOnZigzag(seg, mode) {
+  const fibs = mode === 'retrace'
+    ? [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618, 2.0, 2.618]
+    : [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
+  const dp = seg.p2 - seg.p1;
+  const color = mode === 'retrace' ? '#f8c' : '#c8f';
+  for(const f of fibs) {
+    const price = mode === 'retrace' ? seg.p2 - dp * f : seg.p1 + dp * f;
+    const nl = { id: genLineId(), b1: Math.min(seg.b1,seg.b2), p1: price,
+      b2: Math.max(seg.b1,seg.b2) + 20, p2: price,
+      type: 'hline', color: color, label: (mode==='retrace'?'FibR ':'Fib ') + (f*100).toFixed(1) + '%',
+      active: true, snapped1: null, snapped2: null, dash: [3,3] };
+    drawnLines.push(nl); pushUndo('add', {id: nl.id});
+  }
+  saveDrawnLines(); redrawAll();
+  setAnnotStatus('Fibo ' + mode + ' levels added', color);
+}
+
+// --- In-Lines: show all zigzag segments connecting to a pivot ---
+function showInLines(pv) {
+  const segs = collectVisibleSegs();
+  let count = 0;
+  for(const seg of segs) {
+    if(seg.b1 === pv.bar || seg.b2 === pv.bar) {
+      const nl = { id: genLineId(), b1: seg.b1, p1: seg.p1, b2: seg.b2, p2: seg.p2,
+        type: 'trendline', color: '#0ff', label: 'IN:' + seg.source,
+        active: true, snapped1: null, snapped2: null };
+      drawnLines.push(nl); pushUndo('add', {id: nl.id});
+      count++;
+    }
+  }
+  saveDrawnLines(); redrawAll();
+  setAnnotStatus('In-Lines: ' + count + ' segments at ' + pv.label, '#0ff');
+}
+
+// --- Out-Lines: Gann-style fan from a pivot ---
+function showOutLines(pv) {
+  const angles = [1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8];  // Gann angles
+  const ampRange = mx - mn;
+  for(const a of angles) {
+    const dp = ampRange * 0.1 * a;
+    // Up ray
+    const nlUp = { id: genLineId(), b1: pv.bar, p1: pv.price,
+      b2: pv.bar + 50, p2: pv.price + dp,
+      type: 'trendline', color: '#4f4', label: 'Gann ' + a,
+      active: true, snapped1: pv.label, snapped2: null, renderMode: 'ray' };
+    drawnLines.push(nlUp); pushUndo('add', {id: nlUp.id});
+    // Down ray
+    const nlDn = { id: genLineId(), b1: pv.bar, p1: pv.price,
+      b2: pv.bar + 50, p2: pv.price - dp,
+      type: 'trendline', color: '#f44', label: 'Gann ' + a,
+      active: true, snapped1: pv.label, snapped2: null, renderMode: 'ray' };
+    drawnLines.push(nlDn); pushUndo('add', {id: nlDn.id});
+  }
+  saveDrawnLines(); redrawAll();
+  setAnnotStatus('Gann fan: ' + angles.length * 2 + ' rays from ' + pv.label, '#ff8');
+}
+
 cv.addEventListener('contextmenu',function(e){
   e.preventDefault();
   const rect=cv.getBoundingClientRect(),px=e.clientX-rect.left,py=e.clientY-rect.top;
+  ctxClickPx = px; ctxClickPy = py;
+
+  // Check what was right-clicked: drawn line? pivot? zigzag segment?
   const hit=hitTest(px,py);
-  if(hit.idx>=0){if(!selectedLines.has(hit.idx)){if(!e.shiftKey)selectedLines.clear();selectedLines.add(hit.idx);}redrawAll();}
-  else{if(!e.shiftKey)selectedLines.clear();redrawAll();}
-  showCtxMenu(e.clientX,e.clientY);
+  const contextInfo = {};
+
+  if(hit.idx>=0){
+    // Right-clicked on a drawn line
+    if(!selectedLines.has(hit.idx)){if(!e.shiftKey)selectedLines.clear();selectedLines.add(hit.idx);}
+    redrawAll();
+  } else {
+    if(!e.shiftKey) selectedLines.clear();
+    // Check for pivot point
+    const pv = findNearPivotForCtx(px, py);
+    if(pv) contextInfo.pivot = pv;
+    // Check for zigzag segment
+    const zs = findNearZigzagSeg(px, py);
+    if(zs) contextInfo.zigSeg = zs;
+    redrawAll();
+  }
+  showCtxMenu(e.clientX, e.clientY, contextInfo);
 });
 
 // --- Actions ---
@@ -1526,6 +2085,7 @@ document.addEventListener('keydown',function(e){
   if((e.key==='Delete'||e.key==='Backspace')&&selectedLines.size>0){delSelected();e.preventDefault();return;}
   if(e.key==='Escape'){
     if(drawPhase===4&&placingCopyIdx>=0){drawnLines.splice(placingCopyIdx,1);placingCopyIdx=-1;drawPhase=0;redrawAll();}
+    else if(wavePoints.length>0){wavePoints=[];waveClickCount=0;drawPreview=null;redrawAll();}
     else if(drawPhase===1){drawPhase=0;drawP1=null;drawPreview=null;redrawAll();}
     else if(selectedLines.size>0){selectedLines.clear();redrawAll();}
     else if(drawTool){setDrawTool(null);}
