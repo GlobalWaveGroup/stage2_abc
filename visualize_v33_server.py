@@ -428,39 +428,41 @@ def index(request: Request):
     # === 注入标注面板 (在</script>之前) ===
     # 标注面板HTML放在canvas和info之后
     annotation_panel_html = '''
-<!-- Annotation Panel — 3-Mode + Dual Layer + Auto-Fill -->
-<div id="annotPanel" style="background:#0d0d20;border:1px solid #335;border-radius:4px;padding:8px 12px;margin-top:6px;">
-  <!-- Row 1: Mode selector + controls -->
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
-    <span style="color:#f0c040;font-weight:bold;font-size:13px;">Annotate</span>
-    <span style="color:#555;font-size:10px;">|</span>
-    <!-- 3 source modes, all co-exist, visually distinct -->
-    <span id="modeZig" onclick="setAnnotMode('zig')" style="color:#4af;font-size:11px;cursor:pointer;padding:2px 6px;border:1px solid #4af;border-radius:3px;background:#1a2a4a;" title="System zigzag segments (dblclick to select)">Sys</span>
-    <span id="modeDraw" onclick="setAnnotMode('draw')" style="color:#ff0;font-size:11px;cursor:pointer;padding:2px 6px;border:1px solid #333;border-radius:3px;" title="Hand-drawn lines (select+Fill)">Draw</span>
-    <span id="modeMix" onclick="setAnnotMode('mix')" style="color:#f80;font-size:11px;cursor:pointer;padding:2px 6px;border:1px solid #333;border-radius:3px;" title="Mix: system + hand-drawn together">Mix</span>
-    <span style="color:#555;font-size:10px;">|</span>
-    <span style="color:#666;font-size:10px;">dblclick first &amp; last seg, middle auto-fills</span>
-    <span style="color:#555;font-size:10px;">|</span>
-    <button id="autoFillBtn" onclick="autoFillFromSelection()" style="background:#2a3a5a;color:#6cf;border:1px solid #456;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:bold;" title="Auto-fill from selected drawn lines (Draw/Mix mode)">Fill</button>
-    <span style="color:#555;font-size:10px;">Combo:</span>
-    <select id="comboSel" onchange="switchCombo(this.value)" style="background:#111;color:#ccc;border:1px solid #444;font-size:10px;padding:1px 3px;">
-      <option value="0">1</option><option value="1">2</option><option value="2">3</option>
-    </select>
+<!-- Annotation Panel — 3-Mode × 2-Layer, each mode independent -->
+<div id="annotPanel" style="background:#0d0d20;border:1px solid #335;border-radius:4px;padding:6px 8px;margin-top:6px;width:1800px;">
+
+  <!-- === Sys (zigzag) mode: 2 rows === -->
+  <div id="modeBlock_zig" style="margin-bottom:4px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+      <span id="modeZig" onclick="setAnnotMode('zig')" style="color:#4af;font-size:11px;cursor:pointer;padding:2px 8px;border:2px solid #4af;border-radius:3px;background:#1a2a4a;font-weight:bold;">Sys</span>
+      <span style="color:#446;font-size:9px;">system zigzag | dblclick first &amp; last</span>
+      <span id="annotStatus_zig" style="color:#888;font-size:10px;margin-left:auto;"></span>
+    </div>
+    <div id="segRow_zig" style="display:flex;width:1800px;"></div>
   </div>
-  <!-- Layer 1: Primary segments (up to 9) -->
-  <div style="margin-bottom:2px;">
-    <span style="color:#8af;font-size:10px;font-weight:bold;">L1</span>
-    <span id="l1Info" style="color:#555;font-size:9px;margin-left:4px;"></span>
-    <div id="segBoxes" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;"></div>
+
+  <!-- === Draw (hand-drawn) mode: 2 rows === -->
+  <div id="modeBlock_draw" style="margin-bottom:4px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+      <span id="modeDraw" onclick="setAnnotMode('draw')" style="color:#ff0;font-size:11px;cursor:pointer;padding:2px 8px;border:2px solid #333;border-radius:3px;font-weight:bold;">Draw</span>
+      <span style="color:#554;font-size:9px;">hand-drawn lines</span>
+      <span id="annotStatus_draw" style="color:#888;font-size:10px;margin-left:auto;"></span>
+    </div>
+    <div id="segRow_draw" style="display:flex;width:1800px;"></div>
   </div>
-  <!-- Layer 2: Sub-structure (auto, up to 27) -->
-  <div id="layer2Panel" style="margin-bottom:2px;">
-    <span style="color:#fa8;font-size:10px;font-weight:bold;">L2</span>
-    <span id="l2Info" style="color:#555;font-size:9px;margin-left:4px;">auto-decompose non-L0 segments</span>
-    <div id="subBoxes" style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px;"></div>
+
+  <!-- === Mix mode: 2 rows === -->
+  <div id="modeBlock_mix" style="margin-bottom:4px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+      <span id="modeMix" onclick="setAnnotMode('mix')" style="color:#f80;font-size:11px;cursor:pointer;padding:2px 8px;border:2px solid #333;border-radius:3px;font-weight:bold;">Mix</span>
+      <span style="color:#553;font-size:9px;">system + hand-drawn</span>
+      <span id="annotStatus_mix" style="color:#888;font-size:10px;margin-left:auto;"></span>
+    </div>
+    <div id="segRow_mix" style="display:flex;width:1800px;"></div>
   </div>
-  <!-- Row bottom: Label + Submit -->
-  <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+
+  <!-- Bottom controls: Label + Submit + Clear + Undo -->
+  <div style="display:flex;align-items:center;gap:8px;margin-top:4px;border-top:1px solid #222;padding-top:4px;">
     <span style="color:#aaa;font-size:11px;">Label:</span>
     <div style="position:relative;display:inline-block;">
       <input type="text" id="annotLabel" placeholder="e.g. A(B)abcC, 12345, abcde ..."
@@ -471,10 +473,11 @@ def index(request: Request):
     <button onclick="submitAnnotation()" style="background:#2a5a2a;color:#8f8;border:1px solid #4a4;padding:4px 14px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:bold;">Submit</button>
     <button onclick="clearAnnotation()" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Clear</button>
     <button onclick="undoLastSeg()" style="background:#2a2a1a;color:#ff8;border:1px solid #554;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Undo</button>
+    <button id="autoFillBtn" onclick="autoFillFromSelection()" style="background:#2a3a5a;color:#6cf;border:1px solid #456;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:10px;" title="Auto-fill">Fill</button>
     <span id="annotStatus" style="color:#888;font-size:11px;margin-left:8px;"></span>
   </div>
 </div>
-<div id="annotLog" style="background:#080818;border:1px solid #222;border-radius:4px;padding:6px 10px;margin-top:4px;max-height:300px;overflow-y:auto;font-size:11px;font-family:monospace;color:#999;display:none;"></div>
+<div id="annotLog" style="background:#080818;border:1px solid #222;border-radius:4px;padding:6px 10px;margin-top:4px;max-height:300px;overflow-y:auto;font-size:11px;font-family:monospace;color:#999;display:none;width:1800px;"></div>
 '''
 
     # 在 </script></body> 之前注入面板HTML（放到info div之后）
@@ -486,128 +489,167 @@ def index(request: Request):
     # === 注入标注JS (在最后的 draw(); 之后，</script>之前) ===
     annotation_js = '''
 
-// ========== ANNOTATION SYSTEM (3-Mode + Auto-Fill + Recursive Decompose) ==========
+// ========== ANNOTATION SYSTEM (3-Mode Independent + Auto-Fill + Recursive Decompose) ==========
 const ANN_MAX = 9;
 const SUB_MAX = 3;
-let annSlots = [];     // L1: [{b1,p1,b2,p2,source,level},...] selected segments
-let annActive = 0;
-let annLocked = false;
-let subSlots = [];     // L2: subSlots[i] = [{b1,p1,b2,p2},...] per L1 slot
-let combos = [null, null, null];
-let activeCombo = 0;
-let annotMode = 'zig'; // 'zig' = system zigzag, 'draw' = hand-drawn, 'mix' = both
-let annSelectCount = 0; // how many dblclick selections so far (for head-tail logic)
-let annFirstSeg = null; // first selected segment (the "head" or any selected seg)
-let annSecondSeg = null; // second selected segment (defines the range)
+const ANN_MODES = ['zig','draw','mix'];
+const SLOT_W = Math.floor(1800 / ANN_MAX);  // each L1 slot width = 200px
+const SUB_W = Math.floor(SLOT_W / SUB_MAX); // each L2 sub-box width ~66px
+
+// Per-mode independent state
+let annData = {};
+for(const m of ANN_MODES) {
+  annData[m] = {
+    slots: [],        // L1: [{b1,p1,b2,p2,source,level},...]
+    active: 0,        // active L1 slot index
+    locked: false,
+    subSlots: [],     // L2: subSlots[i] = {mode,combos}
+    subComboIdx: {},  // per-slot combo index
+    selectCount: 0,   // dblclick count for head-tail
+    firstSeg: null,   // first selected seg
+    secondSeg: null,  // second selected seg
+  };
+}
+let annotMode = 'zig'; // current active mode
+let decompMode = 'balanced';
+
+// Shortcut: get current mode data
+function md() { return annData[annotMode]; }
 
 function setAnnotMode(mode) {
   annotMode = mode;
-  const modes = ['zig','draw','mix'];
-  const ids = ['modeZig','modeDraw','modeMix'];
-  const colors = ['#4af','#ff0','#f80'];
-  const bgs = ['#1a2a4a','#4a4a00','#4a2a00'];
-  for(let i = 0; i < 3; i++) {
-    const el = document.getElementById(ids[i]);
+  const colors = {zig:'#4af', draw:'#ff0', mix:'#f80'};
+  const bgs = {zig:'#1a2a4a', draw:'#4a4a00', mix:'#4a2a00'};
+  for(const m of ANN_MODES) {
+    const el = document.getElementById({zig:'modeZig',draw:'modeDraw',mix:'modeMix'}[m]);
     if(el) {
-      el.style.borderColor = modes[i] === mode ? colors[i] : '#333';
-      el.style.background = modes[i] === mode ? bgs[i] : '';
+      el.style.borderColor = m === mode ? colors[m] : '#333';
+      el.style.background = m === mode ? bgs[m] : '';
     }
+    // Highlight active mode block
+    const block = document.getElementById('modeBlock_' + m);
+    if(block) block.style.opacity = m === mode ? '1' : '0.5';
   }
-  // Reset selection state
-  annSelectCount = 0; annFirstSeg = null; annSecondSeg = null;
   setAnnotStatus('Mode: ' + ({zig:'System zigzag',draw:'Hand-drawn',mix:'Mix'}[mode]) + ' | dblclick first & last seg', '#888');
 }
 
-// Build L1 segment boxes UI
+// Build L1 (9 boxes) + L2 (9×3 sub-boxes) for ALL 3 modes
 (function buildAnnotUI() {
-  const container = document.getElementById('segBoxes');
-  for(let i = 0; i < ANN_MAX; i++) {
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:1px;';
+  for(const m of ANN_MODES) {
+    const row = document.getElementById('segRow_' + m);
+    if(!row) continue;
+    row.innerHTML = '';
+    for(let i = 0; i < ANN_MAX; i++) {
+      // Column wrapper: L1 box on top, L2 sub-boxes below
+      const col = document.createElement('div');
+      col.style.cssText = 'width:' + SLOT_W + 'px;display:flex;flex-direction:column;';
 
-    const box = document.createElement('div');
-    box.id = 'segBox' + i;
-    box.style.cssText = 'min-width:130px;height:40px;background:#111;border:2px solid #333;border-top-left-radius:3px;border-top-right-radius:3px;padding:3px 5px;cursor:pointer;font-size:10px;font-family:monospace;color:#777;display:flex;flex-direction:column;justify-content:center;';
-    box.innerHTML = '<div style="color:#556;text-align:center;">S' + (i+1) + '</div>';
-    box.onclick = function() { setActiveSlot(i); };
+      // L1 box
+      const box = document.createElement('div');
+      box.id = 'segBox_' + m + '_' + i;
+      box.style.cssText = 'width:' + (SLOT_W-4) + 'px;height:42px;background:#111;border:2px solid #333;border-radius:3px 3px 0 0;padding:2px 3px;cursor:pointer;font-size:10px;font-family:monospace;color:#777;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;';
+      box.innerHTML = '<div style="color:#556;text-align:center;">' + String.fromCharCode(97+i) + '</div>';
+      (function(mode, idx) {
+        box.onclick = function() { setActiveSlot(mode, idx); };
+      })(m, i);
 
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.id = 'segInp' + i;
-    inp.placeholder = 'b1 p1 b2 p2';
-    inp.style.cssText = 'width:126px;background:#0a0a18;color:#ff8;border:1px solid #333;border-top:none;border-bottom-left-radius:3px;border-bottom-right-radius:3px;padding:2px 4px;font-size:9px;font-family:monospace;';
-    inp.onfocus = function() { setActiveSlot(i); };
-    (function(idx) {
-      inp.onkeydown = function(ev) {
-        if(ev.key === 'Enter') {
-          parseManualInput(idx, inp.value.trim());
-          ev.preventDefault();
-        }
-      };
-    })(i);
+      // L2 row: 3 sub-boxes under each L1 box
+      const subRow = document.createElement('div');
+      subRow.id = 'subRow_' + m + '_' + i;
+      subRow.style.cssText = 'display:flex;width:' + (SLOT_W-4) + 'px;';
+      for(let j = 0; j < SUB_MAX; j++) {
+        const sb = document.createElement('div');
+        sb.id = 'subBox_' + m + '_' + i + '_' + j;
+        sb.style.cssText = 'width:' + (SUB_W-2) + 'px;height:24px;background:#0a0a10;border:1px solid #222;font-size:7px;font-family:monospace;color:#555;display:flex;align-items:center;justify-content:center;box-sizing:border-box;' +
+          (j===0 ? 'border-radius:0 0 0 3px;' : '') +
+          (j===2 ? 'border-radius:0 0 3px 0;' : '');
+        sb.innerHTML = String.fromCharCode(97+i) + '\\u2032' + (j+1);
+        subRow.appendChild(sb);
+      }
 
-    wrapper.appendChild(box);
-    wrapper.appendChild(inp);
-    container.appendChild(wrapper);
+      col.appendChild(box);
+      col.appendChild(subRow);
+      row.appendChild(col);
+    }
+    // Initialize active slot for this mode
+    setActiveSlot(m, 0);
   }
-  setActiveSlot(0);
+  // Dim non-active mode blocks
+  for(const m of ANN_MODES) {
+    const block = document.getElementById('modeBlock_' + m);
+    if(block) block.style.opacity = m === annotMode ? '1' : '0.5';
+  }
 })();
 
-// Build L2 sub-structure boxes
-// Auto-decompose each non-L0 L1 segment into 3 sub-segments
-function buildSubBoxes() {
-  const container = document.getElementById('subBoxes');
-  if(!container) return;
-  container.innerHTML = '';
-  const filledL1 = annSlots.filter(s => s);
-  if(filledL1.length === 0) return;
-  subSlots = new Array(ANN_MAX);
-
-  // Mode selector row
-  const modeRow = document.createElement('div');
-  modeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:3px;align-items:center;';
-  const modes = ['balanced','simplest','largest','symmetric'];
-  const modeLabels = {'balanced':'Balanced','simplest':'Simplest','largest':'Largest B','symmetric':'Sym A=C'};
-  for(const m of modes) {
-    const mb = document.createElement('span');
-    mb.style.cssText = 'color:' + (decompMode===m?'#fa8':'#666') + ';font-size:9px;cursor:pointer;padding:1px 4px;border:1px solid '+(decompMode===m?'#a64':'#333')+';border-radius:2px;';
-    mb.textContent = modeLabels[m];
-    mb.onclick = function() { decompMode = m; buildSubBoxes(); };
-    modeRow.appendChild(mb);
-  }
-  container.appendChild(modeRow);
-
-  let totalSubBoxes = 0;
+// Build L2 sub-structure: fill the 3 pre-built sub-boxes per L1 slot for given mode
+function buildSubBoxes(mode) {
+  mode = mode || annotMode;
+  const d = annData[mode];
+  d.subSlots = new Array(ANN_MAX);
 
   for(let i = 0; i < ANN_MAX; i++) {
-    if(!annSlots[i]) continue;
-    const seg = annSlots[i];
+    const seg = d.slots[i];
+    // Reset all 3 sub-boxes for this slot
+    for(let j = 0; j < SUB_MAX; j++) {
+      const sb = document.getElementById('subBox_' + mode + '_' + i + '_' + j);
+      if(!sb) continue;
+      if(!seg) {
+        sb.innerHTML = String.fromCharCode(97+i) + '\\u2032' + (j+1);
+        sb.style.background = '#0a0a10';
+        sb.style.borderColor = '#222';
+        sb.style.color = '#555';
+        continue;
+      }
+    }
+    if(!seg) continue;
 
-    // Determine if this segment is L0 (base level = cannot decompose further)
-    // A segment is L0 if its time span is very short or it came from base zigzag
     const isL0 = isBaseLevel(seg);
-
     if(isL0) {
-      // L0: show as single box, no decomposition
-      subSlots[i] = { mode: 'L0', combos: [[seg]] };
-      const group = createSubGroup(i, [seg], 'L0', 0);
-      container.appendChild(group);
-      totalSubBoxes += 1;
+      d.subSlots[i] = { mode: 'L0', combos: [[seg]] };
+      // L0: show seg info in first sub-box, blank the others
+      const sb0 = document.getElementById('subBox_' + mode + '_' + i + '_0');
+      if(sb0) {
+        sb0.innerHTML = '<span style="color:#886;">L0</span>';
+        sb0.style.background = '#0a0a10';
+        sb0.style.borderColor = '#333';
+      }
+      for(let j = 1; j < SUB_MAX; j++) {
+        const sb = document.getElementById('subBox_' + mode + '_' + i + '_' + j);
+        if(sb) { sb.innerHTML = '-'; sb.style.color = '#333'; }
+      }
     } else {
-      // Non-L0: auto-decompose into 3 sub-segments
+      // Auto-decompose into 3 sub-segments
       const result = autoDecomposeSegment(seg, decompMode);
-      subSlots[i] = result;
-      const ci = subComboIdx[i] || 0;
+      d.subSlots[i] = result;
+      const ci = d.subComboIdx[i] || 0;
       const subs = result.combos[ci] || result.combos[0] || [seg];
-      const group = createSubGroup(i, subs, seg.level || '?', result.combos.length > 1 ? result.combos.length : 0);
-      container.appendChild(group);
-      totalSubBoxes += subs.length;
+
+      for(let j = 0; j < SUB_MAX; j++) {
+        const sb = document.getElementById('subBox_' + mode + '_' + i + '_' + j);
+        if(!sb) continue;
+        if(j < subs.length) {
+          const s = subs[j];
+          const dir = s.p2 > s.p1 ? '\\u2191' : '\\u2193';
+          const dc = s.p2 > s.p1 ? '#4f4' : '#f44';
+          sb.innerHTML = '<span style="color:'+dc+';">'+dir+'</span><span style="color:#665;font-size:6px;margin-left:1px;">b'+s.b1+'\\u2192'+s.b2+'</span>';
+          sb.style.background = '#0a0a18';
+          sb.style.borderColor = '#443';
+          sb.style.color = '#a86';
+        } else {
+          sb.innerHTML = '-';
+          sb.style.color = '#333';
+          sb.style.background = '#0a0a10';
+          sb.style.borderColor = '#222';
+        }
+      }
+
+      // If multiple combos available, add click to cycle through them on the L1 box
+      if(result.combos.length > 1) {
+        const box = document.getElementById('segBox_' + mode + '_' + i);
+        if(box) box.title = result.combos.length + ' decomposition combos (click sub-box to cycle)';
+      }
     }
   }
-
-  // Update L2 info
-  const info = document.getElementById('l2Info');
-  if(info) info.textContent = totalSubBoxes + ' sub-segments | mode: ' + decompMode;
 }
 
 // Check if a segment is base level (L0 = no further decomposition)
@@ -627,53 +669,6 @@ function isBaseLevel(seg) {
     }
   }
   return true;  // no internal pivots → L0
-}
-
-// Create a sub-group element for L2 display
-function createSubGroup(slotIdx, subs, level, nCombos) {
-  const group = document.createElement('div');
-  group.style.cssText = 'display:flex;flex-direction:column;margin-right:6px;margin-bottom:2px;';
-  const letter = String.fromCharCode(97 + slotIdx);
-
-  const hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;align-items:center;gap:2px;';
-  const hdrLabel = document.createElement('span');
-  hdrLabel.style.cssText = 'color:#886;font-size:8px;';
-  hdrLabel.textContent = letter + (level === 'L0' ? ' (L0)' : ' \\u2192' + subs.length);
-  hdr.appendChild(hdrLabel);
-
-  // Combo switch buttons
-  if(nCombos > 1) {
-    const ci = subComboIdx[slotIdx] || 0;
-    for(let c = 0; c < Math.min(3, nCombos); c++) {
-      const cb = document.createElement('span');
-      cb.style.cssText = 'color:'+(c===ci?'#fa8':'#555')+';font-size:7px;cursor:pointer;padding:0 2px;border:1px solid '+(c===ci?'#a64':'#222')+';border-radius:1px;';
-      cb.textContent = '' + (c+1);
-      (function(slot, combo) {
-        cb.onclick = function() { subComboIdx[slot] = combo; buildSubBoxes(); };
-      })(slotIdx, c);
-      hdr.appendChild(cb);
-    }
-  }
-  group.appendChild(hdr);
-
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:1px;';
-  for(let j = 0; j < subs.length; j++) {
-    const sub = subs[j];
-    const sbox = document.createElement('div');
-    const isL0 = (subs.length === 1 && level === 'L0');
-    sbox.style.cssText = 'min-width:70px;height:26px;background:' + (isL0 ? '#0a0a10' : '#0a0a18') + ';border:1px solid ' + (isL0 ? '#333' : '#443') + ';border-radius:2px;padding:2px 3px;font-size:8px;font-family:monospace;color:#a86;display:flex;flex-direction:column;justify-content:center;';
-    const d = sub.p2 > sub.p1 ? '\\u2191' : '\\u2193';
-    const dc = sub.p2 > sub.p1 ? '#4f4' : '#f44';
-    const mod = Math.sqrt((sub.b2-sub.b1)**2 + ((sub.p2-sub.p1)*100000)**2).toFixed(1);
-    const subLetter = subs.length > 1 ? String.fromCharCode(97 + slotIdx) + '\\u2032' + (j+1) : '';
-    sbox.innerHTML = '<div style="color:#886;">' + subLetter + ' <span style="color:'+dc+';">'+d+'</span> <span style="color:#554;">m'+mod+'</span></div>' +
-      '<div style="color:#665;font-size:7px;">b'+sub.b1+'\\u2192b'+sub.b2+'</div>';
-    row.appendChild(sbox);
-  }
-  group.appendChild(row);
-  return group;
 }
 
 // Auto-decompose a segment into sub-structure
@@ -745,12 +740,9 @@ function autoDecomposeSegment(seg, mode) {
   return { mode: mode, combos: top3 };
 }
 
-// Current decomposition mode and per-slot sub-combo index
-let decompMode = 'balanced';  // 'simplest'|'largest'|'balanced'|'symmetric'
-let subComboIdx = {};  // subComboIdx[slotIdx] = 0|1|2
-
 function parseManualInput(idx, val) {
-  if(annLocked) return;
+  const d = md();
+  if(d.locked) return;
   if(!val) return;
   const parts = val.split(/\\s+/);
   if(parts.length === 4) {
@@ -759,36 +751,33 @@ function parseManualInput(idx, val) {
     if(!isNaN(b1) && !isNaN(p1) && !isNaN(b2) && !isNaN(p2)) {
       const seg = { b1, p1, b2, p2, source: 'MANUAL' };
       if(!checkContinuity(idx, seg)) {
-        const prev = annSlots[idx - 1];
-        setAnnotStatus('Not continuous! S' + idx + ' end=b' + prev.b2 + ' but input b' + b1, '#f88');
+        const prev = d.slots[idx - 1];
+        setAnnotStatus('Not continuous! ' + String.fromCharCode(97+idx) + ' end=b' + prev.b2 + ' but input b' + b1, '#f88');
         return;
       }
-      annSlots[idx] = seg;
-      renderSlot(idx);
+      d.slots[idx] = seg;
+      renderSlot(annotMode, idx);
       drawAnnotHighlights();
-      setAnnotStatus('Manual S' + (idx+1) + ': b' + b1 + '→b' + b2, '#8f8');
-      document.getElementById('segInp' + idx).value = '';
-      if(idx < ANN_MAX - 1) setActiveSlot(idx + 1);
+      setAnnotStatus('Manual ' + String.fromCharCode(97+idx) + ': b' + b1 + '\\u2192b' + b2, '#8f8');
+      if(idx < ANN_MAX - 1) setActiveSlot(annotMode, idx + 1);
       return;
     }
   }
-  // Try H/L notation: e.g. "H3 L5" → lookup from TOP array
   if(parts.length === 2) {
     const p1Info = resolvePointLabel(parts[0]);
     const p2Info = resolvePointLabel(parts[1]);
     if(p1Info && p2Info) {
       const seg = { b1: p1Info.bar, p1: p1Info.price, b2: p2Info.bar, p2: p2Info.price, source: 'MANUAL:' + parts[0] + '-' + parts[1] };
       if(!checkContinuity(idx, seg)) {
-        const prev = annSlots[idx - 1];
-        setAnnotStatus('Not continuous! S' + idx + ' end=b' + prev.b2 + ' but ' + parts[0] + '=b' + p1Info.bar, '#f88');
+        const prev = d.slots[idx - 1];
+        setAnnotStatus('Not continuous! ' + String.fromCharCode(97+idx) + ' end=b' + prev.b2 + ' but ' + parts[0] + '=b' + p1Info.bar, '#f88');
         return;
       }
-      annSlots[idx] = seg;
-      renderSlot(idx);
+      d.slots[idx] = seg;
+      renderSlot(annotMode, idx);
       drawAnnotHighlights();
-      setAnnotStatus('Manual S' + (idx+1) + ': ' + parts[0] + '→' + parts[1], '#8f8');
-      document.getElementById('segInp' + idx).value = '';
-      if(idx < ANN_MAX - 1) setActiveSlot(idx + 1);
+      setAnnotStatus('Manual ' + String.fromCharCode(97+idx) + ': ' + parts[0] + '\\u2192' + parts[1], '#8f8');
+      if(idx < ANN_MAX - 1) setActiveSlot(annotMode, idx + 1);
       return;
     }
   }
@@ -807,39 +796,42 @@ function resolvePointLabel(label) {
   return { bar: pt.bar, price: pt.price };
 }
 
-function setActiveSlot(idx) {
-  if(annLocked) return;
-  annActive = idx;
+function setActiveSlot(mode, idx) {
+  const d = annData[mode];
+  if(d.locked) return;
+  d.active = idx;
   for(let i = 0; i < ANN_MAX; i++) {
-    const box = document.getElementById('segBox' + i);
-    box.style.borderColor = (i === idx) ? '#f0c040' : (annSlots[i] ? '#4a4' : '#333');
+    const box = document.getElementById('segBox_' + mode + '_' + i);
+    if(box) box.style.borderColor = (i === idx) ? '#f0c040' : (d.slots[i] ? '#4a4' : '#333');
   }
 }
 
-function renderSlot(idx) {
-  const box = document.getElementById('segBox' + idx);
-  const seg = annSlots[idx];
+function renderSlot(mode, idx) {
+  const box = document.getElementById('segBox_' + mode + '_' + idx);
+  if(!box) return;
+  const d = annData[mode];
+  const seg = d.slots[idx];
   if(!seg) {
     box.innerHTML = '<div style="color:#556;text-align:center;">' + String.fromCharCode(97+idx) + '</div>';
-    box.style.borderColor = (idx === annActive) ? '#f0c040' : '#333';
+    box.style.borderColor = (idx === d.active) ? '#f0c040' : '#333';
+    box.style.background = '#111';
     return;
   }
-  const d = seg.p2 > seg.p1 ? '\\u2191' : '\\u2193';
+  const dir = seg.p2 > seg.p1 ? '\\u2191' : '\\u2193';
   const dc = seg.p2 > seg.p1 ? '#4f4' : '#f44';
   const lbl1 = seg.lbl1 || barToLabel(seg.b1);
   const lbl2 = seg.lbl2 || barToLabel(seg.b2);
-  // Source type visual: system=blue border, drawn=yellow border, mixed=orange
   const src = seg.source || '';
   const isDrawn = src.startsWith('DRAW:');
   const srcColor = isDrawn ? '#ff0' : '#4af';
   const srcBg = isDrawn ? '#1a1a00' : '#0a0a1a';
   const srcLabel = isDrawn ? 'D' : (seg.level || src.slice(0,3));
-  const letter = String.fromCharCode(97+idx);  // a,b,c,d...
+  const letter = String.fromCharCode(97+idx);
   box.innerHTML =
-    '<div style="color:#aaa;">' + letter + ' <span style="color:'+srcColor+';font-weight:bold;">' + lbl1 + '\\u2192' + lbl2 + '</span> <span style="color:' + dc + ';">' + d + '</span></div>' +
+    '<div style="color:#aaa;">' + letter + ' <span style="color:'+srcColor+';font-weight:bold;">' + lbl1 + '\\u2192' + lbl2 + '</span> <span style="color:' + dc + ';">' + dir + '</span></div>' +
     '<div style="color:#8cf;font-size:9px;">b' + seg.b1 + ' ' + seg.p1.toFixed(5) + ' <span style="color:'+srcColor+';font-size:8px;">' + srcLabel + '</span></div>' +
     '<div style="color:#fc8;font-size:9px;">b' + seg.b2 + ' ' + seg.p2.toFixed(5) + '</div>';
-  box.style.borderColor = (idx === annActive) ? '#f0c040' : (isDrawn ? '#554400' : '#003344');
+  box.style.borderColor = (idx === d.active) ? '#f0c040' : (isDrawn ? '#554400' : '#003344');
   box.style.background = srcBg;
 }
 
@@ -932,9 +924,9 @@ function distToSeg(mx, my, seg) {
 
 // Check continuity: new segment's start must match previous segment's end
 function checkContinuity(slotIdx, seg) {
-  if(slotIdx === 0) return true;  // first segment, no constraint
-  const prev = annSlots[slotIdx - 1];
-  if(!prev) return true;  // previous slot empty, allow (will validate on submit)
+  if(slotIdx === 0) return true;
+  const prev = md().slots[slotIdx - 1];
+  if(!prev) return true;
   return prev.b2 === seg.b1;
 }
 
@@ -962,7 +954,8 @@ function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
 
 // Double-click handler: HEAD-TAIL selection with auto-fill of middle segments
 cv.addEventListener('dblclick', function(e) {
-  if(annLocked) return;
+  const d = md();
+  if(d.locked) return;
   if(drawTool) return;
   const rect = cv.getBoundingClientRect();
   const cmx = e.clientX - rect.left;
@@ -975,96 +968,81 @@ cv.addEventListener('dblclick', function(e) {
   } else if(annotMode === 'draw') {
     allSegs = collectVisibleSegs().filter(s => s.source.startsWith('DRAW:'));
   } else {
-    allSegs = collectVisibleSegs();  // mix: all
+    allSegs = collectVisibleSegs();
   }
 
   // Find nearest segment
   let best = null, bestDist = 20;
   for(const seg of allSegs) {
-    const d = distToSeg(cmx, cmy, seg);
-    if(d < bestDist) { bestDist = d; best = seg; }
+    const dd = distToSeg(cmx, cmy, seg);
+    if(dd < bestDist) { bestDist = dd; best = seg; }
   }
   if(!best) {
     setAnnotStatus('No segment found near click (' + annotMode + ' mode)', '#f88');
     return;
   }
 
-  annSelectCount++;
+  d.selectCount++;
 
-  if(annSelectCount === 1) {
-    // === FIRST SELECTION ===
-    annFirstSeg = best;
-    annSlots = [];
-    annSlots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
+  if(d.selectCount === 1) {
+    d.firstSeg = best;
+    d.slots = [];
+    d.slots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
       source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
-    for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
-    renderSlot(0);
-    setActiveSlot(0);
+    for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+    setActiveSlot(annotMode, 0);
     drawAnnotHighlights();
-    setAnnotStatus('First seg: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
-      ' (' + best.source + ') | now dblclick the last seg to auto-fill range', '#8cf');
+    setAnnotStatus('First: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
+      ' (' + best.source + ') | dblclick last seg', '#8cf');
     return;
   }
 
-  if(annSelectCount === 2) {
-    // === SECOND SELECTION → AUTO-FILL RANGE ===
-    annSecondSeg = best;
-    const seg1 = annFirstSeg, seg2 = annSecondSeg;
-
-    // Determine range: leftmost to rightmost (natural order = left to right)
+  if(d.selectCount === 2) {
+    d.secondSeg = best;
+    const seg1 = d.firstSeg, seg2 = d.secondSeg;
     const rangeStart = Math.min(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
     const rangeEnd = Math.max(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
 
-    // Find ALL segments in this range from visible segs, build a connected chain
     const rangeSegs = allSegs.filter(s =>
       s.b1 >= rangeStart && s.b2 <= rangeEnd && s.b1 < s.b2
     );
-
-    // Build chain: find connected segments from rangeStart to rangeEnd
     const chain = buildNaturalChain(rangeSegs, rangeStart, rangeEnd, allSegs);
 
     if(chain.length === 0) {
-      // Fallback: just use the two selected segments
-      annSlots = [];
+      d.slots = [];
       const sorted = [seg1, seg2].sort((a,b) => Math.min(a.b1,a.b2) - Math.min(b.b1,b.b2));
       for(let i = 0; i < sorted.length; i++) {
-        annSlots[i] = { b1: sorted[i].b1, p1: sorted[i].p1, b2: sorted[i].b2, p2: sorted[i].p2,
+        d.slots[i] = { b1: sorted[i].b1, p1: sorted[i].p1, b2: sorted[i].b2, p2: sorted[i].p2,
           source: sorted[i].source, lbl1: barToLabel(sorted[i].b1), lbl2: barToLabel(sorted[i].b2) };
       }
-      for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
+      for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
       setAnnotStatus('Only 2 segs found (no chain in range)', '#ff8');
     } else {
-      // Fill L1 slots with the chain
-      annSlots = [];
+      d.slots = [];
       for(let i = 0; i < Math.min(chain.length, ANN_MAX); i++) {
         const s = chain[i];
-        annSlots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
+        d.slots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
           source: s.source, level: s.level || 'base',
           lbl1: barToLabel(s.b1), lbl2: barToLabel(s.b2) };
       }
-      for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
+      for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
       setAnnotStatus('Auto-filled ' + chain.length + ' segs: ' +
-        barToLabel(rangeStart) + '\\u2192' + barToLabel(rangeEnd) + ' (natural order)', '#8f8');
+        barToLabel(rangeStart) + '\\u2192' + barToLabel(rangeEnd), '#8f8');
     }
     drawAnnotHighlights();
-    // Auto-decompose L2
-    buildSubBoxes();
-    // Allow further selections (reset to accept more)
-    annSelectCount = 0; annFirstSeg = null; annSecondSeg = null;
+    buildSubBoxes(annotMode);
+    d.selectCount = 0; d.firstSeg = null; d.secondSeg = null;
     return;
   }
 
-  // Additional selections (3+): append to existing chain
-  annSelectCount = 0;
-  annFirstSeg = best;
-  annSelectCount = 1;
-  // Same as first selection
-  annSlots = [];
-  annSlots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
+  // 3+: restart
+  d.selectCount = 1;
+  d.firstSeg = best;
+  d.slots = [];
+  d.slots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
     source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
-  for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
-  renderSlot(0);
-  setActiveSlot(0);
+  for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+  setActiveSlot(annotMode, 0);
   drawAnnotHighlights();
   setAnnotStatus('Restarted: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
     ' | dblclick last seg', '#8cf');
@@ -1126,37 +1104,32 @@ function buildNaturalChain(rangeSegs, startBar, endBar, allSegs) {
 
 // Draw highlights for selected segments + K-line highlighting
 function drawAnnotHighlights() {
-  // Redraw base + aux + drawn lines (NOT calling drawAnnotHighlights again to avoid recursion)
   draw(); drawAuxLines(); drawDrawnLines();
+  const d = md();
+  const slots = d.slots;
 
-  // Collect bar range covered by all selected segments
   let barMin = Infinity, barMax = -Infinity;
-  for(let i = 0; i < annSlots.length; i++) {
-    const seg = annSlots[i];
+  for(let i = 0; i < slots.length; i++) {
+    const seg = slots[i];
     if(!seg) continue;
     barMin = Math.min(barMin, seg.b1, seg.b2);
     barMax = Math.max(barMax, seg.b1, seg.b2);
   }
 
   cx.save();
-
-  // Highlight K-lines in the covered range
   if(barMin <= barMax) {
     for(let b = barMin; b <= barMax && b < K.length; b++) {
       if(b < 0) continue;
       const k = K[b];
       const x = xS(b);
-      // Bright candlestick body
       const isUp = k.c >= k.o;
       cx.strokeStyle = isUp ? '#00cc44' : '#cc3333';
       cx.lineWidth = 2;
       cx.globalAlpha = 0.7;
-      // High-low wick
       cx.beginPath();
       cx.moveTo(x, yS(k.l));
       cx.lineTo(x, yS(k.h));
       cx.stroke();
-      // Body
       const bodyTop = yS(Math.max(k.o, k.c));
       const bodyBot = yS(Math.min(k.o, k.c));
       const bodyH = Math.max(bodyBot - bodyTop, 1);
@@ -1167,9 +1140,8 @@ function drawAnnotHighlights() {
     }
   }
 
-  // Overlay selected segments
-  for(let i = 0; i < annSlots.length; i++) {
-    const seg = annSlots[i];
+  for(let i = 0; i < slots.length; i++) {
+    const seg = slots[i];
     if(!seg) continue;
     const hue = (i * 40) % 360;
     cx.strokeStyle = 'hsl(' + hue + ', 100%, 70%)';
@@ -1181,16 +1153,10 @@ function drawAnnotHighlights() {
     cx.lineTo(xS(seg.b2), yS(seg.p2));
     cx.stroke();
 
-    // Endpoint dots
     cx.fillStyle = 'hsl(' + hue + ', 100%, 80%)';
-    cx.beginPath();
-    cx.arc(xS(seg.b1), yS(seg.p1), 4, 0, Math.PI*2);
-    cx.fill();
-    cx.beginPath();
-    cx.arc(xS(seg.b2), yS(seg.p2), 4, 0, Math.PI*2);
-    cx.fill();
+    cx.beginPath(); cx.arc(xS(seg.b1), yS(seg.p1), 4, 0, Math.PI*2); cx.fill();
+    cx.beginPath(); cx.arc(xS(seg.b2), yS(seg.p2), 4, 0, Math.PI*2); cx.fill();
 
-    // Label with pivot names
     cx.fillStyle = 'hsl(' + hue + ', 100%, 85%)';
     cx.font = 'bold 11px monospace';
     cx.textAlign = 'center';
@@ -1208,51 +1174,50 @@ function drawAnnotHighlights() {
 }
 
 function setAnnotStatus(msg, color) {
+  // Update both the global and mode-specific status
   const el = document.getElementById('annotStatus');
-  el.textContent = msg;
-  el.style.color = color || '#888';
+  if(el) { el.textContent = msg; el.style.color = color || '#888'; }
+  const mel = document.getElementById('annotStatus_' + annotMode);
+  if(mel) { mel.textContent = msg; mel.style.color = color || '#888'; }
 }
 
 function clearAnnotation() {
-  annSlots = [];
-  annLocked = false;
-  annSelectCount = 0;
-  annFirstSeg = null;
-  annSecondSeg = null;
-  subSlots = [];
-  subComboIdx = {};
-  for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
-  setActiveSlot(0);
-  // Clear L2 display
-  const subC = document.getElementById('subBoxes');
-  if(subC) subC.innerHTML = '';
-  const l2i = document.getElementById('l2Info');
-  if(l2i) l2i.textContent = '';
+  const d = md();
+  d.slots = [];
+  d.locked = false;
+  d.selectCount = 0;
+  d.firstSeg = null;
+  d.secondSeg = null;
+  d.subSlots = [];
+  d.subComboIdx = {};
+  for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+  setActiveSlot(annotMode, 0);
+  buildSubBoxes(annotMode);  // resets L2 sub-boxes to empty
   setAnnotStatus('Cleared', '#888');
   draw(); drawAuxLines(); drawDrawnLines();
 }
 
 function undoLastSeg() {
-  if(annLocked) return;
-  // Find last filled slot
+  const d = md();
+  if(d.locked) return;
   let last = -1;
   for(let i = ANN_MAX - 1; i >= 0; i--) {
-    if(annSlots[i]) { last = i; break; }
+    if(d.slots[i]) { last = i; break; }
   }
   if(last >= 0) {
-    delete annSlots[last];
-    annSlots.length = last;
-    renderSlot(last);
-    setActiveSlot(last);
+    delete d.slots[last];
+    d.slots.length = last;
+    renderSlot(annotMode, last);
+    setActiveSlot(annotMode, last);
     setAnnotStatus('Undone ' + String.fromCharCode(97+last), '#ff8');
     drawAnnotHighlights();
-    buildSubBoxes();
+    buildSubBoxes(annotMode);
   }
 }
 
 async function submitAnnotation() {
-  // Validate
-  const filled = annSlots.filter(s => s);
+  const d = md();
+  const filled = d.slots.filter(s => s);
   if(filled.length < 2) {
     setAnnotStatus('Need at least 2 segments', '#f88');
     return;
@@ -1265,28 +1230,26 @@ async function submitAnnotation() {
     return;
   }
 
-  // Validate continuity chain
   for(let i = 1; i < filled.length; i++) {
     if(filled[i].b1 !== filled[i-1].b2) {
-      setAnnotStatus('Gap between S' + i + ' and S' + (i+1) + ': b' + filled[i-1].b2 + ' != b' + filled[i].b1, '#f88');
+      setAnnotStatus('Gap: ' + String.fromCharCode(96+i) + '\\u2192' + String.fromCharCode(97+i) + ' b' + filled[i-1].b2 + '!=b' + filled[i].b1, '#f88');
       return;
     }
   }
 
-  annLocked = true;
+  d.locked = true;
   setAnnotStatus('Submitting...', '#ff8');
 
-  // Collect L2 decomposition data
   const l2Data = {};
-  for(let i = 0; i < annSlots.length; i++) {
-    if(!annSlots[i]) continue;
-    if(subSlots[i]) {
-      const ci = subComboIdx[i] || 0;
-      const combo = subSlots[i].combos ? (subSlots[i].combos[ci] || subSlots[i].combos[0]) : null;
+  for(let i = 0; i < d.slots.length; i++) {
+    if(!d.slots[i]) continue;
+    if(d.subSlots[i]) {
+      const ci = d.subComboIdx[i] || 0;
+      const combo = d.subSlots[i].combos ? (d.subSlots[i].combos[ci] || d.subSlots[i].combos[0]) : null;
       l2Data[i] = {
-        mode: subSlots[i].mode || decompMode,
+        mode: d.subSlots[i].mode || decompMode,
         comboIdx: ci,
-        nCombos: subSlots[i].combos ? subSlots[i].combos.length : 0,
+        nCombos: d.subSlots[i].combos ? d.subSlots[i].combos.length : 0,
         subs: combo || []
       };
     }
@@ -1309,18 +1272,15 @@ async function submitAnnotation() {
 
     if(result.error) {
       setAnnotStatus('Error: ' + result.error, '#f88');
-      annLocked = false;
+      d.locked = false;
       return;
     }
 
-    // Show result in log
     showAnnotResult(result);
     setAnnotStatus('Saved! ID=' + result.record_id + ' | Total=' + result.total_annotations + ' | Same label=' + result.same_label_count, '#8f8');
-
-    // Keep locked until user clicks Clear
   } catch(e) {
     setAnnotStatus('Network error: ' + e.message, '#f88');
-    annLocked = false;
+    d.locked = false;
   }
 }
 
@@ -1465,7 +1425,7 @@ function toggleLatLines() {
   sync();
   draw();
   drawAuxLines();
-  if(annSlots.some(s => s)) drawAnnotHighlights();
+  if(md().slots.some(s => s)) drawAnnotHighlights();
 }
 
 // ========== DRAWING SYSTEM (MT4-style, click-click) ==========
@@ -1580,7 +1540,7 @@ function getWaveN() { return drawTool === 'wave3' ? 4 : drawTool === 'wave5' ? 6
 // Select multiple drawn lines → auto-compose into L1 annotation slots
 // KEY: ignores time order of selection; auto-reorders by segment characteristics
 function autoFillFromSelection() {
-  if(annLocked) return;
+  if(md().locked) return;
   const indices = selectedLines.size > 0 ? [...selectedLines] : [];
   if(indices.length === 0) {
     setAnnotStatus('Select drawn lines first (click + Shift+click)', '#f88');
@@ -1634,25 +1594,25 @@ function switchCombo(idx) {
 }
 
 function fillL1Slots(segs) {
-  annSlots = [];
+  const d = md();
+  d.slots = [];
   for(let i = 0; i < Math.min(segs.length, ANN_MAX); i++) {
-    annSlots[i] = {
+    d.slots[i] = {
       b1: segs[i].b1, p1: segs[i].p1,
       b2: segs[i].b2, p2: segs[i].p2,
       source: segs[i].source || 'AUTO',
       lbl1: barToLabel(segs[i].b1),
       lbl2: barToLabel(segs[i].b2)
     };
-    renderSlot(i);
+    renderSlot(annotMode, i);
   }
-  // Clear remaining slots
   for(let i = segs.length; i < ANN_MAX; i++) {
-    annSlots[i] = undefined;
-    renderSlot(i);
+    d.slots[i] = undefined;
+    renderSlot(annotMode, i);
   }
-  setActiveSlot(Math.min(segs.length, ANN_MAX - 1));
+  setActiveSlot(annotMode, Math.min(segs.length, ANN_MAX - 1));
   drawAnnotHighlights();
-  if(showLayer2) buildSubBoxes();
+  buildSubBoxes(annotMode);
 }
 
 // Generate all valid chain combinations from a set of segments
@@ -1797,7 +1757,7 @@ document.addEventListener('click', function(e) {
 
 function redrawAll() {
   draw(); drawAuxLines(); drawDrawnLines();
-  if (annSlots.some(s => s)) drawAnnotHighlights();
+  if (md().slots.some(s => s)) drawAnnotHighlights();
 }
 
 // --- Drawing render ---
@@ -2253,12 +2213,12 @@ function showCtxMenu(x, y, contextInfo) {
     const zs = contextInfo.zigSeg;
     items.push({t:'--- Zigzag: '+zs.source+' ---', header:true});
     items.push({t:'Sub-Structure',k:'S',fn:()=>{
-      // Fill the current L1 slot with this segment and show sub-decomposition
-      annSlots[annActive] = { b1:zs.b1, p1:zs.p1, b2:zs.b2, p2:zs.p2, source:zs.source,
+      const dd = md();
+      dd.slots[dd.active] = { b1:zs.b1, p1:zs.p1, b2:zs.b2, p2:zs.p2, source:zs.source,
         lbl1:barToLabel(zs.b1), lbl2:barToLabel(zs.b2) };
-      renderSlot(annActive); drawAnnotHighlights();
-      if(showLayer2) buildSubBoxes();
-      setAnnotStatus('Filled S'+(annActive+1)+' with '+zs.source,'#8f8');
+      renderSlot(annotMode, dd.active); drawAnnotHighlights();
+      buildSubBoxes(annotMode);
+      setAnnotStatus('Filled '+String.fromCharCode(97+dd.active)+' with '+zs.source,'#8f8');
     }});
     items.push({t:'Fibo Trend',k:'F',fn:()=>drawFiboOnZigzag(zs, 'trend')});
     items.push({t:'Fibo Retrace',k:'R',fn:()=>drawFiboOnZigzag(zs, 'retrace')});
@@ -2735,26 +2695,26 @@ function toggleTLines() {
   const btn = document.getElementById('tlineBtn');
   if(btn) btn.classList.toggle('active', showTLines);
   draw(); drawAuxLines();
-  if(annSlots.some(s => s)) drawAnnotHighlights();
+  if(md().slots.some(s => s)) drawAnnotHighlights();
 }
 function toggleFLines() {
   showFLines = !showFLines;
   const btn = document.getElementById('flineBtn');
   if(btn) btn.classList.toggle('active', showFLines);
   draw(); drawAuxLines();
-  if(annSlots.some(s => s)) drawAnnotHighlights();
+  if(md().slots.some(s => s)) drawAnnotHighlights();
 }
 function updateTLineN(v) {
   tlineTopN = parseInt(v);
   document.getElementById('tlineN').textContent = v;
   draw(); drawAuxLines();
-  if(annSlots.some(s => s)) drawAnnotHighlights();
+  if(md().slots.some(s => s)) drawAnnotHighlights();
 }
 function updateFLineN(v) {
   flineTopN = parseInt(v);
   document.getElementById('flineN').textContent = v;
   draw(); drawAuxLines();
-  if(annSlots.some(s => s)) drawAnnotHighlights();
+  if(md().slots.some(s => s)) drawAnnotHighlights();
 }
 
 // (aux line patching consolidated into unified patch chain above)
