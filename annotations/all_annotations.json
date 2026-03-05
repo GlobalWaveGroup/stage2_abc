@@ -1,0 +1,2496 @@
+[
+  {
+    "id": "20260301_003813",
+    "timestamp": "2026-03-01T00:38:13.892723",
+    "label": "abc调整",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 450,
+      "end": 500,
+      "win": 50
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 12,
+        "p1": 1.08492,
+        "b2": 14,
+        "p2": 1.08706,
+        "amp": 0.00214,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00107,
+        "source": "L0"
+      },
+      {
+        "idx": 2,
+        "b1": 14,
+        "p1": 1.08706,
+        "b2": 15,
+        "p2": 1.08593,
+        "amp": 0.00113,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00113,
+        "source": "L0"
+      },
+      {
+        "idx": 3,
+        "b1": 15,
+        "p1": 1.08593,
+        "b2": 17,
+        "p2": 1.0885,
+        "amp": 0.00257,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.001285,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.528,
+        "time_ratio": 0.5,
+        "dir_change": true,
+        "retrace": 0.528
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 2.2743,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 2.2743
+      }
+    ],
+    "summary": {
+      "total_bars": 5,
+      "total_amp": 0.00358,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_004110",
+    "timestamp": "2026-03-01T00:41:10.179737",
+    "label": "ABc 模长对称",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 22,
+        "p2": 1.08443,
+        "amp": 0.00531,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00177,
+        "source": "L0"
+      },
+      {
+        "idx": 2,
+        "b1": 22,
+        "p1": 1.08443,
+        "b2": 39,
+        "p2": 1.08209,
+        "amp": 0.00234,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001376,
+        "source": "A3"
+      },
+      {
+        "idx": 3,
+        "b1": 39,
+        "p1": 1.08209,
+        "b2": 53,
+        "p2": 1.08634,
+        "amp": 0.00425,
+        "time": 14,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003036,
+        "source": "A2"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4407,
+        "time_ratio": 5.6667,
+        "dir_change": true,
+        "retrace": 0.4407
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.8162,
+        "time_ratio": 0.8235,
+        "dir_change": true,
+        "retrace": 1.8162
+      }
+    ],
+    "summary": {
+      "total_bars": 34,
+      "total_amp": 0.00722,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_004352",
+    "timestamp": "2026-03-01T00:43:52.488852",
+    "label": "abc 模长对称",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 32,
+        "p2": 1.08432,
+        "amp": 0.0052,
+        "time": 13,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0004,
+        "source": "EX:A3_mid"
+      },
+      {
+        "idx": 2,
+        "b1": 32,
+        "p1": 1.08432,
+        "b2": 39,
+        "p2": 1.08209,
+        "amp": 0.00223,
+        "time": 7,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003186,
+        "source": "A2"
+      },
+      {
+        "idx": 3,
+        "b1": 39,
+        "p1": 1.08209,
+        "b2": 53,
+        "p2": 1.08634,
+        "amp": 0.00425,
+        "time": 14,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003036,
+        "source": "A2"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4288,
+        "time_ratio": 0.5385,
+        "dir_change": true,
+        "retrace": 0.4288
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.9058,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 1.9058
+      }
+    ],
+    "summary": {
+      "total_bars": 34,
+      "total_amp": 0.00722,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_004524",
+    "timestamp": "2026-03-01T00:45:24.055567",
+    "label": "abc 调整型 对称",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 39,
+        "p1": 1.08209,
+        "b2": 45,
+        "p2": 1.0859,
+        "amp": 0.00381,
+        "time": 6,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000635,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 45,
+        "p1": 1.0859,
+        "b2": 62,
+        "p2": 1.08492,
+        "amp": 0.00098,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 5.76e-05,
+        "source": "SYM:B2"
+      },
+      {
+        "idx": 3,
+        "b1": 62,
+        "p1": 1.08492,
+        "b2": 67,
+        "p2": 1.0885,
+        "amp": 0.00358,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000716,
+        "source": "A1"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.2572,
+        "time_ratio": 2.8333,
+        "dir_change": true,
+        "retrace": 0.2572
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 3.6531,
+        "time_ratio": 0.2941,
+        "dir_change": true,
+        "retrace": 3.6531
+      }
+    ],
+    "summary": {
+      "total_bars": 28,
+      "total_amp": 0.00641,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_004604",
+    "timestamp": "2026-03-01T00:46:04.679621",
+    "label": "abc 收敛三角形调整型 对称",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 62,
+        "p1": 1.08492,
+        "b2": 67,
+        "p2": 1.0885,
+        "amp": 0.00358,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000716,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 67,
+        "p1": 1.0885,
+        "b2": 84,
+        "p2": 1.08479,
+        "amp": 0.00371,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002182,
+        "source": "EX:A3_mid"
+      },
+      {
+        "idx": 3,
+        "b1": 84,
+        "p1": 1.08479,
+        "b2": 89,
+        "p2": 1.08664,
+        "amp": 0.00185,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00037,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 1.0363,
+        "time_ratio": 3.4,
+        "dir_change": true,
+        "retrace": 1.0363
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.4987,
+        "time_ratio": 0.2941,
+        "dir_change": true,
+        "retrace": 0.4987
+      }
+    ],
+    "summary": {
+      "total_bars": 27,
+      "total_amp": 0.00172,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_004824",
+    "timestamp": "2026-03-01T00:48:24.274015",
+    "label": "1-2-3-4-5 推动五波结构，以s3中心对称，假定未来至少有个三波abc反弹",
+    "n_segments": 5,
+    "dir_sequence": "DUDUD",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 5,
+        "p1": 1.07937,
+        "b2": 15,
+        "p2": 1.07826,
+        "amp": 0.00111,
+        "time": 10,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000111,
+        "source": "EX:A2_mid"
+      },
+      {
+        "idx": 2,
+        "b1": 15,
+        "p1": 1.07826,
+        "b2": 18,
+        "p2": 1.07916,
+        "amp": 0.0009,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 18,
+        "p1": 1.07916,
+        "b2": 25,
+        "p2": 1.07309,
+        "amp": 0.00607,
+        "time": 7,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0008671,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 25,
+        "p1": 1.07309,
+        "b2": 27,
+        "p2": 1.0744,
+        "amp": 0.00131,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000655,
+        "source": "L0"
+      },
+      {
+        "idx": 5,
+        "b1": 27,
+        "p1": 1.0744,
+        "b2": 40,
+        "p2": 1.07246,
+        "amp": 0.00194,
+        "time": 13,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001492,
+        "source": "EX:A3"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.8108,
+        "time_ratio": 0.3,
+        "dir_change": true,
+        "retrace": 0.8108
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 6.7444,
+        "time_ratio": 2.3333,
+        "dir_change": true,
+        "retrace": 6.7444
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.2158,
+        "time_ratio": 0.2857,
+        "dir_change": true,
+        "retrace": 0.2158
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 1.4809,
+        "time_ratio": 6.5,
+        "dir_change": true,
+        "retrace": 1.4809
+      }
+    ],
+    "summary": {
+      "total_bars": 35,
+      "total_amp": 0.00691,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_005506",
+    "timestamp": "2026-03-01T00:55:06.425506",
+    "label": "ABC:典型推动+调整+趋势延续C>A",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 40,
+        "p1": 1.07246,
+        "b2": 48,
+        "p2": 1.0779,
+        "amp": 0.00544,
+        "time": 8,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00068,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 48,
+        "p1": 1.0779,
+        "b2": 65,
+        "p2": 1.0764,
+        "amp": 0.0015,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 8.82e-05,
+        "source": "EX:A3_mid"
+      },
+      {
+        "idx": 3,
+        "b1": 65,
+        "p1": 1.0764,
+        "b2": 76,
+        "p2": 1.08369,
+        "amp": 0.00729,
+        "time": 11,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0006627,
+        "source": "A2"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.2757,
+        "time_ratio": 2.125,
+        "dir_change": true,
+        "retrace": 0.2757
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 4.86,
+        "time_ratio": 0.6471,
+        "dir_change": true,
+        "retrace": 4.86
+      }
+    ],
+    "summary": {
+      "total_bars": 36,
+      "total_amp": 0.01123,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_010307",
+    "timestamp": "2026-03-01T01:03:07.010607",
+    "label": "12345，等于在原标注7-12345-的5段，五浪五结构，行情高概率反弹转",
+    "n_segments": 5,
+    "dir_sequence": "DUDUD",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 27,
+        "p1": 1.0744,
+        "b2": 31,
+        "p2": 1.07351,
+        "amp": 0.00089,
+        "time": 4,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002225,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 31,
+        "p1": 1.07351,
+        "b2": 32,
+        "p2": 1.07427,
+        "amp": 0.00076,
+        "time": 1,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00076,
+        "source": "L0"
+      },
+      {
+        "idx": 3,
+        "b1": 32,
+        "p1": 1.07427,
+        "b2": 38,
+        "p2": 1.07293,
+        "amp": 0.00134,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002233,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 38,
+        "p1": 1.07293,
+        "b2": 39,
+        "p2": 1.0735,
+        "amp": 0.00057,
+        "time": 1,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00057,
+        "source": "L0"
+      },
+      {
+        "idx": 5,
+        "b1": 39,
+        "p1": 1.0735,
+        "b2": 40,
+        "p2": 1.07246,
+        "amp": 0.00104,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00104,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.8539,
+        "time_ratio": 0.25,
+        "dir_change": true,
+        "retrace": 0.8539
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.7632,
+        "time_ratio": 6.0,
+        "dir_change": true,
+        "retrace": 1.7632
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.4254,
+        "time_ratio": 0.1667,
+        "dir_change": true,
+        "retrace": 0.4254
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 1.8246,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.8246
+      }
+    ],
+    "summary": {
+      "total_bars": 13,
+      "total_amp": 0.00194,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_012541",
+    "timestamp": "2026-03-01T01:25:41.619305",
+    "label": "ABC ，是 推动浪L3H3的fibo回调，假定未来要涨",
+    "n_segments": 3,
+    "dir_sequence": "DUD",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 95,
+        "p1": 1.08764,
+        "b2": 103,
+        "p2": 1.08229,
+        "lbl1": "b95",
+        "lbl2": "b103",
+        "amp": 0.00535,
+        "time": 8,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0006687,
+        "source": "L0"
+      },
+      {
+        "idx": 2,
+        "b1": 103,
+        "p1": 1.08229,
+        "b2": 118,
+        "p2": 1.08479,
+        "lbl1": "b103",
+        "lbl2": "b118",
+        "amp": 0.0025,
+        "time": 15,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001667,
+        "source": "EX:A2_mid"
+      },
+      {
+        "idx": 3,
+        "b1": 118,
+        "p1": 1.08479,
+        "b2": 119,
+        "p2": 1.07912,
+        "lbl1": "b118",
+        "lbl2": "b119",
+        "amp": 0.00567,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00567,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4673,
+        "time_ratio": 1.875,
+        "dir_change": true,
+        "retrace": 0.4673
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 2.268,
+        "time_ratio": 0.0667,
+        "dir_change": true,
+        "retrace": 2.268
+      }
+    ],
+    "summary": {
+      "total_bars": 24,
+      "total_amp": 0.00852,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_012904",
+    "timestamp": "2026-03-01T01:29:04.779080",
+    "label": "V型反转X-A+B(abc)调整->C=A的模长对称",
+    "n_segments": 4,
+    "dir_sequence": "DUDU",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 118,
+        "p1": 1.08479,
+        "b2": 119,
+        "p2": 1.07912,
+        "lbl1": "b118",
+        "lbl2": "b119",
+        "amp": 0.00567,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00567,
+        "source": "L0"
+      },
+      {
+        "idx": 2,
+        "b1": 119,
+        "p1": 1.07912,
+        "b2": 122,
+        "p2": 1.08443,
+        "lbl1": "b119",
+        "lbl2": "b122",
+        "amp": 0.00531,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00177,
+        "source": "L0"
+      },
+      {
+        "idx": 3,
+        "b1": 122,
+        "p1": 1.08443,
+        "b2": 139,
+        "p2": 1.08209,
+        "lbl1": "b122",
+        "lbl2": "b139",
+        "amp": 0.00234,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001376,
+        "source": "A3"
+      },
+      {
+        "idx": 4,
+        "b1": 139,
+        "p1": 1.08209,
+        "b2": 167,
+        "p2": 1.0885,
+        "lbl1": "b139",
+        "lbl2": "b167",
+        "amp": 0.00641,
+        "time": 28,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002289,
+        "source": "A3"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.9365,
+        "time_ratio": 3.0,
+        "dir_change": true,
+        "retrace": 0.9365
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.4407,
+        "time_ratio": 5.6667,
+        "dir_change": true,
+        "retrace": 0.4407
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 2.7393,
+        "time_ratio": 1.6471,
+        "dir_change": true,
+        "retrace": 2.7393
+      }
+    ],
+    "summary": {
+      "total_bars": 49,
+      "total_amp": 0.00371,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_013153",
+    "timestamp": "2026-03-01T01:31:53.192000",
+    "label": "ABC 的模长对称,C<A,(C衰竭)，力量对比偏空",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 65,
+        "p1": 1.0764,
+        "b2": 95,
+        "p2": 1.08764,
+        "lbl1": "b65",
+        "lbl2": "b95",
+        "amp": 0.01124,
+        "time": 30,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003747,
+        "source": "EX:A4"
+      },
+      {
+        "idx": 2,
+        "b1": 95,
+        "p1": 1.08764,
+        "b2": 119,
+        "p2": 1.07912,
+        "lbl1": "b95",
+        "lbl2": "b119",
+        "amp": 0.00852,
+        "time": 24,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000355,
+        "source": "A3"
+      },
+      {
+        "idx": 3,
+        "b1": 119,
+        "p1": 1.07912,
+        "b2": 167,
+        "p2": 1.0885,
+        "lbl1": "b119",
+        "lbl2": "b167",
+        "amp": 0.00938,
+        "time": 48,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001954,
+        "source": "A4"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.758,
+        "time_ratio": 0.8,
+        "dir_change": true,
+        "retrace": 0.758
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.1009,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 1.1009
+      }
+    ],
+    "summary": {
+      "total_bars": 102,
+      "total_amp": 0.0121,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_013506",
+    "timestamp": "2026-03-01T01:35:06.599425",
+    "label": "复合头肩顶（前面少一个小肩）",
+    "n_segments": 5,
+    "dir_sequence": "DUDUD",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 153,
+        "p1": 1.08634,
+        "b2": 162,
+        "p2": 1.08492,
+        "lbl1": "b153",
+        "lbl2": "b162",
+        "amp": 0.00142,
+        "time": 9,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001578,
+        "source": "A2"
+      },
+      {
+        "idx": 2,
+        "b1": 162,
+        "p1": 1.08492,
+        "b2": 167,
+        "p2": 1.0885,
+        "lbl1": "b162",
+        "lbl2": "b167",
+        "amp": 0.00358,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000716,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 167,
+        "p1": 1.0885,
+        "b2": 173,
+        "p2": 1.08477,
+        "lbl1": "b167",
+        "lbl2": "b173",
+        "amp": 0.00373,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0006217,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 173,
+        "p1": 1.08477,
+        "b2": 177,
+        "p2": 1.08597,
+        "lbl1": "b173",
+        "lbl2": "b177",
+        "amp": 0.0012,
+        "time": 4,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003,
+        "source": "A1"
+      },
+      {
+        "idx": 5,
+        "b1": 177,
+        "p1": 1.08597,
+        "b2": 184,
+        "p2": 1.08479,
+        "lbl1": "b177",
+        "lbl2": "b184",
+        "amp": 0.00118,
+        "time": 7,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001686,
+        "source": "A2"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 2.5211,
+        "time_ratio": 0.5556,
+        "dir_change": true,
+        "retrace": 2.5211
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.0419,
+        "time_ratio": 1.2,
+        "dir_change": true,
+        "retrace": 1.0419
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.3217,
+        "time_ratio": 0.6667,
+        "dir_change": true,
+        "retrace": 0.3217
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 0.9833,
+        "time_ratio": 1.75,
+        "dir_change": true,
+        "retrace": 0.9833
+      }
+    ],
+    "summary": {
+      "total_bars": 31,
+      "total_amp": 0.00155,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_013853",
+    "timestamp": "2026-03-01T01:38:53.969983",
+    "label": "12345=L5H1= C<A=L7H3衰竭，容易转势。。",
+    "n_segments": 5,
+    "dir_sequence": "UDUDU",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 119,
+        "p1": 1.07912,
+        "b2": 122,
+        "p2": 1.08443,
+        "lbl1": "b119",
+        "lbl2": "b122",
+        "amp": 0.00531,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00177,
+        "source": "L0"
+      },
+      {
+        "idx": 2,
+        "b1": 122,
+        "p1": 1.08443,
+        "b2": 139,
+        "p2": 1.08209,
+        "lbl1": "b122",
+        "lbl2": "b139",
+        "amp": 0.00234,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001376,
+        "source": "A3"
+      },
+      {
+        "idx": 3,
+        "b1": 139,
+        "p1": 1.08209,
+        "b2": 153,
+        "p2": 1.08634,
+        "lbl1": "b139",
+        "lbl2": "b153",
+        "amp": 0.00425,
+        "time": 14,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003036,
+        "source": "A2"
+      },
+      {
+        "idx": 4,
+        "b1": 153,
+        "p1": 1.08634,
+        "b2": 162,
+        "p2": 1.08492,
+        "lbl1": "b153",
+        "lbl2": "b162",
+        "amp": 0.00142,
+        "time": 9,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001578,
+        "source": "A2"
+      },
+      {
+        "idx": 5,
+        "b1": 162,
+        "p1": 1.08492,
+        "b2": 167,
+        "p2": 1.0885,
+        "lbl1": "b162",
+        "lbl2": "b167",
+        "amp": 0.00358,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000716,
+        "source": "A1"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4407,
+        "time_ratio": 5.6667,
+        "dir_change": true,
+        "retrace": 0.4407
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.8162,
+        "time_ratio": 0.8235,
+        "dir_change": true,
+        "retrace": 1.8162
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.3341,
+        "time_ratio": 0.6429,
+        "dir_change": true,
+        "retrace": 0.3341
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 2.5211,
+        "time_ratio": 0.5556,
+        "dir_change": true,
+        "retrace": 2.5211
+      }
+    ],
+    "summary": {
+      "total_bars": 48,
+      "total_amp": 0.00938,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_014033",
+    "timestamp": "2026-03-01T01:40:33.572582",
+    "label": "aBc B为中心对称，L5 高概率转折",
+    "n_segments": 3,
+    "dir_sequence": "DUD",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 10,
+        "p1": 1.07987,
+        "b2": 40,
+        "p2": 1.07246,
+        "lbl1": "b10",
+        "lbl2": "b40",
+        "amp": 0.00741,
+        "time": 30,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000247,
+        "source": "A4"
+      },
+      {
+        "idx": 2,
+        "b1": 40,
+        "p1": 1.07246,
+        "b2": 95,
+        "p2": 1.08764,
+        "lbl1": "b40",
+        "lbl2": "b95",
+        "amp": 0.01518,
+        "time": 55,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000276,
+        "source": "A5"
+      },
+      {
+        "idx": 3,
+        "b1": 95,
+        "p1": 1.08764,
+        "b2": 119,
+        "p2": 1.07912,
+        "lbl1": "b95",
+        "lbl2": "b119",
+        "amp": 0.00852,
+        "time": 24,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000355,
+        "source": "A3"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 2.0486,
+        "time_ratio": 1.8333,
+        "dir_change": true,
+        "retrace": 2.0486
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.5613,
+        "time_ratio": 0.4364,
+        "dir_change": true,
+        "retrace": 0.5613
+      }
+    ],
+    "summary": {
+      "total_bars": 109,
+      "total_amp": 0.00075,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_102233",
+    "timestamp": "2026-03-01T10:22:33.413311",
+    "label": "L9H3-abc-H3L4  S4下破幅度=S3*2倍，L4回调,趋向盘整区",
+    "n_segments": 5,
+    "dir_sequence": "UDUDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 3,
+        "p1": 1.08229,
+        "b2": 6,
+        "p2": 1.08439,
+        "lbl1": "L9",
+        "lbl2": "H7",
+        "amp": 0.0021,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0007,
+        "source": "L0"
+      },
+      {
+        "idx": 2,
+        "b1": 6,
+        "p1": 1.08439,
+        "b2": 12,
+        "p2": 1.08224,
+        "lbl1": "H7",
+        "lbl2": "L5",
+        "amp": 0.00215,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003583,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 12,
+        "p1": 1.08224,
+        "b2": 18,
+        "p2": 1.08479,
+        "lbl1": "L5",
+        "lbl2": "H3",
+        "amp": 0.00255,
+        "time": 6,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000425,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 18,
+        "p1": 1.08479,
+        "b2": 19,
+        "p2": 1.07912,
+        "lbl1": "H3",
+        "lbl2": "L4",
+        "amp": 0.00567,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00567,
+        "source": "L0"
+      },
+      {
+        "idx": 5,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 22,
+        "p2": 1.08443,
+        "lbl1": "L4",
+        "lbl2": "H6",
+        "amp": 0.00531,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00177,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 1.0238,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 1.0238
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.186,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.186
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 2.2235,
+        "time_ratio": 0.1667,
+        "dir_change": true,
+        "retrace": 2.2235
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 0.9365,
+        "time_ratio": 3.0,
+        "dir_change": true,
+        "retrace": 0.9365
+      }
+    ],
+    "summary": {
+      "total_bars": 19,
+      "total_amp": 0.00214,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_102825",
+    "timestamp": "2026-03-01T10:28:25.650301",
+    "label": "AbC: 扩张三角形，调整",
+    "n_segments": 3,
+    "dir_sequence": "UDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 3,
+        "p1": 1.08229,
+        "b2": 6,
+        "p2": 1.08439,
+        "lbl1": "L9",
+        "lbl2": "H7",
+        "amp": 0.0021,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0007,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 6,
+        "p1": 1.08439,
+        "b2": 12,
+        "p2": 1.08224,
+        "lbl1": "H7",
+        "lbl2": "L5",
+        "amp": 0.00215,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003583,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 12,
+        "p1": 1.08224,
+        "b2": 18,
+        "p2": 1.08479,
+        "lbl1": "L5",
+        "lbl2": "H3",
+        "amp": 0.00255,
+        "time": 6,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000425,
+        "source": "A1"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 1.0238,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 1.0238
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.186,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.186
+      }
+    ],
+    "summary": {
+      "total_bars": 15,
+      "total_amp": 0.0025,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_103339",
+    "timestamp": "2026-03-01T10:33:39.900360",
+    "label": "调整之复杂结构：时间权重模长大的，转化为幅度权重模长：盘整后是趋势",
+    "n_segments": 2,
+    "dir_sequence": "UD",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 67,
+        "p2": 1.0885,
+        "lbl1": "L4",
+        "lbl2": "H2",
+        "amp": 0.00938,
+        "time": 48,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001954,
+        "source": "A4"
+      },
+      {
+        "idx": 2,
+        "b1": 67,
+        "p1": 1.0885,
+        "b2": 94,
+        "p2": 1.07287,
+        "lbl1": "H2",
+        "lbl2": "L1",
+        "amp": 0.01563,
+        "time": 27,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0005789,
+        "source": "A4"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 1.6663,
+        "time_ratio": 0.5625,
+        "dir_change": true,
+        "retrace": 1.6663
+      }
+    ],
+    "summary": {
+      "total_bars": 75,
+      "total_amp": 0.00625,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_103658",
+    "timestamp": "2026-03-01T10:36:58.485280",
+    "label": "调整之超复杂结构：时间权重模长，转化为幅度权重模长：盘整后是趋势（延续）",
+    "n_segments": 2,
+    "dir_sequence": "UD",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 89,
+        "p2": 1.08664,
+        "lbl1": "L4",
+        "lbl2": "H1",
+        "amp": 0.00752,
+        "time": 70,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001074,
+        "source": "FUS:F1"
+      },
+      {
+        "idx": 2,
+        "b1": 89,
+        "p1": 1.08664,
+        "b2": 94,
+        "p2": 1.07287,
+        "lbl1": "H1",
+        "lbl2": "L1",
+        "amp": 0.01377,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.002754,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 1.8311,
+        "time_ratio": 0.0714,
+        "dir_change": true,
+        "retrace": 1.8311
+      }
+    ],
+    "summary": {
+      "total_bars": 75,
+      "total_amp": 0.00625,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_113926",
+    "timestamp": "2026-03-01T11:39:26.905600",
+    "label": "调整之ABC简单结构：在调整方向上时间权重高很多，最终模长，转化为未来的幅度权重模长：H6L6 是 L4H6趋势后的盘整，调整后是趋势L6H2,幅度是L4H6的2倍。（延续）",
+    "n_segments": 4,
+    "dir_sequence": "DUDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 22,
+        "p1": 1.08443,
+        "b2": 30,
+        "p2": 1.0823,
+        "lbl1": "H6",
+        "lbl2": "L10",
+        "amp": 0.00213,
+        "time": 8,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002662,
+        "source": "A2"
+      },
+      {
+        "idx": 2,
+        "b1": 30,
+        "p1": 1.0823,
+        "b2": 32,
+        "p2": 1.08432,
+        "lbl1": "L10",
+        "lbl2": "H11",
+        "amp": 0.00202,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00101,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 32,
+        "p1": 1.08432,
+        "b2": 39,
+        "p2": 1.08209,
+        "lbl1": "H11",
+        "lbl2": "L6",
+        "amp": 0.00223,
+        "time": 7,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003186,
+        "source": "A2"
+      },
+      {
+        "idx": 4,
+        "b1": 39,
+        "p1": 1.08209,
+        "b2": 67,
+        "p2": 1.0885,
+        "lbl1": "L6",
+        "lbl2": "H2",
+        "amp": 0.00641,
+        "time": 28,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002289,
+        "source": "A3"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.9484,
+        "time_ratio": 0.25,
+        "dir_change": true,
+        "retrace": 0.9484
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.104,
+        "time_ratio": 3.5,
+        "dir_change": true,
+        "retrace": 1.104
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 2.8744,
+        "time_ratio": 4.0,
+        "dir_change": true,
+        "retrace": 2.8744
+      }
+    ],
+    "summary": {
+      "total_bars": 45,
+      "total_amp": 0.00407,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_115050",
+    "timestamp": "2026-03-01T11:50:50.039009",
+    "label": "前三段是一个abc结构，后三段是ABC，二者是具有反身的对称性的。L4-H6-L6的结构，本质上和 H2-L7-H1,几乎就是一个相反的镜像，都对未来有强烈的指向性（比较各自的特征，斜率比，幅度比，模长比，角度比等等）但C都出现了，却后果是不同的。而前面的后果本身却成为了后面的原因，因果始终在互换角色。H1L1的幅度大概是L6H2*2倍，L1的位置是个Fibonacci延展关键位置。但未来的走势，在时空发展的多样性中，未来始终是不完全确定的，只是在某些时刻，具有非常高的一些确定性因素，但需要市场验证，而验证结果的过程其实也是新的输入的原因。",
+    "n_segments": 6,
+    "dir_sequence": "UDUDUD",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 22,
+        "p2": 1.08443,
+        "lbl1": "L4",
+        "lbl2": "H6",
+        "amp": 0.00531,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00177,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 22,
+        "p1": 1.08443,
+        "b2": 39,
+        "p2": 1.08209,
+        "lbl1": "H6",
+        "lbl2": "L6",
+        "amp": 0.00234,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001376,
+        "source": "A3"
+      },
+      {
+        "idx": 3,
+        "b1": 39,
+        "p1": 1.08209,
+        "b2": 67,
+        "p2": 1.0885,
+        "lbl1": "L6",
+        "lbl2": "H2",
+        "amp": 0.00641,
+        "time": 28,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002289,
+        "source": "A3"
+      },
+      {
+        "idx": 4,
+        "b1": 67,
+        "p1": 1.0885,
+        "b2": 73,
+        "p2": 1.08477,
+        "lbl1": "H2",
+        "lbl2": "L7",
+        "amp": 0.00373,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0006217,
+        "source": "A1"
+      },
+      {
+        "idx": 5,
+        "b1": 73,
+        "p1": 1.08477,
+        "b2": 89,
+        "p2": 1.08664,
+        "lbl1": "L7",
+        "lbl2": "H1",
+        "amp": 0.00187,
+        "time": 16,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001169,
+        "source": "A3"
+      },
+      {
+        "idx": 6,
+        "b1": 89,
+        "p1": 1.08664,
+        "b2": 94,
+        "p2": 1.07287,
+        "lbl1": "H1",
+        "lbl2": "L1",
+        "amp": 0.01377,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.002754,
+        "source": "A1"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4407,
+        "time_ratio": 5.6667,
+        "dir_change": true,
+        "retrace": 0.4407
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 2.7393,
+        "time_ratio": 1.6471,
+        "dir_change": true,
+        "retrace": 2.7393
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.5819,
+        "time_ratio": 0.2143,
+        "dir_change": true,
+        "retrace": 0.5819
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 0.5013,
+        "time_ratio": 2.6667,
+        "dir_change": true,
+        "retrace": 0.5013
+      },
+      {
+        "pair": "S5→S6",
+        "amp_ratio": 7.3636,
+        "time_ratio": 0.3125,
+        "dir_change": true,
+        "retrace": 7.3636
+      }
+    ],
+    "summary": {
+      "total_bars": 75,
+      "total_amp": 0.00625,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260301_120327",
+    "timestamp": "2026-03-01T12:03:27.010134",
+    "label": "前五段是颈线为H7H3H6的水平被L6H12突破H12L11回撤颈线，然后又和L11H2L7H1发展了一个以H3L11L7(L8)为颈线的头肩顶结构，也具有一定程度的反身的对称性。颈线突破，可以作为交易信号。上升趋势线 L4L6L11的突破，也可以作为加仓的信号。这里，L4,H2各有一个近似轴对称，次级更是有8个abc调整型对称",
+    "n_segments": 9,
+    "dir_sequence": "UDUDUDUDU",
+    "window": {
+      "start": 400,
+      "end": 500,
+      "win": 100
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 3,
+        "p1": 1.08229,
+        "b2": 18,
+        "p2": 1.08479,
+        "lbl1": "L9",
+        "lbl2": "H3",
+        "amp": 0.0025,
+        "time": 15,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001667,
+        "source": "SYM:A1"
+      },
+      {
+        "idx": 2,
+        "b1": 18,
+        "p1": 1.08479,
+        "b2": 19,
+        "p2": 1.07912,
+        "lbl1": "H3",
+        "lbl2": "L4",
+        "amp": 0.00567,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00567,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 19,
+        "p1": 1.07912,
+        "b2": 22,
+        "p2": 1.08443,
+        "lbl1": "L4",
+        "lbl2": "H6",
+        "amp": 0.00531,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00177,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 22,
+        "p1": 1.08443,
+        "b2": 39,
+        "p2": 1.08209,
+        "lbl1": "H6",
+        "lbl2": "L6",
+        "amp": 0.00234,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001376,
+        "source": "A3"
+      },
+      {
+        "idx": 5,
+        "b1": 39,
+        "p1": 1.08209,
+        "b2": 45,
+        "p2": 1.0859,
+        "lbl1": "L6",
+        "lbl2": "H12",
+        "amp": 0.00381,
+        "time": 6,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000635,
+        "source": "A1"
+      },
+      {
+        "idx": 6,
+        "b1": 45,
+        "p1": 1.0859,
+        "b2": 62,
+        "p2": 1.08492,
+        "lbl1": "H12",
+        "lbl2": "L11",
+        "amp": 0.00098,
+        "time": 17,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 5.76e-05,
+        "source": "SYM:B2"
+      },
+      {
+        "idx": 7,
+        "b1": 62,
+        "p1": 1.08492,
+        "b2": 67,
+        "p2": 1.0885,
+        "lbl1": "L11",
+        "lbl2": "H2",
+        "amp": 0.00358,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000716,
+        "source": "A1"
+      },
+      {
+        "idx": 8,
+        "b1": 67,
+        "p1": 1.0885,
+        "b2": 73,
+        "p2": 1.08477,
+        "lbl1": "H2",
+        "lbl2": "L7",
+        "amp": 0.00373,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0006217,
+        "source": "A1"
+      },
+      {
+        "idx": 9,
+        "b1": 73,
+        "p1": 1.08477,
+        "b2": 89,
+        "p2": 1.08664,
+        "lbl1": "L7",
+        "lbl2": "H1",
+        "amp": 0.00187,
+        "time": 16,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001169,
+        "source": "A3"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 2.268,
+        "time_ratio": 0.0667,
+        "dir_change": true,
+        "retrace": 2.268
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.9365,
+        "time_ratio": 3.0,
+        "dir_change": true,
+        "retrace": 0.9365
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.4407,
+        "time_ratio": 5.6667,
+        "dir_change": true,
+        "retrace": 0.4407
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 1.6282,
+        "time_ratio": 0.3529,
+        "dir_change": true,
+        "retrace": 1.6282
+      },
+      {
+        "pair": "S5→S6",
+        "amp_ratio": 0.2572,
+        "time_ratio": 2.8333,
+        "dir_change": true,
+        "retrace": 0.2572
+      },
+      {
+        "pair": "S6→S7",
+        "amp_ratio": 3.6531,
+        "time_ratio": 0.2941,
+        "dir_change": true,
+        "retrace": 3.6531
+      },
+      {
+        "pair": "S7→S8",
+        "amp_ratio": 1.0419,
+        "time_ratio": 1.2,
+        "dir_change": true,
+        "retrace": 1.0419
+      },
+      {
+        "pair": "S8→S9",
+        "amp_ratio": 0.5013,
+        "time_ratio": 2.6667,
+        "dir_change": true,
+        "retrace": 0.5013
+      }
+    ],
+    "summary": {
+      "total_bars": 86,
+      "total_amp": 0.00435,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260301_213540",
+    "timestamp": "2026-03-01T21:35:40.955627",
+    "label": "前五段是推动型12345，后面三波abc调整，根据波浪理论的定义，非常标准。这种情况，后续会有一个和推动波类似的下跌行情。",
+    "n_segments": 8,
+    "dir_sequence": "DUDUDUDU",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 17,
+        "p1": 1.09637,
+        "b2": 31,
+        "p2": 1.09318,
+        "lbl1": "H1",
+        "lbl2": "L35",
+        "amp": 0.00319,
+        "time": 14,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002279,
+        "source": "A2"
+      },
+      {
+        "idx": 2,
+        "b1": 31,
+        "p1": 1.09318,
+        "b2": 34,
+        "p2": 1.09453,
+        "lbl1": "L35",
+        "lbl2": "H15",
+        "amp": 0.00135,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00045,
+        "source": "L0"
+      },
+      {
+        "idx": 3,
+        "b1": 34,
+        "p1": 1.09453,
+        "b2": 41,
+        "p2": 1.0881,
+        "lbl1": "H15",
+        "lbl2": "L22",
+        "amp": 0.00643,
+        "time": 7,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0009186,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 41,
+        "p1": 1.0881,
+        "b2": 44,
+        "p2": 1.08919,
+        "lbl1": "L22",
+        "lbl2": "H17",
+        "amp": 0.00109,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003633,
+        "source": "EX:A1_mid"
+      },
+      {
+        "idx": 5,
+        "b1": 44,
+        "p1": 1.08919,
+        "b2": 50,
+        "p2": 1.08729,
+        "lbl1": "H17",
+        "lbl2": "L6",
+        "amp": 0.0019,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003167,
+        "source": "L0"
+      },
+      {
+        "idx": 6,
+        "b1": 50,
+        "p1": 1.08729,
+        "b2": 58,
+        "p2": 1.08996,
+        "lbl1": "L6",
+        "lbl2": "H22",
+        "amp": 0.00267,
+        "time": 8,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003337,
+        "source": "A2"
+      },
+      {
+        "idx": 7,
+        "b1": 58,
+        "p1": 1.08996,
+        "b2": 71,
+        "p2": 1.08803,
+        "lbl1": "H22",
+        "lbl2": "L27",
+        "amp": 0.00193,
+        "time": 13,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001485,
+        "source": "A2"
+      },
+      {
+        "idx": 8,
+        "b1": 71,
+        "p1": 1.08803,
+        "b2": 82,
+        "p2": 1.0906,
+        "lbl1": "L27",
+        "lbl2": "H4",
+        "amp": 0.00257,
+        "time": 11,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002336,
+        "source": "A1"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4232,
+        "time_ratio": 0.2143,
+        "dir_change": true,
+        "retrace": 0.4232
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 4.763,
+        "time_ratio": 2.3333,
+        "dir_change": true,
+        "retrace": 4.763
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.1695,
+        "time_ratio": 0.4286,
+        "dir_change": true,
+        "retrace": 0.1695
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 1.7431,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 1.7431
+      },
+      {
+        "pair": "S5→S6",
+        "amp_ratio": 1.4053,
+        "time_ratio": 1.3333,
+        "dir_change": true,
+        "retrace": 1.4053
+      },
+      {
+        "pair": "S6→S7",
+        "amp_ratio": 0.7228,
+        "time_ratio": 1.625,
+        "dir_change": true,
+        "retrace": 0.7228
+      },
+      {
+        "pair": "S7→S8",
+        "amp_ratio": 1.3316,
+        "time_ratio": 0.8462,
+        "dir_change": true,
+        "retrace": 1.3316
+      }
+    ],
+    "summary": {
+      "total_bars": 65,
+      "total_amp": 0.00577,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260302_183755",
+    "timestamp": "2026-03-02T18:37:55.885968",
+    "label": "可比性与不可比性：S1和S2可比，S3和S4可比，但S2和S3虽相连相邻，却没有可比性（各个特征差异的量级大）。在归并的过程也需要遵循类似的机理",
+    "n_segments": 4,
+    "dir_sequence": "UDUD",
+    "window": {
+      "start": 300,
+      "end": 500,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 40,
+        "p1": 1.07246,
+        "b2": 167,
+        "p2": 1.0885,
+        "lbl1": "L3",
+        "lbl2": "H1",
+        "amp": 0.01604,
+        "time": 127,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001263,
+        "source": "A6"
+      },
+      {
+        "idx": 2,
+        "b1": 167,
+        "p1": 1.0885,
+        "b2": 194,
+        "p2": 1.07287,
+        "lbl1": "H1",
+        "lbl2": "L1",
+        "amp": 0.01563,
+        "time": 27,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0005789,
+        "source": "A4"
+      },
+      {
+        "idx": 3,
+        "b1": 194,
+        "p1": 1.07287,
+        "b2": 197,
+        "p2": 1.07455,
+        "lbl1": "L1",
+        "lbl2": "H9",
+        "amp": 0.00168,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00056,
+        "source": "T1"
+      },
+      {
+        "idx": 4,
+        "b1": 197,
+        "p1": 1.07455,
+        "b2": 199,
+        "p2": 1.07381,
+        "lbl1": "H9",
+        "lbl2": "L4",
+        "amp": 0.00074,
+        "time": 2,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00037,
+        "source": "L0"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.9744,
+        "time_ratio": 0.2126,
+        "dir_change": true,
+        "retrace": 0.9744
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.1075,
+        "time_ratio": 0.1111,
+        "dir_change": true,
+        "retrace": 0.1075
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.4405,
+        "time_ratio": 0.6667,
+        "dir_change": true,
+        "retrace": 0.4405
+      }
+    ],
+    "summary": {
+      "total_bars": 159,
+      "total_amp": 0.00135,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260302_195754",
+    "timestamp": "2026-03-02T19:57:54.393036",
+    "label": "ABC:对称性在C和A比，幅度相等，但时间和模长超过很多，斜率小，认为是C衰竭，预示未来强烈反弹",
+    "n_segments": 3,
+    "dir_sequence": "DUD",
+    "window": {
+      "start": 0,
+      "end": 1000,
+      "win": 1000
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 150,
+        "p1": 1.09426,
+        "b2": 186,
+        "p2": 1.08017,
+        "lbl1": "H8",
+        "lbl2": "L11",
+        "amp": 0.01409,
+        "time": 36,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003914,
+        "source": "A4"
+      },
+      {
+        "idx": 2,
+        "b1": 186,
+        "p1": 1.08017,
+        "b2": 224,
+        "p2": 1.08643,
+        "lbl1": "L11",
+        "lbl2": "H6",
+        "amp": 0.00626,
+        "time": 38,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001647,
+        "source": "A5"
+      },
+      {
+        "idx": 3,
+        "b1": 224,
+        "p1": 1.08643,
+        "b2": 340,
+        "p2": 1.07246,
+        "lbl1": "H6",
+        "lbl2": "L5",
+        "amp": 0.01397,
+        "time": 116,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001204,
+        "source": "A6"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.4443,
+        "time_ratio": 1.0556,
+        "dir_change": true,
+        "retrace": 0.4443
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 2.2316,
+        "time_ratio": 3.0526,
+        "dir_change": true,
+        "retrace": 2.2316
+      }
+    ],
+    "summary": {
+      "total_bars": 190,
+      "total_amp": 0.0218,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260302_200049",
+    "timestamp": "2026-03-02T20:00:49.639212",
+    "label": "ABC:对称性在C和A比，幅度相等，但时间和模长小，斜率较大，认为是强，预示未来如果是弱反弹，则行情会和C方向延续（发展为前一个三波形态）",
+    "n_segments": 3,
+    "dir_sequence": "DUD",
+    "window": {
+      "start": 0,
+      "end": 1000,
+      "win": 1000
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 17,
+        "p1": 1.09637,
+        "b2": 104,
+        "p2": 1.08347,
+        "lbl1": "H1",
+        "lbl2": "L22",
+        "amp": 0.0129,
+        "time": 87,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001483,
+        "source": "A5"
+      },
+      {
+        "idx": 2,
+        "b1": 104,
+        "p1": 1.08347,
+        "b2": 150,
+        "p2": 1.09426,
+        "lbl1": "L22",
+        "lbl2": "H8",
+        "amp": 0.01079,
+        "time": 46,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002346,
+        "source": "A4"
+      },
+      {
+        "idx": 3,
+        "b1": 150,
+        "p1": 1.09426,
+        "b2": 186,
+        "p2": 1.08017,
+        "lbl1": "H8",
+        "lbl2": "L11",
+        "amp": 0.01409,
+        "time": 36,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003914,
+        "source": "A4"
+      }
+    ],
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.8364,
+        "time_ratio": 0.5287,
+        "dir_change": true,
+        "retrace": 0.8364
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.3058,
+        "time_ratio": 0.7826,
+        "dir_change": true,
+        "retrace": 1.3058
+      }
+    ],
+    "summary": {
+      "total_bars": 169,
+      "total_amp": 0.0162,
+      "net_dir": "DN"
+    }
+  }
+]

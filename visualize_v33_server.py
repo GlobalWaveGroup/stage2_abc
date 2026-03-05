@@ -397,7 +397,14 @@ def index(request: Request):
   <span style="color:#888;font-size:12px;">|</span>
   <span id="latBtn" onclick="toggleLatLines()" style="color:#3df;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">Lat:{n_lat_snaps}</span>
   <span style="color:#888;font-size:12px;">|</span>
-  <span id="drawBtn" onclick="toggleDrawMode()" style="color:#ff0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;" title="Draw Mode: click/drag to draw lines">Draw</span>
+  <span id="drawBtn" style="color:#ff0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;position:relative;" title="Drawing tools">
+    <span onclick="toggleDrawDropdown(event)">Draw&#9660;</span>
+    <div id="drawDropdown" style="display:none;position:absolute;top:100%;left:0;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:3px 0;z-index:9999;min-width:120px;font-size:11px;">
+      <div class="lhItem" onclick="setDrawTool('trend')">Trend Line</div>
+      <div class="lhItem" onclick="setDrawTool('hline')">Horizontal</div>
+      <div class="lhItem" onclick="setDrawTool('vline')">Vertical</div>
+    </div>
+  </span>
   <span style="color:#888;font-size:12px;">|</span>
   <span id="tlineBtn" class="active" onclick="toggleTLines()" style="color:#0d8;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">T:{len(trendlines)}</span>
   <input type="range" min="0" max="{len(trendlines)}" value="{min(10, len(trendlines))}" oninput="updateTLineN(this.value)" style="width:50px;vertical-align:middle;">
@@ -1062,470 +1069,395 @@ function toggleLatLines() {
   if(annSlots.some(s => s)) drawAnnotHighlights();
 }
 
-// ========== DRAWING SYSTEM (MT4-style full) ==========
+// ========== DRAWING SYSTEM (MT4-style, click-click) ==========
 // 坐标逆映射
 function barFromX(x) { return (x - mg.l) / pw * K.length; }
 function priceFromY(y) { return mn + (1 - (y - mg.t) / ph) * (mx - mn); }
 
-// 手工画线数据
 let drawnLines = SAVED_DRAWN_LINES || [];
-let drawMode = false;
-// drawState: 0=idle, 1=drawing new line, 2=dragging endpoint, 3=dragging midpoint(parallel move), 4=placing parallel copy
-let drawState = 0;
-let drawStartX = 0, drawStartY = 0;
-let drawCurX = 0, drawCurY = 0;
-let drawSnapPivot1 = null, drawSnapPivot2 = null;
-let selectedLines = new Set();  // 多选支持
-let dragEndpoint = 0;           // 1=start, 2=end, 3=midpoint
-let dragStartB = 0, dragStartP = 0;  // drag起始的bar/price（用于计算偏移）
-let dragLineSnap = {};          // drag开始时线段的原始坐标快照
-let placingCopyIdx = -1;        // 平行复制中的线段index
+// drawTool: null=off, 'trend', 'hline', 'vline'
+let drawTool = null;
+// drawPhase: 0=idle, 1=first point placed waiting for second click,
+//   2=dragging endpoint, 3=dragging midpoint, 4=placing parallel copy
+let drawPhase = 0;
+let drawP1 = null;  // {b, p, snap} first point in click-click
+let drawPreview = null;  // {b, p, snap} preview second point
+let selectedLines = new Set();
+let dragEndpoint = 0;
+let dragStartB = 0, dragStartP = 0;
+let dragLineSnap = {};
+let placingCopyIdx = -1;
 
-// Undo系统
-let undoStack = [];  // [{action, data}]
+// Undo
+let undoStack = [];
 const MAX_UNDO = 50;
-
 const SNAP_RADIUS = 15;
 const LINE_HIT_DIST = 8;
 const EP_HIT_DIST = 10;
 const MID_HIT_DIST = 10;
 
-function genLineId() {
-  return 'DL_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-}
+function genLineId() { return 'DL_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
 
-// undo: 记录操作前的状态
 function pushUndo(action, data) {
-  undoStack.push({ action, data, ts: Date.now() });
+  undoStack.push({ action, data });
   if (undoStack.length > MAX_UNDO) undoStack.shift();
 }
-
 function performUndo() {
-  if (undoStack.length === 0) return;
+  if (!undoStack.length) return;
   const op = undoStack.pop();
   if (op.action === 'add') {
-    // 撤销新增: 删掉该线
     const idx = drawnLines.findIndex(l => l.id === op.data.id);
     if (idx >= 0) drawnLines.splice(idx, 1);
   } else if (op.action === 'delete') {
-    // 撤销删除: 恢复线段
     drawnLines.splice(op.data.index, 0, op.data.line);
   } else if (op.action === 'modify') {
-    // 撤销修改: 恢复原始数据
     const idx = drawnLines.findIndex(l => l.id === op.data.id);
     if (idx >= 0) Object.assign(drawnLines[idx], op.data.before);
   } else if (op.action === 'batch_delete') {
-    // 撤销批量删除: 按index倒序插回
-    for (let i = op.data.items.length - 1; i >= 0; i--) {
-      const item = op.data.items[i];
-      drawnLines.splice(item.index, 0, item.line);
-    }
+    for (let i = op.data.items.length - 1; i >= 0; i--)
+      drawnLines.splice(op.data.items[i].index, 0, op.data.items[i].line);
   }
-  selectedLines.clear();
-  saveDrawnLines();
-  redrawAll();
+  selectedLines.clear(); saveDrawnLines(); redrawAll();
 }
 
-// 找最近的pivot（吸附）
-function findNearPivot(mx, my) {
-  const allPivots = PEAKS.slice(0, peakTopN).concat(VALS.slice(0, valleyTopN));
-  let best = null, bestDist = SNAP_RADIUS;
-  for (const p of allPivots) {
-    const px = xS(p.bar), py = yS(p.price);
-    const d = Math.sqrt((mx - px) * (mx - px) + (my - py) * (my - py));
-    if (d < bestDist) { bestDist = d; best = p; }
+function findNearPivot(px, py) {
+  const all = PEAKS.slice(0, peakTopN).concat(VALS.slice(0, valleyTopN));
+  let best = null, bestD = SNAP_RADIUS;
+  for (const p of all) {
+    const d = Math.sqrt((px - xS(p.bar)) ** 2 + (py - yS(p.price)) ** 2);
+    if (d < bestD) { bestD = d; best = p; }
   }
   return best;
 }
-
-// 距线段的距离
-function distToDrawnLine(mx, my, line) {
-  const x1 = xS(line.b1), y1 = yS(line.p1);
-  const x2 = xS(line.b2), y2 = yS(line.p2);
-  const dx = x2 - x1, dy = y2 - y1;
-  const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return Math.sqrt((mx - x1) * (mx - x1) + (my - y1) * (my - y1));
-  let t = ((mx - x1) * dx + (my - y1) * dy) / len2;
+function distToLine(px, py, ln) {
+  const x1 = xS(ln.b1), y1 = yS(ln.p1), x2 = xS(ln.b2), y2 = yS(ln.p2);
+  const dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+  let t = ((px - x1) * dx + (py - y1) * dy) / len2;
   t = Math.max(0, Math.min(1, t));
-  const px = x1 + t * dx, py = y1 + t * dy;
-  return Math.sqrt((mx - px) * (mx - px) + (my - py) * (my - py));
+  return Math.sqrt((px - (x1 + t * dx)) ** 2 + (py - (y1 + t * dy)) ** 2);
 }
-
-// 线段中点坐标(像素)
 function lineMidPx(ln) {
   return { x: (xS(ln.b1) + xS(ln.b2)) / 2, y: (yS(ln.p1) + yS(ln.p2)) / 2 };
 }
 
-// 切换画线模式
-function toggleDrawMode() {
-  drawMode = !drawMode;
-  drawState = 0;
-  placingCopyIdx = -1;
+// resolve click to bar/price, with snap
+function resolvePoint(px, py) {
+  const snap = findNearPivot(px, py);
+  if (snap) return { b: snap.bar, p: snap.price, snap: snap.label };
+  return { b: barFromX(px), p: priceFromY(py), snap: null };
+}
+
+// --- Dropdown ---
+function toggleDrawDropdown(ev) {
+  ev.stopPropagation();
+  const dd = document.getElementById('drawDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+function setDrawTool(tool) {
+  document.getElementById('drawDropdown').style.display = 'none';
+  if (drawTool === tool) { drawTool = null; drawPhase = 0; } // toggle off
+  else { drawTool = tool; drawPhase = 0; }
   const btn = document.getElementById('drawBtn');
-  if (btn) {
-    btn.style.background = drawMode ? '#4a4a00' : '';
-    btn.style.borderColor = drawMode ? '#ff0' : '#333';
-    btn.textContent = drawMode ? 'Draw*' : 'Draw';
+  const labels = { trend: 'Trend*', hline: 'HLine*', vline: 'VLine*' };
+  if (drawTool) {
+    btn.style.background = '#4a4a00'; btn.style.borderColor = '#ff0';
+    btn.querySelector('span').textContent = (labels[drawTool] || 'Draw*') + '\u25BC';
+  } else {
+    btn.style.background = ''; btn.style.borderColor = '#333';
+    btn.querySelector('span').textContent = 'Draw\u25BC';
   }
   redrawAll();
 }
+// close dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#drawBtn')) {
+    const dd = document.getElementById('drawDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
 
-// 全量重绘
 function redrawAll() {
-  draw();
-  drawAuxLines();
-  drawDrawnLines();
+  draw(); drawAuxLines(); drawDrawnLines();
   if (annSlots.some(s => s)) drawAnnotHighlights();
 }
 
-// 绘制所有手工线段
+// --- Drawing render ---
 function drawDrawnLines() {
-  const cvEl = document.getElementById('chart');
-  const cxEl = cvEl.getContext('2d');
-
+  const c2 = document.getElementById('chart').getContext('2d');
+  const W = cv.width, H = cv.height;
   for (let i = 0; i < drawnLines.length; i++) {
     const ln = drawnLines[i];
-    const isSel = selectedLines.has(i);
-    const inactive = ln.active === false;
-
-    if (inactive) {
-      cxEl.strokeStyle = 'rgba(100,100,100,0.3)';
-      cxEl.lineWidth = 1;
-      cxEl.setLineDash([4, 4]);
+    const sel = selectedLines.has(i);
+    const off = ln.active === false;
+    // 计算绘制坐标
+    let x1, y1, x2, y2;
+    if (ln.type === 'hline') {
+      x1 = mg.l; y1 = yS(ln.p1); x2 = W - mg.r; y2 = y1;
+    } else if (ln.type === 'vline') {
+      x1 = xS(ln.b1); y1 = mg.t; x2 = x1; y2 = H - mg.b;
     } else {
-      cxEl.strokeStyle = ln.color || '#ff0';
-      cxEl.lineWidth = isSel ? 3 : 2;
-      cxEl.setLineDash(ln.dash || []);
+      x1 = xS(ln.b1); y1 = yS(ln.p1); x2 = xS(ln.b2); y2 = yS(ln.p2);
     }
-    cxEl.globalAlpha = isSel ? 1.0 : 0.8;
-    const x1 = xS(ln.b1), y1 = yS(ln.p1);
-    const x2 = xS(ln.b2), y2 = yS(ln.p2);
-    cxEl.beginPath();
-    cxEl.moveTo(x1, y1);
-    cxEl.lineTo(x2, y2);
-    cxEl.stroke();
-    cxEl.setLineDash([]);
-
-    // 端点方块 (选中时大一号)
-    const epSz = isSel ? 5 : 3;
-    cxEl.fillStyle = ln.snapped1 ? '#0f0' : (ln.color || '#ff0');
-    cxEl.fillRect(x1 - epSz, y1 - epSz, epSz * 2, epSz * 2);
-    cxEl.fillStyle = ln.snapped2 ? '#0f0' : (ln.color || '#ff0');
-    cxEl.fillRect(x2 - epSz, y2 - epSz, epSz * 2, epSz * 2);
-
-    // 中点圆形 (MT4标志性的中点控制手柄)
-    if (isSel || drawMode) {
+    c2.strokeStyle = off ? 'rgba(100,100,100,0.3)' : (ln.color || '#ff0');
+    c2.lineWidth = sel ? 3 : 2;
+    c2.setLineDash(off ? [4,4] : (ln.dash || []));
+    c2.globalAlpha = sel ? 1 : 0.8;
+    c2.beginPath(); c2.moveTo(x1, y1); c2.lineTo(x2, y2); c2.stroke();
+    c2.setLineDash([]);
+    // 端点
+    const sz = sel ? 5 : 3;
+    if (ln.type !== 'hline' && ln.type !== 'vline') {
+      c2.fillStyle = ln.snapped1 ? '#0f0' : (ln.color || '#ff0');
+      c2.fillRect(x1 - sz, y1 - sz, sz * 2, sz * 2);
+      c2.fillStyle = ln.snapped2 ? '#0f0' : (ln.color || '#ff0');
+      c2.fillRect(x2 - sz, y2 - sz, sz * 2, sz * 2);
+    } else {
+      // hline/vline: 一个控制点
+      const cx_ = (x1 + x2) / 2, cy_ = (y1 + y2) / 2;
+      c2.fillStyle = ln.color || '#ff0';
+      c2.fillRect(cx_ - sz, cy_ - sz, sz * 2, sz * 2);
+    }
+    // 中点手柄 (trend only)
+    if (ln.type !== 'hline' && ln.type !== 'vline' && (sel || drawTool)) {
       const mid = lineMidPx(ln);
-      cxEl.fillStyle = isSel ? '#fff' : 'rgba(255,255,255,0.4)';
-      cxEl.beginPath();
-      cxEl.arc(mid.x, mid.y, isSel ? 5 : 3, 0, Math.PI * 2);
-      cxEl.fill();
-      // 中点圆环
-      if (isSel) {
-        cxEl.strokeStyle = '#fff';
-        cxEl.lineWidth = 1;
-        cxEl.beginPath();
-        cxEl.arc(mid.x, mid.y, 7, 0, Math.PI * 2);
-        cxEl.stroke();
-      }
+      c2.fillStyle = sel ? '#fff' : 'rgba(255,255,255,0.3)';
+      c2.beginPath(); c2.arc(mid.x, mid.y, sel ? 5 : 3, 0, Math.PI * 2); c2.fill();
+      if (sel) { c2.strokeStyle = '#fff'; c2.lineWidth = 1; c2.beginPath(); c2.arc(mid.x, mid.y, 7, 0, Math.PI * 2); c2.stroke(); }
     }
-
     // 标签
     const lbl = ln.label || '';
-    const s1 = ln.snapped1 || '';
-    const s2 = ln.snapped2 || '';
-    const labelText = lbl ? lbl + (s1 || s2 ? ' ' + s1 + '\u2192' + s2 : '') : (s1 || s2 ? s1 + '\u2192' + s2 : '');
-    if (labelText) {
-      cxEl.font = '10px monospace';
-      cxEl.fillStyle = ln.color || '#ff0';
-      cxEl.globalAlpha = 0.9;
-      const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
-      cxEl.fillText(labelText, midX + 8, midY - 8);
+    const s1 = ln.snapped1 || '', s2 = ln.snapped2 || '';
+    let txt = '';
+    if (ln.type === 'hline') txt = (lbl ? lbl + ' ' : '') + 'H ' + (ln.p1 ? ln.p1.toFixed(5) : '');
+    else if (ln.type === 'vline') txt = (lbl ? lbl + ' ' : '') + 'V bar' + Math.round(ln.b1);
+    else txt = lbl ? lbl + (s1||s2 ? ' '+s1+'\u2192'+s2 : '') : (s1||s2 ? s1+'\u2192'+s2 : '');
+    if (txt) {
+      c2.font = '10px monospace'; c2.fillStyle = ln.color || '#ff0'; c2.globalAlpha = 0.9;
+      c2.fillText(txt, (x1+x2)/2 + 8, (y1+y2)/2 - 8);
     }
-    cxEl.globalAlpha = 1;
+    c2.globalAlpha = 1;
   }
-
-  // 画线预览（新线拖动中）
-  if (drawMode && drawState === 1) {
-    cxEl.strokeStyle = '#ff0';
-    cxEl.lineWidth = 2;
-    cxEl.globalAlpha = 0.6;
-    cxEl.setLineDash([6, 3]);
-    cxEl.beginPath();
-    cxEl.moveTo(drawStartX, drawStartY);
-    cxEl.lineTo(drawCurX, drawCurY);
-    cxEl.stroke();
-    cxEl.setLineDash([]);
-    if (drawSnapPivot1) {
-      cxEl.strokeStyle = '#0f0'; cxEl.lineWidth = 2;
-      cxEl.beginPath(); cxEl.arc(xS(drawSnapPivot1.bar), yS(drawSnapPivot1.price), SNAP_RADIUS, 0, Math.PI * 2); cxEl.stroke();
+  // Preview line (phase 1: first point placed, mouse moving)
+  if (drawTool && drawPhase === 1 && drawP1 && drawPreview) {
+    const c2p = document.getElementById('chart').getContext('2d');
+    c2p.strokeStyle = '#ff0'; c2p.lineWidth = 2; c2p.globalAlpha = 0.5; c2p.setLineDash([6,3]);
+    let px1, py1, px2, py2;
+    if (drawTool === 'hline') {
+      px1 = mg.l; py1 = yS(drawP1.p); px2 = W - mg.r; py2 = py1;
+    } else if (drawTool === 'vline') {
+      px1 = xS(drawP1.b); py1 = mg.t; px2 = px1; py2 = H - mg.b;
+    } else {
+      px1 = xS(drawP1.b); py1 = yS(drawP1.p); px2 = xS(drawPreview.b); py2 = yS(drawPreview.p);
     }
-    if (drawSnapPivot2) {
-      cxEl.strokeStyle = '#0f0'; cxEl.lineWidth = 2;
-      cxEl.beginPath(); cxEl.arc(xS(drawSnapPivot2.bar), yS(drawSnapPivot2.price), SNAP_RADIUS, 0, Math.PI * 2); cxEl.stroke();
-    }
-    cxEl.globalAlpha = 1;
+    c2p.beginPath(); c2p.moveTo(px1, py1); c2p.lineTo(px2, py2); c2p.stroke();
+    c2p.setLineDash([]); c2p.globalAlpha = 1;
+    // snap circles
+    if (drawP1.snap) { c2p.strokeStyle='#0f0'; c2p.lineWidth=2; c2p.beginPath(); c2p.arc(xS(drawP1.b),yS(drawP1.p),SNAP_RADIUS,0,Math.PI*2); c2p.stroke(); }
+    if (drawPreview.snap) { c2p.strokeStyle='#0f0'; c2p.lineWidth=2; c2p.beginPath(); c2p.arc(xS(drawPreview.b),yS(drawPreview.p),SNAP_RADIUS,0,Math.PI*2); c2p.stroke(); }
   }
-
-  // 平行复制放置中 — 线跟随鼠标
-  if (drawState === 4 && placingCopyIdx >= 0 && placingCopyIdx < drawnLines.length) {
+  // placing copy preview
+  if (drawPhase === 4 && placingCopyIdx >= 0 && placingCopyIdx < drawnLines.length) {
     const ln = drawnLines[placingCopyIdx];
-    cxEl.strokeStyle = ln.color || '#ff0';
-    cxEl.lineWidth = 2;
-    cxEl.globalAlpha = 0.5;
-    cxEl.setLineDash([8, 4]);
-    cxEl.beginPath();
-    cxEl.moveTo(xS(ln.b1), yS(ln.p1));
-    cxEl.lineTo(xS(ln.b2), yS(ln.p2));
-    cxEl.stroke();
-    cxEl.setLineDash([]);
-    // 提示文字
-    cxEl.fillStyle = '#ff0';
-    cxEl.font = '11px monospace';
-    cxEl.fillText('Click to place parallel copy', xS(ln.b1), yS(ln.p1) - 12);
-    cxEl.globalAlpha = 1;
+    const c2c = document.getElementById('chart').getContext('2d');
+    c2c.strokeStyle = '#ff0'; c2c.lineWidth = 2; c2c.globalAlpha = 0.4; c2c.setLineDash([8,4]);
+    c2c.beginPath(); c2c.moveTo(xS(ln.b1),yS(ln.p1)); c2c.lineTo(xS(ln.b2),yS(ln.p2)); c2c.stroke();
+    c2c.setLineDash([]); c2c.globalAlpha = 1;
+    c2c.fillStyle='#ff0'; c2c.font='11px monospace'; c2c.fillText('Click to place',xS(ln.b1),yS(ln.p1)-12);
   }
 }
 
-// 保存到服务器
 async function saveDrawnLines() {
-  try {
-    await fetch('/drawn_lines', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(drawnLines)
-    });
-  } catch(e) { console.error('Save drawn lines failed:', e); }
+  try { await fetch('/drawn_lines',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(drawnLines)}); } catch(e) {}
 }
 
-// hit-test: 找线段的端点/中点/线身
-function hitTestLines(mx, my) {
-  // 返回 {type: 'ep1'|'ep2'|'mid'|'line'|null, idx: number}
-  for (let i = drawnLines.length - 1; i >= 0; i--) {
+function hitTest(px, py) {
+  for (let i = drawnLines.length-1; i >= 0; i--) {
     const ln = drawnLines[i];
-    const x1 = xS(ln.b1), y1 = yS(ln.p1);
-    const x2 = xS(ln.b2), y2 = yS(ln.p2);
-    const d1 = Math.sqrt((mx - x1) * (mx - x1) + (my - y1) * (my - y1));
-    const d2 = Math.sqrt((mx - x2) * (mx - x2) + (my - y2) * (my - y2));
-    const mid = lineMidPx(ln);
-    const dm = Math.sqrt((mx - mid.x) * (mx - mid.x) + (my - mid.y) * (my - mid.y));
-    // 优先级: 端点 > 中点 > 线身
-    if (d1 < EP_HIT_DIST) return { type: 'ep1', idx: i };
-    if (d2 < EP_HIT_DIST) return { type: 'ep2', idx: i };
-    if (dm < MID_HIT_DIST) return { type: 'mid', idx: i };
-  }
-  for (let i = drawnLines.length - 1; i >= 0; i--) {
-    if (distToDrawnLine(mx, my, drawnLines[i]) < LINE_HIT_DIST) {
-      return { type: 'line', idx: i };
+    if (ln.type === 'hline') {
+      // hline: 检查y距离
+      if (Math.abs(py - yS(ln.p1)) < EP_HIT_DIST) return { type: 'line', idx: i };
+      continue;
     }
+    if (ln.type === 'vline') {
+      if (Math.abs(px - xS(ln.b1)) < EP_HIT_DIST) return { type: 'line', idx: i };
+      continue;
+    }
+    const x1=xS(ln.b1),y1=yS(ln.p1),x2=xS(ln.b2),y2=yS(ln.p2);
+    if (Math.sqrt((px-x1)**2+(py-y1)**2) < EP_HIT_DIST) return { type:'ep1', idx:i };
+    if (Math.sqrt((px-x2)**2+(py-y2)**2) < EP_HIT_DIST) return { type:'ep2', idx:i };
+    const mid = lineMidPx(ln);
+    if (Math.sqrt((px-mid.x)**2+(py-mid.y)**2) < MID_HIT_DIST) return { type:'mid', idx:i };
+    if (distToLine(px,py,ln) < LINE_HIT_DIST) return { type:'line', idx:i };
   }
-  return { type: null, idx: -1 };
+  return { type:null, idx:-1 };
 }
 
-// --- Mouse event handlers ---
-cv.addEventListener('mousedown', function(e) {
-  if (e.button === 2) return;
+// ---- CLICK handler (replaces mousedown for drawing) ----
+cv.addEventListener('click', function(e) {
+  if (e.button !== 0) return;
   const rect = cv.getBoundingClientRect();
-  const mmx = e.clientX - rect.left;
-  const mmy = e.clientY - rect.top;
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
 
-  // 平行复制放置模式: 点击确认位置
-  if (drawState === 4 && placingCopyIdx >= 0) {
-    drawState = 0;
+  // placing copy: confirm
+  if (drawPhase === 4 && placingCopyIdx >= 0) {
+    drawPhase = 0;
     pushUndo('add', { id: drawnLines[placingCopyIdx].id });
     saveDrawnLines();
-    selectedLines.clear();
-    selectedLines.add(placingCopyIdx);
+    selectedLines.clear(); selectedLines.add(placingCopyIdx);
     placingCopyIdx = -1;
-    redrawAll();
-    e.preventDefault();
+    redrawAll(); return;
+  }
+
+  // draw tool active
+  if (drawTool) {
+    if (drawTool === 'hline') {
+      // 水平线: 单击即完成
+      const pt = resolvePoint(px, py);
+      const nl = { id: genLineId(), b1: 0, p1: pt.p, b2: K.length, p2: pt.p,
+        type: 'hline', color: '#fa0', label: '', active: true, snapped1: pt.snap, snapped2: null };
+      drawnLines.push(nl); pushUndo('add',{id:nl.id});
+      selectedLines.clear(); selectedLines.add(drawnLines.length-1);
+      saveDrawnLines(); redrawAll(); return;
+    }
+    if (drawTool === 'vline') {
+      // 垂直线: 单击即完成
+      const pt = resolvePoint(px, py);
+      const nl = { id: genLineId(), b1: Math.round(pt.b), p1: 0, b2: Math.round(pt.b), p2: 0,
+        type: 'vline', color: '#0af', label: '', active: true, snapped1: pt.snap, snapped2: null };
+      drawnLines.push(nl); pushUndo('add',{id:nl.id});
+      selectedLines.clear(); selectedLines.add(drawnLines.length-1);
+      saveDrawnLines(); redrawAll(); return;
+    }
+    // trend line: click-click
+    if (drawPhase === 0) {
+      // 第一次点击: 放置起点
+      drawP1 = resolvePoint(px, py);
+      drawPreview = { b: drawP1.b, p: drawP1.p, snap: null };
+      drawPhase = 1;
+      redrawAll(); return;
+    }
+    if (drawPhase === 1) {
+      // 第二次点击: 完成线段
+      const pt2 = resolvePoint(px, py);
+      const dist = Math.sqrt((xS(pt2.b)-xS(drawP1.b))**2 + (yS(pt2.p)-yS(drawP1.p))**2);
+      if (dist > 5) {
+        const nl = { id: genLineId(),
+          b1: Math.round(drawP1.b*100)/100, p1: Math.round(drawP1.p*100000)/100000,
+          b2: Math.round(pt2.b*100)/100, p2: Math.round(pt2.p*100000)/100000,
+          type: 'trendline', color: '#ff0', label: '', active: true,
+          snapped1: drawP1.snap, snapped2: pt2.snap };
+        drawnLines.push(nl); pushUndo('add',{id:nl.id});
+        selectedLines.clear(); selectedLines.add(drawnLines.length-1);
+        saveDrawnLines();
+      }
+      drawPhase = 0; drawP1 = null; drawPreview = null;
+      redrawAll(); return;
+    }
     return;
   }
 
-  // hit-test已有线段
-  const hit = hitTestLines(mmx, mmy);
-
-  if (hit.type === 'ep1' || hit.type === 'ep2') {
-    // 端点拖动
-    const ln = drawnLines[hit.idx];
-    pushUndo('modify', { id: ln.id, before: { b1: ln.b1, p1: ln.p1, b2: ln.b2, p2: ln.p2, snapped1: ln.snapped1, snapped2: ln.snapped2 } });
-    selectedLines.clear();
-    selectedLines.add(hit.idx);
-    dragEndpoint = hit.type === 'ep1' ? 1 : 2;
-    drawState = 2;
-    e.preventDefault();
-    redrawAll();
-    return;
-  }
-
-  if (hit.type === 'mid') {
-    // 中点拖动 = 整条线平行移动
-    const ln = drawnLines[hit.idx];
-    pushUndo('modify', { id: ln.id, before: { b1: ln.b1, p1: ln.p1, b2: ln.b2, p2: ln.p2, snapped1: ln.snapped1, snapped2: ln.snapped2 } });
-    selectedLines.clear();
-    selectedLines.add(hit.idx);
-    dragEndpoint = 3;
-    dragStartB = barFromX(mmx);
-    dragStartP = priceFromY(mmy);
-    dragLineSnap = { b1: ln.b1, p1: ln.p1, b2: ln.b2, p2: ln.p2 };
-    drawState = 3;
-    e.preventDefault();
-    redrawAll();
-    return;
-  }
-
-  if (hit.type === 'line') {
-    // 点击线身: 选中（Shift多选）
+  // 非画线模式: 选中逻辑
+  const hit = hitTest(px, py);
+  if (hit.idx >= 0) {
     if (e.shiftKey) {
       if (selectedLines.has(hit.idx)) selectedLines.delete(hit.idx);
       else selectedLines.add(hit.idx);
     } else {
-      selectedLines.clear();
-      selectedLines.add(hit.idx);
+      selectedLines.clear(); selectedLines.add(hit.idx);
     }
-    e.preventDefault();
     redrawAll();
-    return;
+  } else if (!e.shiftKey && selectedLines.size > 0) {
+    selectedLines.clear(); redrawAll();
   }
+});
 
-  // 没点到线
-  if (!drawMode) {
-    if (selectedLines.size > 0 && !e.shiftKey) {
-      selectedLines.clear();
-      redrawAll();
+// ---- MOUSEDOWN for drag operations ----
+cv.addEventListener('mousedown', function(e) {
+  if (e.button !== 0) return;
+  const rect = cv.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  if (drawTool && drawPhase <= 1) return;  // click-click handled in click event
+
+  const hit = hitTest(px, py);
+  if (hit.type === 'ep1' || hit.type === 'ep2') {
+    const ln = drawnLines[hit.idx];
+    pushUndo('modify',{id:ln.id,before:{b1:ln.b1,p1:ln.p1,b2:ln.b2,p2:ln.p2,snapped1:ln.snapped1,snapped2:ln.snapped2}});
+    selectedLines.clear(); selectedLines.add(hit.idx);
+    dragEndpoint = hit.type==='ep1' ? 1 : 2;
+    drawPhase = 2; e.preventDefault(); redrawAll();
+  } else if (hit.type === 'mid') {
+    const ln = drawnLines[hit.idx];
+    pushUndo('modify',{id:ln.id,before:{b1:ln.b1,p1:ln.p1,b2:ln.b2,p2:ln.p2,snapped1:ln.snapped1,snapped2:ln.snapped2}});
+    selectedLines.clear(); selectedLines.add(hit.idx);
+    dragEndpoint = 3; dragStartB = barFromX(px); dragStartP = priceFromY(py);
+    dragLineSnap = { b1:ln.b1, p1:ln.p1, b2:ln.b2, p2:ln.p2 };
+    drawPhase = 3; e.preventDefault(); redrawAll();
+  } else if (hit.type === 'line') {
+    const ln = drawnLines[hit.idx];
+    // hline: drag = 移动价格; vline: drag = 移动bar
+    if (ln.type === 'hline' || ln.type === 'vline') {
+      pushUndo('modify',{id:ln.id,before:{b1:ln.b1,p1:ln.p1,b2:ln.b2,p2:ln.p2}});
+      selectedLines.clear(); selectedLines.add(hit.idx);
+      dragEndpoint = 3; dragStartB = barFromX(px); dragStartP = priceFromY(py);
+      dragLineSnap = { b1:ln.b1, p1:ln.p1, b2:ln.b2, p2:ln.p2 };
+      drawPhase = 3; e.preventDefault(); redrawAll();
     }
-    return;
   }
-
-  // 画线模式: 开始画新线
-  e.preventDefault();
-  const snap = findNearPivot(mmx, mmy);
-  if (snap) {
-    drawStartX = xS(snap.bar); drawStartY = yS(snap.price);
-    drawSnapPivot1 = snap;
-  } else {
-    drawStartX = mmx; drawStartY = mmy;
-    drawSnapPivot1 = null;
-  }
-  drawCurX = drawStartX; drawCurY = drawStartY;
-  drawSnapPivot2 = null;
-  drawState = 1;
 });
 
 cv.addEventListener('mousemove', function(e) {
   const rect = cv.getBoundingClientRect();
-  const mmx = e.clientX - rect.left;
-  const mmy = e.clientY - rect.top;
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
 
-  // 画新线拖动
-  if (drawMode && drawState === 1) {
-    const snap = findNearPivot(mmx, mmy);
-    if (snap) { drawCurX = xS(snap.bar); drawCurY = yS(snap.price); drawSnapPivot2 = snap; }
-    else { drawCurX = mmx; drawCurY = mmy; drawSnapPivot2 = null; }
-    redrawAll();
-    return;
+  // trend line preview
+  if (drawTool && drawPhase === 1) {
+    drawPreview = resolvePoint(px, py);
+    redrawAll(); return;
   }
-
-  // 端点拖动
-  if (drawState === 2 && selectedLines.size === 1) {
-    const idx = [...selectedLines][0];
-    const ln = drawnLines[idx];
-    const snap = findNearPivot(mmx, mmy);
-    if (dragEndpoint === 1) {
-      if (snap) { ln.b1 = snap.bar; ln.p1 = snap.price; ln.snapped1 = snap.label; }
-      else { ln.b1 = barFromX(mmx); ln.p1 = priceFromY(mmy); ln.snapped1 = null; }
-    } else if (dragEndpoint === 2) {
-      if (snap) { ln.b2 = snap.bar; ln.p2 = snap.price; ln.snapped2 = snap.label; }
-      else { ln.b2 = barFromX(mmx); ln.p2 = priceFromY(mmy); ln.snapped2 = null; }
+  // endpoint drag
+  if (drawPhase === 2 && selectedLines.size === 1) {
+    const ln = drawnLines[[...selectedLines][0]];
+    const pt = resolvePoint(px, py);
+    if (dragEndpoint === 1) { ln.b1 = pt.b; ln.p1 = pt.p; ln.snapped1 = pt.snap; }
+    else { ln.b2 = pt.b; ln.p2 = pt.p; ln.snapped2 = pt.snap; }
+    redrawAll(); return;
+  }
+  // midpoint drag (parallel move)
+  if (drawPhase === 3 && selectedLines.size === 1) {
+    const ln = drawnLines[[...selectedLines][0]];
+    const dB = barFromX(px) - dragStartB, dP = priceFromY(py) - dragStartP;
+    if (ln.type === 'hline') {
+      ln.p1 = dragLineSnap.p1 + dP; ln.p2 = ln.p1;
+    } else if (ln.type === 'vline') {
+      ln.b1 = dragLineSnap.b1 + dB; ln.b2 = ln.b1;
+    } else {
+      ln.b1 = dragLineSnap.b1+dB; ln.p1 = dragLineSnap.p1+dP;
+      ln.b2 = dragLineSnap.b2+dB; ln.p2 = dragLineSnap.p2+dP;
+      ln.snapped1 = null; ln.snapped2 = null;
     }
-    redrawAll();
-    return;
+    redrawAll(); return;
   }
-
-  // 中点拖动(平行移动)
-  if (drawState === 3 && selectedLines.size === 1) {
-    const idx = [...selectedLines][0];
-    const ln = drawnLines[idx];
-    const curB = barFromX(mmx), curP = priceFromY(mmy);
-    const dB = curB - dragStartB, dP = curP - dragStartP;
-    ln.b1 = dragLineSnap.b1 + dB;
-    ln.p1 = dragLineSnap.p1 + dP;
-    ln.b2 = dragLineSnap.b2 + dB;
-    ln.p2 = dragLineSnap.p2 + dP;
-    ln.snapped1 = null; ln.snapped2 = null;  // 移动后取消吸附
-    redrawAll();
-    return;
-  }
-
-  // 平行复制跟随鼠标
-  if (drawState === 4 && placingCopyIdx >= 0) {
+  // placing copy
+  if (drawPhase === 4 && placingCopyIdx >= 0) {
     const ln = drawnLines[placingCopyIdx];
-    const curB = barFromX(mmx), curP = priceFromY(mmy);
-    const dB = curB - dragStartB, dP = curP - dragStartP;
-    ln.b1 = dragLineSnap.b1 + dB;
-    ln.p1 = dragLineSnap.p1 + dP;
-    ln.b2 = dragLineSnap.b2 + dB;
-    ln.p2 = dragLineSnap.p2 + dP;
-    redrawAll();
-    return;
+    const dB = barFromX(px) - dragStartB, dP = priceFromY(py) - dragStartP;
+    ln.b1=dragLineSnap.b1+dB; ln.p1=dragLineSnap.p1+dP;
+    ln.b2=dragLineSnap.b2+dB; ln.p2=dragLineSnap.p2+dP;
+    redrawAll(); return;
   }
-
-  // hover: 更新光标
-  const hit = hitTestLines(mmx, mmy);
-  if (hit.type === 'ep1' || hit.type === 'ep2') cv.style.cursor = 'pointer';
-  else if (hit.type === 'mid') cv.style.cursor = 'grab';
-  else if (hit.type === 'line') cv.style.cursor = 'pointer';
-  else if (drawMode) {
-    const snap = findNearPivot(mmx, mmy);
-    cv.style.cursor = snap ? 'pointer' : 'crosshair';
-  } else {
-    cv.style.cursor = 'crosshair';
-  }
+  // cursor
+  const hit = hitTest(px, py);
+  if (hit.type==='ep1'||hit.type==='ep2') cv.style.cursor='pointer';
+  else if (hit.type==='mid') cv.style.cursor='grab';
+  else if (hit.type==='line') cv.style.cursor='pointer';
+  else if (drawTool) { cv.style.cursor = findNearPivot(px,py) ? 'pointer' : 'crosshair'; }
+  else cv.style.cursor = 'crosshair';
 });
 
 cv.addEventListener('mouseup', function(e) {
-  if (e.button === 2) return;
-  const rect = cv.getBoundingClientRect();
-  const mmx = e.clientX - rect.left;
-  const mmy = e.clientY - rect.top;
-
-  // 完成画新线
-  if (drawMode && drawState === 1) {
-    let b1, p1, b2, p2, s1 = null, s2 = null;
-    if (drawSnapPivot1) { b1 = drawSnapPivot1.bar; p1 = drawSnapPivot1.price; s1 = drawSnapPivot1.label; }
-    else { b1 = barFromX(drawStartX); p1 = priceFromY(drawStartY); }
-    const snap = findNearPivot(mmx, mmy);
-    if (snap) { b2 = snap.bar; p2 = snap.price; s2 = snap.label; }
-    else { b2 = barFromX(mmx); p2 = priceFromY(mmy); }
-    const pixDist = Math.sqrt((xS(b2) - xS(b1)) * (xS(b2) - xS(b1)) + (yS(p2) - yS(p1)) * (yS(p2) - yS(p1)));
-    if (pixDist > 5) {
-      const newLine = {
-        id: genLineId(),
-        b1: Math.round(b1 * 100) / 100, p1: Math.round(p1 * 100000) / 100000,
-        b2: Math.round(b2 * 100) / 100, p2: Math.round(p2 * 100000) / 100000,
-        type: 'trendline', color: '#ff0', label: '', active: true,
-        snapped1: s1, snapped2: s2,
-      };
-      drawnLines.push(newLine);
-      pushUndo('add', { id: newLine.id });
-      selectedLines.clear();
-      selectedLines.add(drawnLines.length - 1);
-      saveDrawnLines();
-    }
-    drawState = 0;
-    redrawAll();
-    e.preventDefault();
-    return;
-  }
-
-  // 端点/中点拖动结束
-  if (drawState === 2 || drawState === 3) {
-    drawState = 0;
-    dragEndpoint = 0;
-    saveDrawnLines();
-    redrawAll();
-    e.preventDefault();
-    return;
+  if (drawPhase === 2 || drawPhase === 3) {
+    drawPhase = 0; dragEndpoint = 0; saveDrawnLines(); redrawAll();
   }
 });
 
@@ -1534,262 +1466,77 @@ let ctxMenu = null;
 function showCtxMenu(x, y) {
   hideCtxMenu();
   ctxMenu = document.createElement('div');
-  ctxMenu.style.cssText = 'position:fixed;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:4px 0;z-index:9999;font-size:12px;font-family:monospace;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
-  ctxMenu.style.left = x + 'px';
-  ctxMenu.style.top = y + 'px';
-
-  const nSel = selectedLines.size;
-  const isSingle = nSel === 1;
-  const selIdx = isSingle ? [...selectedLines][0] : -1;
-
-  const items = [];
+  ctxMenu.style.cssText='position:fixed;background:#1a1a2e;border:1px solid #555;border-radius:4px;padding:4px 0;z-index:9999;font-size:12px;font-family:monospace;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+  ctxMenu.style.left=x+'px'; ctxMenu.style.top=y+'px';
+  const nSel=selectedLines.size, isSingle=nSel===1, si=isSingle?[...selectedLines][0]:-1;
+  const items=[];
   if (isSingle) {
-    items.push({ text: 'Edit Label', icon: 'E', action: () => editLineLabel(selIdx) });
-    items.push({ text: 'Color...', icon: 'C', action: () => changeLineColor(selIdx) });
-    items.push({ text: 'Copy Parallel', icon: 'P', action: () => startCopyParallel(selIdx) });
-    items.push({ text: 'Toggle Active', icon: 'A', action: () => toggleLineActive(selIdx) });
-    items.push({ text: '---' });
-    items.push({ text: 'Delete', icon: 'X', action: () => deleteLine(selIdx), color: '#f66' });
+    items.push({t:'Edit Label',k:'E',fn:()=>editLabel(si)});
+    items.push({t:'Color...',k:'C',fn:()=>cycleColor(si)});
+    items.push({t:'Copy Parallel',k:'P',fn:()=>startCopyParallel(si)});
+    items.push({t:'Toggle Active',k:'A',fn:()=>toggleActive(si)});
+    items.push({t:'---'}); items.push({t:'Delete',k:'X',fn:()=>delLine(si),c:'#f66'});
   }
-  if (nSel > 1) {
-    items.push({ text: 'Delete ' + nSel + ' lines', icon: 'X', action: () => deleteSelected(), color: '#f66' });
-    items.push({ text: 'Color all...', icon: 'C', action: () => colorSelected() });
-    items.push({ text: 'Toggle Active all', icon: 'A', action: () => toggleActiveSelected() });
+  if (nSel>1) {
+    items.push({t:'Delete '+nSel,k:'X',fn:()=>delSelected(),c:'#f66'});
+    items.push({t:'Color all',k:'C',fn:()=>colorSel()});
+    items.push({t:'Toggle Active',k:'A',fn:()=>toggleActSel()});
   }
-  if (nSel === 0) {
-    items.push({ text: 'No line selected', icon: '-', action: () => {} });
-  }
-  items.push({ text: '---' });
-  items.push({ text: 'Undo (Ctrl+Z)', icon: 'U', action: () => performUndo() });
-  items.push({ text: 'Select All', icon: 'S', action: () => { for(let i=0;i<drawnLines.length;i++) selectedLines.add(i); redrawAll(); } });
-
-  for (const item of items) {
-    if (item.text === '---') {
-      const sep = document.createElement('div');
-      sep.style.cssText = 'border-top:1px solid #333;margin:3px 0;';
-      ctxMenu.appendChild(sep);
-      continue;
-    }
-    const row = document.createElement('div');
-    row.style.cssText = 'padding:5px 12px;cursor:pointer;color:' + (item.color || '#ccc') + ';';
-    row.onmouseenter = function() { this.style.background = '#2a3a5a'; };
-    row.onmouseleave = function() { this.style.background = ''; };
-    row.textContent = (item.icon ? '[' + item.icon + '] ' : '') + item.text;
-    row.onclick = function() { hideCtxMenu(); item.action(); };
-    ctxMenu.appendChild(row);
+  items.push({t:'---'});
+  items.push({t:'Undo (Ctrl+Z)',k:'U',fn:performUndo});
+  items.push({t:'Select All',k:'S',fn:()=>{for(let i=0;i<drawnLines.length;i++)selectedLines.add(i);redrawAll();}});
+  for (const it of items) {
+    if (it.t==='---') { const s=document.createElement('div'); s.style.cssText='border-top:1px solid #333;margin:3px 0;'; ctxMenu.appendChild(s); continue; }
+    const r=document.createElement('div');
+    r.style.cssText='padding:5px 12px;cursor:pointer;color:'+(it.c||'#ccc')+';';
+    r.onmouseenter=function(){this.style.background='#2a3a5a';}; r.onmouseleave=function(){this.style.background='';};
+    r.textContent='['+it.k+'] '+it.t; r.onclick=function(){hideCtxMenu();it.fn();};
+    ctxMenu.appendChild(r);
   }
   document.body.appendChild(ctxMenu);
 }
+function hideCtxMenu(){if(ctxMenu&&ctxMenu.parentNode)ctxMenu.parentNode.removeChild(ctxMenu);ctxMenu=null;}
+document.addEventListener('click',function(e){if(ctxMenu&&!ctxMenu.contains(e.target))hideCtxMenu();});
 
-function hideCtxMenu() {
-  if (ctxMenu && ctxMenu.parentNode) ctxMenu.parentNode.removeChild(ctxMenu);
-  ctxMenu = null;
-}
-
-document.addEventListener('click', function(e) {
-  if (ctxMenu && !ctxMenu.contains(e.target)) hideCtxMenu();
-});
-
-cv.addEventListener('contextmenu', function(e) {
+cv.addEventListener('contextmenu',function(e){
   e.preventDefault();
-  const rect = cv.getBoundingClientRect();
-  const mmx = e.clientX - rect.left;
-  const mmy = e.clientY - rect.top;
-
-  const hit = hitTestLines(mmx, mmy);
-  if (hit.idx >= 0) {
-    if (!selectedLines.has(hit.idx)) {
-      if (!e.shiftKey) selectedLines.clear();
-      selectedLines.add(hit.idx);
-    }
-    redrawAll();
-    showCtxMenu(e.clientX, e.clientY);
-  } else {
-    if (!e.shiftKey) selectedLines.clear();
-    redrawAll();
-    showCtxMenu(e.clientX, e.clientY);
-  }
+  const rect=cv.getBoundingClientRect(),px=e.clientX-rect.left,py=e.clientY-rect.top;
+  const hit=hitTest(px,py);
+  if(hit.idx>=0){if(!selectedLines.has(hit.idx)){if(!e.shiftKey)selectedLines.clear();selectedLines.add(hit.idx);}redrawAll();}
+  else{if(!e.shiftKey)selectedLines.clear();redrawAll();}
+  showCtxMenu(e.clientX,e.clientY);
 });
 
 // --- Actions ---
-function editLineLabel(idx) {
-  const ln = drawnLines[idx];
-  const old = ln.label || '';
-  const newLabel = prompt('Line label:', old);
-  if (newLabel !== null && newLabel.trim() !== old) {
-    pushUndo('modify', { id: ln.id, before: { label: old } });
-    ln.label = newLabel.trim();
-    saveDrawnLines();
-    redrawAll();
-  }
-}
+function editLabel(i){const ln=drawnLines[i],o=ln.label||'',n=prompt('Label:',o);if(n!==null&&n.trim()!==o){pushUndo('modify',{id:ln.id,before:{label:o}});ln.label=n.trim();saveDrawnLines();redrawAll();}}
+function cycleColor(i){const ln=drawnLines[i],cs=['#ff0','#0f0','#f00','#0af','#f0f','#fa0','#fff','#88f'],o=ln.color||'#ff0';pushUndo('modify',{id:ln.id,before:{color:o}});ln.color=cs[(cs.indexOf(o)+1)%cs.length];saveDrawnLines();redrawAll();}
+function startCopyParallel(i){const ln=drawnLines[i],nl={id:genLineId(),b1:ln.b1,p1:ln.p1,b2:ln.b2,p2:ln.p2,type:ln.type,color:ln.color,label:ln.label?(ln.label+'_P'):'',active:true,snapped1:null,snapped2:null};drawnLines.push(nl);placingCopyIdx=drawnLines.length-1;dragLineSnap={b1:nl.b1,p1:nl.p1,b2:nl.b2,p2:nl.p2};const mid=lineMidPx(ln);dragStartB=barFromX(mid.x);dragStartP=priceFromY(mid.y);drawPhase=4;redrawAll();}
+function toggleActive(i){const ln=drawnLines[i],o=ln.active!==false;pushUndo('modify',{id:ln.id,before:{active:o}});ln.active=!o;saveDrawnLines();redrawAll();}
+function delLine(i){pushUndo('delete',{index:i,line:JSON.parse(JSON.stringify(drawnLines[i]))});drawnLines.splice(i,1);const ns=new Set();for(const s of selectedLines){if(s<i)ns.add(s);else if(s>i)ns.add(s-1);}selectedLines=ns;saveDrawnLines();redrawAll();}
+function delSelected(){if(!selectedLines.size)return;const idx=[...selectedLines].sort((a,b)=>a-b);pushUndo('batch_delete',{items:idx.map(i=>({index:i,line:JSON.parse(JSON.stringify(drawnLines[i]))}))});for(let i=idx.length-1;i>=0;i--)drawnLines.splice(idx[i],1);selectedLines.clear();saveDrawnLines();redrawAll();}
+function colorSel(){const cs=['#ff0','#0f0','#f00','#0af','#f0f','#fa0','#fff','#88f'],f=[...selectedLines][0],c=drawnLines[f]?(drawnLines[f].color||'#ff0'):'#ff0',n=cs[(cs.indexOf(c)+1)%cs.length];for(const i of selectedLines)if(drawnLines[i])drawnLines[i].color=n;saveDrawnLines();redrawAll();}
+function toggleActSel(){for(const i of selectedLines)if(drawnLines[i])drawnLines[i].active=!(drawnLines[i].active!==false);saveDrawnLines();redrawAll();}
 
-function changeLineColor(idx) {
-  const ln = drawnLines[idx];
-  const colors = ['#ff0', '#0f0', '#f00', '#0af', '#f0f', '#fa0', '#fff', '#88f'];
-  const oldColor = ln.color || '#ff0';
-  const curIdx = colors.indexOf(oldColor);
-  pushUndo('modify', { id: ln.id, before: { color: oldColor } });
-  ln.color = colors[(curIdx + 1) % colors.length];
-  saveDrawnLines();
-  redrawAll();
-}
-
-function startCopyParallel(idx) {
-  // 创建副本，进入放置模式，鼠标移动跟随
-  const ln = drawnLines[idx];
-  const newLine = {
-    id: genLineId(),
-    b1: ln.b1, p1: ln.p1, b2: ln.b2, p2: ln.p2,
-    type: ln.type, color: ln.color,
-    label: (ln.label || '') ? (ln.label || '') + '_P' : '',
-    active: true, snapped1: null, snapped2: null,
-  };
-  drawnLines.push(newLine);
-  placingCopyIdx = drawnLines.length - 1;
-  dragLineSnap = { b1: newLine.b1, p1: newLine.p1, b2: newLine.b2, p2: newLine.p2 };
-  // 中点作为拖动参考点
-  const mid = lineMidPx(ln);
-  dragStartB = barFromX(mid.x);
-  dragStartP = priceFromY(mid.y);
-  drawState = 4;
-  redrawAll();
-}
-
-function toggleLineActive(idx) {
-  const ln = drawnLines[idx];
-  const old = ln.active !== false;
-  pushUndo('modify', { id: ln.id, before: { active: old } });
-  ln.active = !old;
-  saveDrawnLines();
-  redrawAll();
-}
-
-function deleteLine(idx) {
-  pushUndo('delete', { index: idx, line: JSON.parse(JSON.stringify(drawnLines[idx])) });
-  drawnLines.splice(idx, 1);
-  // 修正selectedLines中的index
-  const newSel = new Set();
-  for (const s of selectedLines) {
-    if (s < idx) newSel.add(s);
-    else if (s > idx) newSel.add(s - 1);
-  }
-  selectedLines = newSel;
-  saveDrawnLines();
-  redrawAll();
-}
-
-function deleteSelected() {
-  if (selectedLines.size === 0) return;
-  const indices = [...selectedLines].sort((a, b) => a - b);
-  const items = indices.map(i => ({ index: i, line: JSON.parse(JSON.stringify(drawnLines[i])) }));
-  pushUndo('batch_delete', { items });
-  // 从后往前删
-  for (let i = indices.length - 1; i >= 0; i--) {
-    drawnLines.splice(indices[i], 1);
-  }
-  selectedLines.clear();
-  saveDrawnLines();
-  redrawAll();
-}
-
-function colorSelected() {
-  const colors = ['#ff0', '#0f0', '#f00', '#0af', '#f0f', '#fa0', '#fff', '#88f'];
-  // 取第一个选中线的颜色，循环到下一个
-  const first = [...selectedLines][0];
-  const cur = drawnLines[first] ? (drawnLines[first].color || '#ff0') : '#ff0';
-  const next = colors[(colors.indexOf(cur) + 1) % colors.length];
-  for (const idx of selectedLines) {
-    if (drawnLines[idx]) drawnLines[idx].color = next;
-  }
-  saveDrawnLines();
-  redrawAll();
-}
-
-function toggleActiveSelected() {
-  for (const idx of selectedLines) {
-    if (drawnLines[idx]) drawnLines[idx].active = !(drawnLines[idx].active !== false);
-  }
-  saveDrawnLines();
-  redrawAll();
-}
-
-// === Keyboard shortcuts ===
-document.addEventListener('keydown', function(e) {
-  if (e.target.tagName === 'INPUT') return;
-
-  // D: toggle draw mode
-  if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-    toggleDrawMode();
-    e.preventDefault();
-    return;
-  }
-
-  // Ctrl+Z: undo
-  if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-    performUndo();
-    e.preventDefault();
-    return;
-  }
-
-  // Ctrl+A: select all lines
-  if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
-    for (let i = 0; i < drawnLines.length; i++) selectedLines.add(i);
-    redrawAll();
-    e.preventDefault();
-    return;
-  }
-
-  // Delete/Backspace: delete selected
-  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedLines.size > 0) {
-    deleteSelected();
-    e.preventDefault();
-    return;
-  }
-
-  // Escape: cancel current operation / deselect
-  if (e.key === 'Escape') {
-    if (drawState === 4 && placingCopyIdx >= 0) {
-      // 取消平行复制放置
-      drawnLines.splice(placingCopyIdx, 1);
-      placingCopyIdx = -1; drawState = 0; redrawAll();
-    } else if (drawState === 1) {
-      drawState = 0; redrawAll();
-    } else if (selectedLines.size > 0) {
-      selectedLines.clear(); redrawAll();
-    } else if (drawMode) {
-      toggleDrawMode();
-    }
-    return;
+// === Keyboard ===
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT')return;
+  if((e.key==='d'||e.key==='D')&&!e.ctrlKey&&!e.altKey){setDrawTool(drawTool?null:'trend');e.preventDefault();return;}
+  if(e.key==='z'&&(e.ctrlKey||e.metaKey)&&!e.shiftKey){performUndo();e.preventDefault();return;}
+  if(e.key==='a'&&(e.ctrlKey||e.metaKey)){for(let i=0;i<drawnLines.length;i++)selectedLines.add(i);redrawAll();e.preventDefault();return;}
+  if((e.key==='Delete'||e.key==='Backspace')&&selectedLines.size>0){delSelected();e.preventDefault();return;}
+  if(e.key==='Escape'){
+    if(drawPhase===4&&placingCopyIdx>=0){drawnLines.splice(placingCopyIdx,1);placingCopyIdx=-1;drawPhase=0;redrawAll();}
+    else if(drawPhase===1){drawPhase=0;drawP1=null;drawPreview=null;redrawAll();}
+    else if(selectedLines.size>0){selectedLines.clear();redrawAll();}
+    else if(drawTool){setDrawTool(null);}
   }
 });
 
-// Patch existing draw/toggle functions to also redraw hand-drawn lines
-const _patchedForDraw = ['showAll','hideAll','showType','showBase','toggleExtra','toggleTop',
-  'toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
-for(const fn of _patchedForDraw) {
-  const orig = window[fn];
-  if(orig && !orig._drawPatched) {
-    window[fn] = function() {
-      orig.apply(this, arguments);
-      drawDrawnLines();
-    };
-    window[fn]._drawPatched = true;
-  }
-}
-const _patchedSlidersForDraw = ['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
-for(const fn of _patchedSlidersForDraw) {
-  const orig = window[fn];
-  if(orig && !orig._drawPatched) {
-    window[fn] = function(v) {
-      orig.call(this, v);
-      drawDrawnLines();
-    };
-    window[fn]._drawPatched = true;
-  }
-}
-
-// 初始绘制手工线段
+// Patch v3 toggle functions
+const _patchDraw=['showAll','hideAll','showType','showBase','toggleExtra','toggleTop','toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
+for(const fn of _patchDraw){const o=window[fn];if(o&&!o._dp){window[fn]=function(){o.apply(this,arguments);drawDrawnLines();};window[fn]._dp=true;}}
+const _patchSldr=['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
+for(const fn of _patchSldr){const o=window[fn];if(o&&!o._dp){window[fn]=function(v){o.call(this,v);drawDrawnLines();};window[fn]._dp=true;}}
 drawDrawnLines();
 
 // ========== T线/F线绘制 ==========
