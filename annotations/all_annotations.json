@@ -2492,5 +2492,1682 @@
       "total_amp": 0.0162,
       "net_dir": "DN"
     }
+  },
+  {
+    "id": "20260306_030954",
+    "timestamp": "2026-03-06T03:09:54.574577",
+    "label": "h4l3=h4l13h11l3  一个线段，首先是被分成三波（模长和对称综合），这里分成五波，是个什么逻辑？",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 5,
+    "dir_sequence": "DUDUD",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 82,
+        "p1": 1.0906,
+        "b2": 88,
+        "p2": 1.08661,
+        "lbl1": "H4",
+        "lbl2": "L13",
+        "amp": 0.00399,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000665,
+        "source": "A2"
+      },
+      {
+        "idx": 2,
+        "b1": 88,
+        "p1": 1.08661,
+        "b2": 95,
+        "p2": 1.08745,
+        "lbl1": "L13",
+        "lbl2": "H24",
+        "amp": 0.00084,
+        "time": 7,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00012,
+        "source": "A2"
+      },
+      {
+        "idx": 3,
+        "b1": 95,
+        "p1": 1.08745,
+        "b2": 96,
+        "p2": 1.08668,
+        "lbl1": "H24",
+        "lbl2": "L23",
+        "amp": 0.00077,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00077,
+        "source": "A2"
+      },
+      {
+        "idx": 4,
+        "b1": 96,
+        "p1": 1.08668,
+        "b2": 99,
+        "p2": 1.08765,
+        "lbl1": "L23",
+        "lbl2": "H11",
+        "amp": 0.00097,
+        "time": 3,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0003233,
+        "source": "A2"
+      },
+      {
+        "idx": 5,
+        "b1": 99,
+        "p1": 1.08765,
+        "b2": 104,
+        "p2": 1.08347,
+        "lbl1": "H11",
+        "lbl2": "L3",
+        "amp": 0.00418,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000836,
+        "source": "A2"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 82,
+            "p1": 1.0906,
+            "b2": 88,
+            "p2": 1.08661,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H4",
+            "lbl2": "L13"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 88,
+            "p1": 1.08661,
+            "b2": 90,
+            "p2": 1.08734,
+            "source": "sub"
+          },
+          {
+            "b1": 90,
+            "p1": 1.08734,
+            "b2": 91,
+            "p2": 1.08691,
+            "source": "sub"
+          },
+          {
+            "b1": 91,
+            "p1": 1.08691,
+            "b2": 95,
+            "p2": 1.08745,
+            "source": "sub"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 95,
+            "p1": 1.08745,
+            "b2": 96,
+            "p2": 1.08668,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H24",
+            "lbl2": "L23"
+          }
+        ]
+      },
+      "3": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 96,
+            "p1": 1.08668,
+            "b2": 99,
+            "p2": 1.08765,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "L23",
+            "lbl2": "H11"
+          }
+        ]
+      },
+      "4": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 99,
+            "p1": 1.08765,
+            "b2": 104,
+            "p2": 1.08347,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H11",
+            "lbl2": "L3"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.2105,
+        "time_ratio": 1.1667,
+        "dir_change": true,
+        "retrace": 0.2105
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.9167,
+        "time_ratio": 0.1429,
+        "dir_change": true,
+        "retrace": 0.9167
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 1.2597,
+        "time_ratio": 3.0,
+        "dir_change": true,
+        "retrace": 1.2597
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 4.3093,
+        "time_ratio": 1.6667,
+        "dir_change": true,
+        "retrace": 4.3093
+      }
+    ],
+    "summary": {
+      "total_bars": 22,
+      "total_amp": 0.00713,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260306_031149",
+    "timestamp": "2026-03-06T03:11:49.014560",
+    "label": "L6H4=L6H22L27H4  一个经典的调整线段，应该被分成三波（模长和对称综合），这里分成7波，是个什么逻辑？",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 7,
+    "dir_sequence": "UDUDUDU",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 50,
+        "p1": 1.08729,
+        "b2": 55,
+        "p2": 1.08849,
+        "lbl1": "L6",
+        "lbl2": "H34",
+        "amp": 0.0012,
+        "time": 5,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00024,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 55,
+        "p1": 1.08849,
+        "b2": 56,
+        "p2": 1.0878,
+        "lbl1": "H34",
+        "lbl2": "L33",
+        "amp": 0.00069,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00069,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 56,
+        "p1": 1.0878,
+        "b2": 58,
+        "p2": 1.08996,
+        "lbl1": "L33",
+        "lbl2": "H22",
+        "amp": 0.00216,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00108,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 58,
+        "p1": 1.08996,
+        "b2": 63,
+        "p2": 1.08813,
+        "lbl1": "H22",
+        "lbl2": "L32",
+        "amp": 0.00183,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000366,
+        "source": "A1"
+      },
+      {
+        "idx": 5,
+        "b1": 63,
+        "p1": 1.08813,
+        "b2": 67,
+        "p2": 1.08914,
+        "lbl1": "L32",
+        "lbl2": "H30",
+        "amp": 0.00101,
+        "time": 4,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002525,
+        "source": "A1"
+      },
+      {
+        "idx": 6,
+        "b1": 67,
+        "p1": 1.08914,
+        "b2": 71,
+        "p2": 1.08803,
+        "lbl1": "H30",
+        "lbl2": "L27",
+        "amp": 0.00111,
+        "time": 4,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002775,
+        "source": "A1"
+      },
+      {
+        "idx": 7,
+        "b1": 71,
+        "p1": 1.08803,
+        "b2": 82,
+        "p2": 1.0906,
+        "lbl1": "L27",
+        "lbl2": "H4",
+        "amp": 0.00257,
+        "time": 11,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002336,
+        "source": "A1"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 50,
+            "p1": 1.08729,
+            "b2": 51,
+            "p2": 1.08781,
+            "source": "sub"
+          },
+          {
+            "b1": 51,
+            "p1": 1.08781,
+            "b2": 53,
+            "p2": 1.08732,
+            "source": "sub"
+          },
+          {
+            "b1": 53,
+            "p1": 1.08732,
+            "b2": 55,
+            "p2": 1.08849,
+            "source": "sub"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 55,
+            "p1": 1.08849,
+            "b2": 56,
+            "p2": 1.0878,
+            "source": "A1",
+            "level": "A1",
+            "lbl1": "H34",
+            "lbl2": "L33"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 56,
+            "p1": 1.0878,
+            "b2": 58,
+            "p2": 1.08996,
+            "source": "A1",
+            "level": "A1",
+            "lbl1": "L33",
+            "lbl2": "H22"
+          }
+        ]
+      },
+      "3": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 58,
+            "p1": 1.08996,
+            "b2": 60,
+            "p2": 1.08842,
+            "source": "sub"
+          },
+          {
+            "b1": 60,
+            "p1": 1.08842,
+            "b2": 61,
+            "p2": 1.08948,
+            "source": "sub"
+          },
+          {
+            "b1": 61,
+            "p1": 1.08948,
+            "b2": 63,
+            "p2": 1.08813,
+            "source": "sub"
+          }
+        ]
+      },
+      "4": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 63,
+            "p1": 1.08813,
+            "b2": 64,
+            "p2": 1.08901,
+            "source": "sub"
+          },
+          {
+            "b1": 64,
+            "p1": 1.08901,
+            "b2": 65,
+            "p2": 1.08834,
+            "source": "sub"
+          },
+          {
+            "b1": 65,
+            "p1": 1.08834,
+            "b2": 67,
+            "p2": 1.08914,
+            "source": "sub"
+          }
+        ]
+      },
+      "5": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 67,
+            "p1": 1.08914,
+            "b2": 68,
+            "p2": 1.08853,
+            "source": "sub"
+          },
+          {
+            "b1": 68,
+            "p1": 1.08853,
+            "b2": 69,
+            "p2": 1.08905,
+            "source": "sub"
+          },
+          {
+            "b1": 69,
+            "p1": 1.08905,
+            "b2": 71,
+            "p2": 1.08803,
+            "source": "sub"
+          }
+        ]
+      },
+      "6": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 71,
+            "p1": 1.08803,
+            "b2": 73,
+            "p2": 1.08917,
+            "source": "sub"
+          },
+          {
+            "b1": 73,
+            "p1": 1.08917,
+            "b2": 74,
+            "p2": 1.08853,
+            "source": "sub"
+          },
+          {
+            "b1": 74,
+            "p1": 1.08853,
+            "b2": 82,
+            "p2": 1.0906,
+            "source": "sub"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.575,
+        "time_ratio": 0.2,
+        "dir_change": true,
+        "retrace": 0.575
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 3.1304,
+        "time_ratio": 2.0,
+        "dir_change": true,
+        "retrace": 3.1304
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 0.8472,
+        "time_ratio": 2.5,
+        "dir_change": true,
+        "retrace": 0.8472
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 0.5519,
+        "time_ratio": 0.8,
+        "dir_change": true,
+        "retrace": 0.5519
+      },
+      {
+        "pair": "S5→S6",
+        "amp_ratio": 1.099,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.099
+      },
+      {
+        "pair": "S6→S7",
+        "amp_ratio": 2.3153,
+        "time_ratio": 2.75,
+        "dir_change": true,
+        "retrace": 2.3153
+      }
+    ],
+    "summary": {
+      "total_bars": 32,
+      "total_amp": 0.00331,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260306_032246",
+    "timestamp": "2026-03-06T03:22:46.754428",
+    "label": "L3H2=L3H10L5H2  L3L5双底 破 颈线L11L10 后翻倍",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 7,
+    "dir_sequence": "UDUDUDU",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 104,
+        "p1": 1.08347,
+        "b2": 122,
+        "p2": 1.0871,
+        "lbl1": "L3",
+        "lbl2": "H21",
+        "amp": 0.00363,
+        "time": 18,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002017,
+        "source": "A2"
+      },
+      {
+        "idx": 2,
+        "b1": 122,
+        "p1": 1.0871,
+        "b2": 124,
+        "p2": 1.0865,
+        "lbl1": "H21",
+        "lbl2": "L16",
+        "amp": 0.0006,
+        "time": 2,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003,
+        "source": "A2"
+      },
+      {
+        "idx": 3,
+        "b1": 124,
+        "p1": 1.0865,
+        "b2": 126,
+        "p2": 1.08719,
+        "lbl1": "L16",
+        "lbl2": "H10",
+        "amp": 0.00069,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000345,
+        "source": "A2"
+      },
+      {
+        "idx": 4,
+        "b1": 126,
+        "p1": 1.08719,
+        "b2": 128,
+        "p2": 1.08364,
+        "lbl1": "H10",
+        "lbl2": "L5",
+        "amp": 0.00355,
+        "time": 2,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.001775,
+        "source": "A2"
+      },
+      {
+        "idx": 5,
+        "b1": 128,
+        "p1": 1.08364,
+        "b2": 144,
+        "p2": 1.09389,
+        "lbl1": "L5",
+        "lbl2": "H5",
+        "amp": 0.01025,
+        "time": 16,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0006406,
+        "source": "A2"
+      },
+      {
+        "idx": 6,
+        "b1": 144,
+        "p1": 1.09389,
+        "b2": 148,
+        "p2": 1.09316,
+        "lbl1": "H5",
+        "lbl2": "L34",
+        "amp": 0.00073,
+        "time": 4,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001825,
+        "source": "A2"
+      },
+      {
+        "idx": 7,
+        "b1": 148,
+        "p1": 1.09316,
+        "b2": 150,
+        "p2": 1.09426,
+        "lbl1": "L34",
+        "lbl2": "H2",
+        "amp": 0.0011,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00055,
+        "source": "A2"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 104,
+            "p1": 1.08347,
+            "b2": 110,
+            "p2": 1.08533,
+            "source": "sub"
+          },
+          {
+            "b1": 110,
+            "p1": 1.08533,
+            "b2": 116,
+            "p2": 1.0857,
+            "source": "sub"
+          },
+          {
+            "b1": 116,
+            "p1": 1.0857,
+            "b2": 122,
+            "p2": 1.0871,
+            "source": "sub"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 122,
+            "p1": 1.0871,
+            "b2": 124,
+            "p2": 1.0865,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H21",
+            "lbl2": "L16"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 124,
+            "p1": 1.0865,
+            "b2": 126,
+            "p2": 1.08719,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "L16",
+            "lbl2": "H10"
+          }
+        ]
+      },
+      "3": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 126,
+            "p1": 1.08719,
+            "b2": 128,
+            "p2": 1.08364,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H10",
+            "lbl2": "L5"
+          }
+        ]
+      },
+      "4": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 128,
+            "p1": 1.08364,
+            "b2": 131,
+            "p2": 1.08449,
+            "source": "sub"
+          },
+          {
+            "b1": 131,
+            "p1": 1.08449,
+            "b2": 140,
+            "p2": 1.09156,
+            "source": "sub"
+          },
+          {
+            "b1": 140,
+            "p1": 1.09156,
+            "b2": 144,
+            "p2": 1.09389,
+            "source": "sub"
+          }
+        ]
+      },
+      "5": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 144,
+            "p1": 1.09389,
+            "b2": 145,
+            "p2": 1.09327,
+            "source": "sub"
+          },
+          {
+            "b1": 145,
+            "p1": 1.09327,
+            "b2": 146,
+            "p2": 1.09369,
+            "source": "sub"
+          },
+          {
+            "b1": 146,
+            "p1": 1.09369,
+            "b2": 148,
+            "p2": 1.09316,
+            "source": "sub"
+          }
+        ]
+      },
+      "6": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 148,
+            "p1": 1.09316,
+            "b2": 150,
+            "p2": 1.09426,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "L34",
+            "lbl2": "H2"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.1653,
+        "time_ratio": 0.1111,
+        "dir_change": true,
+        "retrace": 0.1653
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.15,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.15
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 5.1449,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 5.1449
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 2.8873,
+        "time_ratio": 8.0,
+        "dir_change": true,
+        "retrace": 2.8873
+      },
+      {
+        "pair": "S5→S6",
+        "amp_ratio": 0.0712,
+        "time_ratio": 0.25,
+        "dir_change": true,
+        "retrace": 0.0712
+      },
+      {
+        "pair": "S6→S7",
+        "amp_ratio": 1.5068,
+        "time_ratio": 0.5,
+        "dir_change": true,
+        "retrace": 1.5068
+      }
+    ],
+    "summary": {
+      "total_bars": 46,
+      "total_amp": 0.01079,
+      "net_dir": "UP"
+    }
+  },
+  {
+    "id": "20260306_032437",
+    "timestamp": "2026-03-06T03:24:37.052794",
+    "label": "H1L3=H1L6H4L3 一个线段，首先是被分成三波（模长和对称综合），这里分成7波，是个什么逻辑？",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 7,
+    "dir_sequence": "DUDUDUD",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 17,
+        "p1": 1.09637,
+        "b2": 43,
+        "p2": 1.08808,
+        "lbl1": "H1",
+        "lbl2": "L15",
+        "amp": 0.00829,
+        "time": 26,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003188,
+        "source": "A3"
+      },
+      {
+        "idx": 2,
+        "b1": 43,
+        "p1": 1.08808,
+        "b2": 44,
+        "p2": 1.08919,
+        "lbl1": "L15",
+        "lbl2": "H17",
+        "amp": 0.00111,
+        "time": 1,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00111,
+        "source": "A3"
+      },
+      {
+        "idx": 3,
+        "b1": 44,
+        "p1": 1.08919,
+        "b2": 50,
+        "p2": 1.08729,
+        "lbl1": "H17",
+        "lbl2": "L6",
+        "amp": 0.0019,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003167,
+        "source": "A3"
+      },
+      {
+        "idx": 4,
+        "b1": 50,
+        "p1": 1.08729,
+        "b2": 82,
+        "p2": 1.0906,
+        "lbl1": "L6",
+        "lbl2": "H4",
+        "amp": 0.00331,
+        "time": 32,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0001034,
+        "source": "A3"
+      },
+      {
+        "idx": 5,
+        "b1": 82,
+        "p1": 1.0906,
+        "b2": 88,
+        "p2": 1.08661,
+        "lbl1": "H4",
+        "lbl2": "L13",
+        "amp": 0.00399,
+        "time": 6,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000665,
+        "source": "A3"
+      },
+      {
+        "idx": 6,
+        "b1": 88,
+        "p1": 1.08661,
+        "b2": 99,
+        "p2": 1.08765,
+        "lbl1": "L13",
+        "lbl2": "H11",
+        "amp": 0.00104,
+        "time": 11,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 9.45e-05,
+        "source": "A3"
+      },
+      {
+        "idx": 7,
+        "b1": 99,
+        "p1": 1.08765,
+        "b2": 104,
+        "p2": 1.08347,
+        "lbl1": "H11",
+        "lbl2": "L3",
+        "amp": 0.00418,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000836,
+        "source": "A3"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 17,
+            "p1": 1.09637,
+            "b2": 22,
+            "p2": 1.09475,
+            "source": "sub"
+          },
+          {
+            "b1": 22,
+            "p1": 1.09475,
+            "b2": 42,
+            "p2": 1.08899,
+            "source": "sub"
+          },
+          {
+            "b1": 42,
+            "p1": 1.08899,
+            "b2": 43,
+            "p2": 1.08808,
+            "source": "sub"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 43,
+            "p1": 1.08808,
+            "b2": 44,
+            "p2": 1.08919,
+            "source": "A3",
+            "level": "A3",
+            "lbl1": "L15",
+            "lbl2": "H17"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 44,
+            "p1": 1.08919,
+            "b2": 50,
+            "p2": 1.08729,
+            "source": "A3",
+            "level": "A3",
+            "lbl1": "H17",
+            "lbl2": "L6"
+          }
+        ]
+      },
+      "3": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 50,
+            "p1": 1.08729,
+            "b2": 60,
+            "p2": 1.08842,
+            "source": "sub"
+          },
+          {
+            "b1": 60,
+            "p1": 1.08842,
+            "b2": 61,
+            "p2": 1.08948,
+            "source": "sub"
+          },
+          {
+            "b1": 61,
+            "p1": 1.08948,
+            "b2": 82,
+            "p2": 1.0906,
+            "source": "sub"
+          }
+        ]
+      },
+      "4": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 82,
+            "p1": 1.0906,
+            "b2": 88,
+            "p2": 1.08661,
+            "source": "A3",
+            "level": "A3",
+            "lbl1": "H4",
+            "lbl2": "L13"
+          }
+        ]
+      },
+      "5": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 88,
+            "p1": 1.08661,
+            "b2": 90,
+            "p2": 1.08734,
+            "source": "sub"
+          },
+          {
+            "b1": 90,
+            "p1": 1.08734,
+            "b2": 91,
+            "p2": 1.08691,
+            "source": "sub"
+          },
+          {
+            "b1": 91,
+            "p1": 1.08691,
+            "b2": 99,
+            "p2": 1.08765,
+            "source": "sub"
+          }
+        ]
+      },
+      "6": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 99,
+            "p1": 1.08765,
+            "b2": 104,
+            "p2": 1.08347,
+            "source": "A3",
+            "level": "A3",
+            "lbl1": "H11",
+            "lbl2": "L3"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.1339,
+        "time_ratio": 0.0385,
+        "dir_change": true,
+        "retrace": 0.1339
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 1.7117,
+        "time_ratio": 6.0,
+        "dir_change": true,
+        "retrace": 1.7117
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 1.7421,
+        "time_ratio": 5.3333,
+        "dir_change": true,
+        "retrace": 1.7421
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 1.2054,
+        "time_ratio": 0.1875,
+        "dir_change": true,
+        "retrace": 1.2054
+      },
+      {
+        "pair": "S5→S6",
+        "amp_ratio": 0.2607,
+        "time_ratio": 1.8333,
+        "dir_change": true,
+        "retrace": 0.2607
+      },
+      {
+        "pair": "S6→S7",
+        "amp_ratio": 4.0192,
+        "time_ratio": 0.4545,
+        "dir_change": true,
+        "retrace": 4.0192
+      }
+    ],
+    "summary": {
+      "total_bars": 87,
+      "total_amp": 0.0129,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260306_032719",
+    "timestamp": "2026-03-06T03:27:19.341198",
+    "label": "H11L5=H11L3H10  或者 =H11L3H21L12 一个线段，被分成三波（收敛，但模长和对称综合），这里分成5波的逻辑，是否可以改掉？",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 5,
+    "dir_sequence": "DUDUD",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 99,
+        "p1": 1.08765,
+        "b2": 104,
+        "p2": 1.08347,
+        "lbl1": "H11",
+        "lbl2": "L3",
+        "amp": 0.00418,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000836,
+        "source": "A2"
+      },
+      {
+        "idx": 2,
+        "b1": 104,
+        "p1": 1.08347,
+        "b2": 122,
+        "p2": 1.0871,
+        "lbl1": "L3",
+        "lbl2": "H21",
+        "amp": 0.00363,
+        "time": 18,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.0002017,
+        "source": "A2"
+      },
+      {
+        "idx": 3,
+        "b1": 122,
+        "p1": 1.0871,
+        "b2": 124,
+        "p2": 1.0865,
+        "lbl1": "H21",
+        "lbl2": "L16",
+        "amp": 0.0006,
+        "time": 2,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003,
+        "source": "A2"
+      },
+      {
+        "idx": 4,
+        "b1": 124,
+        "p1": 1.0865,
+        "b2": 126,
+        "p2": 1.08719,
+        "lbl1": "L16",
+        "lbl2": "H10",
+        "amp": 0.00069,
+        "time": 2,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000345,
+        "source": "A2"
+      },
+      {
+        "idx": 5,
+        "b1": 126,
+        "p1": 1.08719,
+        "b2": 128,
+        "p2": 1.08364,
+        "lbl1": "H10",
+        "lbl2": "L5",
+        "amp": 0.00355,
+        "time": 2,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.001775,
+        "source": "A2"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 99,
+            "p1": 1.08765,
+            "b2": 104,
+            "p2": 1.08347,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H11",
+            "lbl2": "L3"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 104,
+            "p1": 1.08347,
+            "b2": 110,
+            "p2": 1.08533,
+            "source": "sub"
+          },
+          {
+            "b1": 110,
+            "p1": 1.08533,
+            "b2": 116,
+            "p2": 1.0857,
+            "source": "sub"
+          },
+          {
+            "b1": 116,
+            "p1": 1.0857,
+            "b2": 122,
+            "p2": 1.0871,
+            "source": "sub"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 122,
+            "p1": 1.0871,
+            "b2": 124,
+            "p2": 1.0865,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H21",
+            "lbl2": "L16"
+          }
+        ]
+      },
+      "3": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 124,
+            "p1": 1.0865,
+            "b2": 126,
+            "p2": 1.08719,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "L16",
+            "lbl2": "H10"
+          }
+        ]
+      },
+      "4": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 126,
+            "p1": 1.08719,
+            "b2": 128,
+            "p2": 1.08364,
+            "source": "A2",
+            "level": "A2",
+            "lbl1": "H10",
+            "lbl2": "L5"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.8684,
+        "time_ratio": 3.6,
+        "dir_change": true,
+        "retrace": 0.8684
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.1653,
+        "time_ratio": 0.1111,
+        "dir_change": true,
+        "retrace": 0.1653
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 1.15,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.15
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 5.1449,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 5.1449
+      }
+    ],
+    "summary": {
+      "total_bars": 29,
+      "total_amp": 0.00401,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260306_032930",
+    "timestamp": "2026-03-06T03:29:30.156745",
+    "label": "H9L1=H9L4H12L1 线段，被分成唯一逻辑的三波（模长和对称综合），这里分成5波的逻辑，是否可以改掉？",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 5,
+    "dir_sequence": "DUDUD",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 167,
+        "p1": 1.08679,
+        "b2": 175,
+        "p2": 1.08081,
+        "lbl1": "H9",
+        "lbl2": "L4",
+        "amp": 0.00598,
+        "time": 8,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0007475,
+        "source": "A1"
+      },
+      {
+        "idx": 2,
+        "b1": 175,
+        "p1": 1.08081,
+        "b2": 179,
+        "p2": 1.08311,
+        "lbl1": "L4",
+        "lbl2": "H25",
+        "amp": 0.0023,
+        "time": 4,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.000575,
+        "source": "A1"
+      },
+      {
+        "idx": 3,
+        "b1": 179,
+        "p1": 1.08311,
+        "b2": 180,
+        "p2": 1.08184,
+        "lbl1": "H25",
+        "lbl2": "L14",
+        "amp": 0.00127,
+        "time": 1,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.00127,
+        "source": "A1"
+      },
+      {
+        "idx": 4,
+        "b1": 180,
+        "p1": 1.08184,
+        "b2": 181,
+        "p2": 1.08316,
+        "lbl1": "L14",
+        "lbl2": "H12",
+        "amp": 0.00132,
+        "time": 1,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 0.00132,
+        "source": "A1"
+      },
+      {
+        "idx": 5,
+        "b1": 181,
+        "p1": 1.08316,
+        "b2": 186,
+        "p2": 1.08017,
+        "lbl1": "H12",
+        "lbl2": "L1",
+        "amp": 0.00299,
+        "time": 5,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.000598,
+        "source": "A1"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 167,
+            "p1": 1.08679,
+            "b2": 171,
+            "p2": 1.08311,
+            "source": "sub"
+          },
+          {
+            "b1": 171,
+            "p1": 1.08311,
+            "b2": 172,
+            "p2": 1.08418,
+            "source": "sub"
+          },
+          {
+            "b1": 172,
+            "p1": 1.08418,
+            "b2": 175,
+            "p2": 1.08081,
+            "source": "sub"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 175,
+            "p1": 1.08081,
+            "b2": 177,
+            "p2": 1.08216,
+            "source": "sub"
+          },
+          {
+            "b1": 177,
+            "p1": 1.08216,
+            "b2": 178,
+            "p2": 1.08115,
+            "source": "sub"
+          },
+          {
+            "b1": 178,
+            "p1": 1.08115,
+            "b2": 179,
+            "p2": 1.08311,
+            "source": "sub"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 179,
+            "p1": 1.08311,
+            "b2": 180,
+            "p2": 1.08184,
+            "source": "A1",
+            "level": "A1",
+            "lbl1": "H25",
+            "lbl2": "L14"
+          }
+        ]
+      },
+      "3": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 180,
+            "p1": 1.08184,
+            "b2": 181,
+            "p2": 1.08316,
+            "source": "A1",
+            "level": "A1",
+            "lbl1": "L14",
+            "lbl2": "H12"
+          }
+        ]
+      },
+      "4": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 181,
+            "p1": 1.08316,
+            "b2": 186,
+            "p2": 1.08017,
+            "source": "A1",
+            "level": "A1",
+            "lbl1": "H12",
+            "lbl2": "L1"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.3846,
+        "time_ratio": 0.5,
+        "dir_change": true,
+        "retrace": 0.3846
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 0.5522,
+        "time_ratio": 0.25,
+        "dir_change": true,
+        "retrace": 0.5522
+      },
+      {
+        "pair": "S3→S4",
+        "amp_ratio": 1.0394,
+        "time_ratio": 1.0,
+        "dir_change": true,
+        "retrace": 1.0394
+      },
+      {
+        "pair": "S4→S5",
+        "amp_ratio": 2.2652,
+        "time_ratio": 5.0,
+        "dir_change": true,
+        "retrace": 2.2652
+      }
+    ],
+    "summary": {
+      "total_bars": 19,
+      "total_amp": 0.00662,
+      "net_dir": "DN"
+    }
   }
 ]
