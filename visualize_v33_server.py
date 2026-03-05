@@ -687,7 +687,8 @@ function isBaseLevel(seg) {
 }
 
 // Auto-decompose a segment into exactly 3 sub-legs (reverse of merge)
-// Conditions: 1) exactly 3 legs, 2) modulus balance, 3) symmetric (|modA-modC| small)
+// RULE: directions MUST alternate (up-down-up or down-up-down) — zigzag HL交替
+// Conditions: 1) exactly 3 legs, 2) direction alternation, 3) modulus balance, 4) symmetric
 // Small legs are discarded: each leg mod must be >= 10% of parent mod
 // Importance of split points is rewarded
 // Returns { combos: [[3 legs],[3 legs],[3 legs]] } — top 3 candidates
@@ -696,6 +697,16 @@ function autoDecomposeSegment(seg) {
   const parentTime = Math.abs(seg.b2 - seg.b1);
   const parentMod = Math.sqrt(parentTime**2 + (parentAmp*100000)**2);
   const minLegMod = parentMod * 0.10;  // each leg must be >= 10% of parent
+
+  // Direction sign helper: +1 for up, -1 for down, 0 for flat
+  function dirSign(leg) { return leg.p2 > leg.p1 ? 1 : (leg.p2 < leg.p1 ? -1 : 0); }
+
+  // Check zigzag alternation: directions must alternate (d1 != d2 && d2 != d3)
+  function isAlternating(legs) {
+    const d0 = dirSign(legs[0]), d1 = dirSign(legs[1]), d2 = dirSign(legs[2]);
+    if(d0 === 0 || d1 === 0 || d2 === 0) return false;  // no flat legs
+    return d0 !== d1 && d1 !== d2;
+  }
 
   // Collect ALL pivots from ALL snapshots + TOP array (importance-ranked)
   const pivotMap = {};  // bar -> {bar, price, imp}
@@ -722,6 +733,16 @@ function autoDecomposeSegment(seg) {
   uniq.sort((a,b) => a.bar - b.bar);
   if(uniq.length < 2) return { combos: [[seg]] };
 
+  // Score a 3-leg candidate (lower = better)
+  function scoreCandidate(legs, mods, pi, pj) {
+    const avg = (mods[0]+mods[1]+mods[2]) / 3;
+    const variance = mods.reduce((s,m) => s + (m-avg)**2, 0) / 3;
+    const normVar = variance / (avg*avg || 1);
+    const symDiff = Math.abs(mods[0] - mods[2]) / (avg || 1);
+    const impBonus = (pi.imp + pj.imp) * 0.5;
+    return normVar + symDiff - impBonus;
+  }
+
   // Enumerate C(N,2) pairs → 3-leg candidates
   const candidates = [];
   for(let i = 0; i < uniq.length; i++) {
@@ -732,26 +753,21 @@ function autoDecomposeSegment(seg) {
         { b1: pi.bar, p1: pi.price, b2: pj.bar, p2: pj.price, source: 'sub' },
         { b1: pj.bar, p1: pj.price, b2: seg.b2, p2: seg.p2, source: 'sub' }
       ];
+
+      // MUST alternate direction (zigzag HL交替规则)
+      if(!isAlternating(legs)) continue;
+
       const mods = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
 
       // Discard if any leg too small (归并掉小腿)
       if(mods[0] < minLegMod || mods[1] < minLegMod || mods[2] < minLegMod) continue;
 
-      const avg = (mods[0]+mods[1]+mods[2]) / 3;
-      // Balance: normalized modulus variance
-      const variance = mods.reduce((s,m) => s + (m-avg)**2, 0) / 3;
-      const normVar = variance / (avg*avg || 1);
-      // Symmetric: |modA - modC| / avg
-      const symDiff = Math.abs(mods[0] - mods[2]) / (avg || 1);
-      // Importance bonus: higher importance split points → lower score (better)
-      const impBonus = (pi.imp + pj.imp) * 0.5;  // scale ~0-1
-      // Combined: lower = better
-      const score = normVar + symDiff - impBonus;
-      candidates.push({ legs, score, mods, impBonus });
+      const score = scoreCandidate(legs, mods, pi, pj);
+      candidates.push({ legs, score, mods });
     }
   }
 
-  // If no candidate passes min-leg filter, relax to 5% and retry
+  // If no candidate passes min-leg filter, relax to 5% and retry (still require alternation)
   if(candidates.length === 0) {
     const softMin = parentMod * 0.05;
     for(let i = 0; i < uniq.length; i++) {
@@ -762,14 +778,11 @@ function autoDecomposeSegment(seg) {
           { b1: pi.bar, p1: pi.price, b2: pj.bar, p2: pj.price, source: 'sub' },
           { b1: pj.bar, p1: pj.price, b2: seg.b2, p2: seg.p2, source: 'sub' }
         ];
+        if(!isAlternating(legs)) continue;
         const mods = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
         if(mods[0] < softMin || mods[1] < softMin || mods[2] < softMin) continue;
-        const avg = (mods[0]+mods[1]+mods[2]) / 3;
-        const normVar = mods.reduce((s,m) => s + (m-avg)**2, 0) / 3 / (avg*avg || 1);
-        const symDiff = Math.abs(mods[0] - mods[2]) / (avg || 1);
-        const impBonus = (pi.imp + pj.imp) * 0.5;
-        const score = normVar + symDiff - impBonus;
-        candidates.push({ legs, score, mods, impBonus });
+        const score = scoreCandidate(legs, mods, pi, pj);
+        candidates.push({ legs, score, mods });
       }
     }
   }
@@ -2093,15 +2106,20 @@ cv.addEventListener('click', function(e) {
   // 非画线模式: annotation single-click (delayed 250ms to avoid dblclick conflict)
   // OR drawn-line selection
   const annD = md();
+  console.log('[click] drawTool=', drawTool, 'locked=', annD.locked, 'px=', px, 'py=', py);
   if(!annD.locked) {
     const annHit = findNearestSeg(px, py);
+    console.log('[click] annHit=', annHit ? (annHit.seg.source + ' dist=' + annHit.dist.toFixed(1)) : 'null');
     if(annHit) {
+      // Cancel any previous pending click timer before setting new one
+      if(_annClickTimer) { clearTimeout(_annClickTimer); _annClickTimer = null; }
       // Delay to distinguish from dblclick
       const _px = px, _py = py;
       _annClickTimer = setTimeout(function() {
         _annClickTimer = null;
         const ep = nearerEndpoint(_px, _py, annHit.seg);
         const epLabel = barToLabel(ep.bar);
+        console.log('[click-timer] fired, clickCount=', annD.clickCount, 'ep=', epLabel);
 
         if(annD.clickCount === 0) {
           // First click: select HEAD endpoint
