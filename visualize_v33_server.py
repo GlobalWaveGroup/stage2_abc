@@ -402,7 +402,8 @@ def index(request: Request):
       <div style="color:#888;padding:2px 8px;font-size:9px;border-bottom:1px solid #333;">--- Wave Patterns ---</div>
       <div class="lhItem" onclick="setDrawTool('wave3')">&#12336; 3-Wave</div>
       <div class="lhItem" onclick="setDrawTool('wave5')">&#12336; 5-Wave</div>
-      <div class="lhItem" onclick="setDrawTool('triangle')">&#9651; Triangle</div>
+      <div class="lhItem" onclick="setDrawTool('tri_contract')">&#9651; Contracting Triangle</div>
+      <div class="lhItem" onclick="setDrawTool('tri_expand')">&#9661; Expanding Triangle</div>
       <div style="color:#888;padding:2px 8px;font-size:9px;border-bottom:1px solid #333;">--- Mode ---</div>
       <div class="lhItem" onclick="setDrawTool(null)">&#10006; Select Mode</div>
     </div>
@@ -530,29 +531,63 @@ function buildSubBoxes() {
   const filledL1 = annSlots.filter(s => s);
   if(filledL1.length === 0) return;
   subSlots = new Array(ANN_MAX);
+
+  // Mode selector row
+  const modeRow = document.createElement('div');
+  modeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:3px;align-items:center;';
+  const modes = ['balanced','simplest','largest','symmetric'];
+  const modeLabels = {'balanced':'Balanced','simplest':'Simplest','largest':'Largest B','symmetric':'Symmetric A=C'};
+  for(const m of modes) {
+    const mb = document.createElement('span');
+    mb.style.cssText = 'color:' + (decompMode===m?'#fa8':'#666') + ';font-size:9px;cursor:pointer;padding:1px 4px;border:1px solid '+(decompMode===m?'#a64':'#333')+';border-radius:2px;';
+    mb.textContent = modeLabels[m];
+    mb.onclick = function() { decompMode = m; buildSubBoxes(); };
+    modeRow.appendChild(mb);
+  }
+  container.appendChild(modeRow);
+
   for(let i = 0; i < ANN_MAX; i++) {
     if(!annSlots[i]) continue;
-    // Try to auto-decompose each L1 segment into sub-structure
-    const subs = autoDecomposeSegment(annSlots[i]);
-    subSlots[i] = subs;
+    const result = autoDecomposeSegment(annSlots[i], decompMode);
+    subSlots[i] = result;
+    const ci = subComboIdx[i] || 0;
+    const subs = result.combos[ci] || result.combos[0] || [annSlots[i]];
 
     // Create a group for this L1 slot
     const group = document.createElement('div');
-    group.style.cssText = 'display:flex;flex-direction:column;margin-right:6px;';
+    group.style.cssText = 'display:flex;flex-direction:column;margin-right:6px;margin-bottom:2px;';
+
+    // Header with combo switcher
     const hdr = document.createElement('div');
-    hdr.style.cssText = 'color:#666;font-size:8px;text-align:center;';
-    hdr.textContent = 'S' + (i+1);
+    hdr.style.cssText = 'display:flex;align-items:center;gap:2px;';
+    const hdrLabel = document.createElement('span');
+    hdrLabel.style.cssText = 'color:#886;font-size:8px;';
+    hdrLabel.textContent = 'S' + (i+1);
+    hdr.appendChild(hdrLabel);
+    // Combo switch buttons (1/2/3)
+    if(result.combos.length > 1) {
+      for(let c = 0; c < Math.min(3, result.combos.length); c++) {
+        const cb = document.createElement('span');
+        cb.style.cssText = 'color:'+(c===ci?'#fa8':'#555')+';font-size:7px;cursor:pointer;padding:0 2px;border:1px solid '+(c===ci?'#a64':'#222')+';border-radius:1px;';
+        cb.textContent = '' + (c+1);
+        (function(slot, combo) {
+          cb.onclick = function() { subComboIdx[slot] = combo; buildSubBoxes(); };
+        })(i, c);
+        hdr.appendChild(cb);
+      }
+    }
     group.appendChild(hdr);
+
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:1px;';
-
     for(let j = 0; j < subs.length; j++) {
       const sub = subs[j];
       const sbox = document.createElement('div');
       sbox.style.cssText = 'min-width:75px;height:28px;background:#0a0a18;border:1px solid #443;border-radius:2px;padding:2px 3px;font-size:8px;font-family:monospace;color:#a86;display:flex;flex-direction:column;justify-content:center;';
       const d = sub.p2 > sub.p1 ? '\\u2191' : '\\u2193';
       const dc = sub.p2 > sub.p1 ? '#4f4' : '#f44';
-      sbox.innerHTML = '<div style="color:#886;">s'+(j+1)+' <span style="color:'+dc+';">'+d+'</span></div>' +
+      const mod = Math.sqrt((sub.b2-sub.b1)**2 + ((sub.p2-sub.p1)*100000)**2).toFixed(1);
+      sbox.innerHTML = '<div style="color:#886;">s'+(j+1)+' <span style="color:'+dc+';">'+d+'</span> <span style="color:#554;">m'+mod+'</span></div>' +
         '<div style="color:#665;font-size:7px;">b'+sub.b1+'\\u2192b'+sub.b2+'</div>';
       row.appendChild(sbox);
     }
@@ -561,8 +596,11 @@ function buildSubBoxes() {
   }
 }
 
-// Auto-decompose a segment into sub-structure (find best 3-leg split)
-function autoDecomposeSegment(seg) {
+// Auto-decompose a segment into sub-structure
+// Returns { mode: 'simplest'|'largest'|'balanced'|'symmetric', combos: [[legs],[legs],[legs]] }
+// Each combo is an array of 3 leg objects
+function autoDecomposeSegment(seg, mode) {
+  mode = mode || 'balanced';
   // Find all pivot points between seg.b1 and seg.b2 from all visible snapshots
   const pivots = [];
   for(let si = 0; si < S.length; si++) {
@@ -574,9 +612,8 @@ function autoDecomposeSegment(seg) {
       }
     }
   }
-  if(pivots.length < 2) return [seg];  // can't decompose
+  if(pivots.length < 2) return { mode: mode, combos: [[seg]] };
 
-  // Remove duplicate bars, sort by bar
   const seen = new Set();
   const uniq = [];
   for(const p of pivots) {
@@ -584,7 +621,7 @@ function autoDecomposeSegment(seg) {
   }
   uniq.sort((a,b) => a.bar - b.bar);
 
-  // Try all pairs (i,j) as split points to create 3-leg: seg.b1→pi→pj→seg.b2
+  // Generate all possible 3-leg splits
   const candidates = [];
   for(let i = 0; i < uniq.length; i++) {
     for(let j = i+1; j < uniq.length; j++) {
@@ -593,17 +630,44 @@ function autoDecomposeSegment(seg) {
         { b1: uniq[i].bar, p1: uniq[i].price, b2: uniq[j].bar, p2: uniq[j].price, source: 'sub' },
         { b1: uniq[j].bar, p1: uniq[j].price, b2: seg.b2, p2: seg.p2, source: 'sub' }
       ];
-      // Score: prefer balanced modulus lengths
       const lens = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
+      const times = legs.map(l => Math.abs(l.b2-l.b1));
+      const amps = legs.map(l => Math.abs(l.p2-l.p1));
       const avgLen = (lens[0]+lens[1]+lens[2]) / 3;
       const variance = lens.reduce((s,l) => s + (l-avgLen)**2, 0) / 3;
-      candidates.push({ legs, variance, lens });
+      // Symmetry score: how similar are legs[0] and legs[2] (like A and C in Elliott)
+      const symScore = Math.abs(lens[0] - lens[2]) / (avgLen || 1);
+      // Simplicity: minimize number of pivots used (always 2 for 3-leg, so rank by largest sub-seg)
+      const maxSub = Math.max(...lens);
+      candidates.push({ legs, variance, symScore, maxSub, totalLen: lens[0]+lens[1]+lens[2], lens });
     }
   }
-  if(candidates.length === 0) return [seg];
-  candidates.sort((a,b) => a.variance - b.variance);
-  return candidates[0].legs;
+  if(candidates.length === 0) return { mode: mode, combos: [[seg]] };
+
+  // Score by mode
+  let scored;
+  if(mode === 'simplest') {
+    // Fewest internal pivots → largest sub-segments → minimize total segments → maximize maxSub
+    scored = [...candidates].sort((a,b) => b.maxSub - a.maxSub);
+  } else if(mode === 'largest') {
+    // Maximize the scale of the middle segment (B wave = largest retracement)
+    scored = [...candidates].sort((a,b) => b.lens[1] - a.lens[1]);
+  } else if(mode === 'symmetric') {
+    // Minimize asymmetry between first and third legs
+    scored = [...candidates].sort((a,b) => a.symScore - b.symScore);
+  } else {
+    // 'balanced' — minimize modulus variance (most equal-length legs)
+    scored = [...candidates].sort((a,b) => a.variance - b.variance);
+  }
+
+  // Return top 3 combos
+  const top3 = scored.slice(0, 3).map(c => c.legs);
+  return { mode: mode, combos: top3 };
 }
+
+// Current decomposition mode and per-slot sub-combo index
+let decompMode = 'balanced';  // 'simplest'|'largest'|'balanced'|'symmetric'
+let subComboIdx = {};  // subComboIdx[slotIdx] = 0|1|2
 
 function parseManualInput(idx, val) {
   if(annLocked) return;
@@ -1131,30 +1195,32 @@ async function editAnnotLabel(id, btn) {
   } catch(e) { setAnnotStatus('Update error: ' + e.message, '#f88'); }
 }
 
-// Override the original draw to also show annotation highlights
-const _origDraw = draw;
-// We can't easily override since draw is declared with function keyword.
-// Instead, we patch: after any draw() call from v3 controls, redraw highlights.
-// Use MutationObserver or interval is ugly. Better: wrap toggle functions.
-const _patchedFns = ['showAll','hideAll','showType','showBase','toggleExtra','toggleTop',
+// ========== INTERACTION MODE ==========
+// 'select' = default (click selects lines, dblclick annotates)
+// 'draw' = drawing mode (click places points, dblclick disabled)
+// Managed via drawTool: if drawTool is set → draw mode, else → select mode
+// No separate variable needed; drawTool already serves this purpose.
+
+// ========== UNIFIED PATCH CHAIN ==========
+// Single patch layer: all v3 toggle functions → redrawAll (which does draw + aux + drawn + annot)
+const _allPatchFns = ['showAll','hideAll','showType','showBase','toggleExtra','toggleTop',
   'toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
-for(const fn of _patchedFns) {
+for(const fn of _allPatchFns) {
   const orig = window[fn];
   if(orig) {
     window[fn] = function() {
       orig.apply(this, arguments);
-      if(annSlots.some(s => s)) drawAnnotHighlights();
+      redrawAll();
     };
   }
 }
-// Also patch slider updates
-const _patchedSliders = ['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
-for(const fn of _patchedSliders) {
+const _allPatchSliders = ['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
+for(const fn of _allPatchSliders) {
   const orig = window[fn];
   if(orig) {
     window[fn] = function(v) {
       orig.call(this, v);
-      if(annSlots.some(s => s)) drawAnnotHighlights();
+      redrawAll();
     };
   }
 }
@@ -1273,7 +1339,8 @@ function setDrawTool(tool) {
   else { drawTool = tool; drawPhase = 0; waveClickCount = 0; wavePoints = []; }
   const btn = document.getElementById('drawBtn');
   const labels = { trend:'Trend*', hline:'HLine*', vline:'VLine*', cross:'Cross*',
-    ray:'Ray*', extended:'ExtLine*', wave3:'Wave3*', wave5:'Wave5*', triangle:'Tri*' };
+    ray:'Ray*', extended:'ExtLine*', wave3:'Wave3*', wave5:'Wave5*',
+    tri_contract:'CTri*', tri_expand:'ETri*' };
   if (drawTool) {
     btn.style.background = '#4a4a00'; btn.style.borderColor = '#ff0';
     btn.querySelector('span').textContent = (labels[drawTool] || 'Draw*') + '\u25BC';
@@ -1287,62 +1354,55 @@ function setDrawTool(tool) {
 // Wave drawing state
 let waveClickCount = 0;
 let wavePoints = [];  // [{b,p,snap}, ...]
-function getWaveN() { return drawTool === 'wave3' ? 4 : drawTool === 'wave5' ? 6 : drawTool === 'triangle' ? 5 : 0; }
+function getWaveN() { return drawTool === 'wave3' ? 4 : drawTool === 'wave5' ? 6 : 0; }
 
 // ========== SMART AUTO-FILL FROM SELECTION ==========
 // Select multiple drawn lines → auto-compose into L1 annotation slots
+// KEY: ignores time order of selection; auto-reorders by segment characteristics
 function autoFillFromSelection() {
   if(annLocked) return;
-  // Collect selected drawn lines (or all if none selected)
   const indices = selectedLines.size > 0 ? [...selectedLines] : [];
   if(indices.length === 0) {
     setAnnotStatus('Select drawn lines first (click + Shift+click)', '#f88');
     return;
   }
 
-  // Get the line objects
   const lines = indices.map(i => drawnLines[i]).filter(l => l && l.type === 'trendline');
   if(lines.length === 0) {
     setAnnotStatus('No trendlines selected (H/V lines excluded)', '#f88');
     return;
   }
 
-  // Build segments from lines
-  const rawSegs = lines.map(l => ({
-    b1: Math.round(l.b1), p1: l.p1,
-    b2: Math.round(l.b2), p2: l.p2,
-    source: 'DRAW:' + (l.label || l.id.slice(-6)),
-    amp: Math.abs(l.p2 - l.p1),
-    time: Math.abs(l.b2 - l.b1),
-    modulus: Math.sqrt((l.b2 - l.b1) ** 2 + ((l.p2 - l.p1) * 100000) ** 2)
-  }));
+  // Build segments from lines (normalize: ensure b1 < b2)
+  const rawSegs = lines.map(l => {
+    let b1 = Math.round(l.b1), p1 = l.p1, b2 = Math.round(l.b2), p2 = l.p2;
+    if(b1 > b2) { [b1,b2] = [b2,b1]; [p1,p2] = [p2,p1]; }
+    const amp = Math.abs(p2 - p1);
+    const time = Math.abs(b2 - b1);
+    const modulus = Math.sqrt(time**2 + (amp*100000)**2);
+    return { b1, p1, b2, p2, amp, time, modulus,
+      source: 'DRAW:' + (l.label || l.id.slice(-6)),
+      dir: p2 > p1 ? 1 : -1 };
+  });
 
-  // Normalize direction: ensure b1 < b2 for each segment
-  for(const s of rawSegs) {
-    if(s.b1 > s.b2) {
-      [s.b1, s.b2] = [s.b2, s.b1];
-      [s.p1, s.p2] = [s.p2, s.p1];
-    }
-  }
-
-  // Generate combinations: find all valid chains (segments sharing endpoints)
+  // === IGNORE SELECTION ORDER: auto-reorder by segment features ===
+  // Strategy: find the arrangement that forms the best chain
   const allCombos = generateChainCombos(rawSegs);
 
   if(allCombos.length === 0) {
-    // Fallback: just sort by bar and fill directly
+    // Fallback: sort by b1 (time order)
     rawSegs.sort((a, b) => a.b1 - b.b1);
     fillL1Slots(rawSegs.slice(0, ANN_MAX));
-    setAnnotStatus('Filled ' + Math.min(rawSegs.length, ANN_MAX) + ' segs (no chain found, sorted by bar)', '#ff8');
+    setAnnotStatus('Filled ' + Math.min(rawSegs.length, ANN_MAX) + ' segs (sorted by bar)', '#ff8');
     return;
   }
 
-  // Store top 3 combos, display combo 1
   combos[0] = allCombos[0] || null;
   combos[1] = allCombos[1] || null;
   combos[2] = allCombos[2] || null;
   activeCombo = 0;
   fillL1Slots(combos[0]);
-  setAnnotStatus('Auto-filled combo 1/' + Math.min(3, allCombos.length) + ' (' + combos[0].length + ' segs)', '#8f8');
+  setAnnotStatus('Auto-filled combo 1/' + Math.min(3, allCombos.length) + ' (' + combos[0].length + ' segs, modulus-ranked)', '#8f8');
 }
 
 function switchCombo(idx) {
@@ -1376,81 +1436,136 @@ function fillL1Slots(segs) {
 }
 
 // Generate all valid chain combinations from a set of segments
-// A valid chain: segs are ordered by time, each seg's start connects to previous end
+// KEY DESIGN: ignores original selection order, tries ALL permutations for small sets
+// For larger sets uses greedy + proximity matching
 function generateChainCombos(segs) {
-  // Sort all segs by b1
-  const sorted = [...segs].sort((a, b) => a.b1 - b.b1);
+  const n = segs.length;
 
-  // Strategy 1: Greedy chain — try to link segments sharing endpoints
-  // Build adjacency: endpoint b2 → segments starting at that bar
-  const byStart = {};
-  for(const s of sorted) {
-    if(!byStart[s.b1]) byStart[s.b1] = [];
-    byStart[s.b1].push(s);
+  // For small sets (≤6), try all permutations to find best chain
+  if(n <= 6) {
+    const perms = [];
+    const permute = (arr, l, r) => {
+      if(l === r) { perms.push([...arr]); return; }
+      for(let i = l; i <= r; i++) {
+        [arr[l], arr[i]] = [arr[i], arr[l]];
+        permute(arr, l+1, r);
+        [arr[l], arr[i]] = [arr[i], arr[l]];
+      }
+    };
+    const indices = Array.from({length:n}, (_,i) => i);
+    permute(indices, 0, n-1);
+
+    const chains = [];
+    for(const perm of perms) {
+      const chain = perm.map(i => {
+        const s = segs[i];
+        return { b1:s.b1, p1:s.p1, b2:s.b2, p2:s.p2, source:s.source, amp:s.amp, time:s.time, modulus:s.modulus, dir:s.dir };
+      });
+      // For each adjacent pair, can we flip direction to make chain connect?
+      let valid = true;
+      for(let i = 1; i < chain.length; i++) {
+        const prev = chain[i-1], cur = chain[i];
+        // Check if prev.b2 connects to cur.b1
+        if(Math.abs(prev.b2 - cur.b1) <= 2) {
+          cur.b1 = prev.b2;  // snap
+          continue;
+        }
+        // Try flipping cur
+        if(Math.abs(prev.b2 - cur.b2) <= 2) {
+          [cur.b1,cur.b2] = [cur.b2,cur.b1];
+          [cur.p1,cur.p2] = [cur.p2,cur.p1];
+          cur.b1 = prev.b2;
+          continue;
+        }
+        valid = false; break;
+      }
+      if(valid && chain.length > 1) chains.push(chain);
+    }
+
+    if(chains.length > 0) {
+      return scoreAndRankChains(chains);
+    }
   }
 
-  // Find all chains starting from each segment
+  // For larger sets, use greedy strategies
+  const sorted = [...segs].sort((a, b) => a.b1 - b.b1);
   const chains = [];
+
+  // Strategy 1: Exact endpoint matching
+  const byStart = {};
+  for(const s of sorted) {
+    const key = Math.round(s.b1);
+    if(!byStart[key]) byStart[key] = [];
+    byStart[key].push(s);
+  }
   for(const startSeg of sorted) {
     const chain = [startSeg];
     let cur = startSeg;
+    const used = new Set([sorted.indexOf(startSeg)]);
     while(true) {
-      const next = byStart[cur.b2];
-      if(!next || next.length === 0) break;
-      // Pick the one not already in chain
-      const candidate = next.find(n => !chain.includes(n));
+      const key = Math.round(cur.b2);
+      const next = byStart[key];
+      if(!next) break;
+      const candidate = next.find(n => !used.has(sorted.indexOf(n)));
       if(!candidate) break;
       chain.push(candidate);
+      used.add(sorted.indexOf(candidate));
       cur = candidate;
     }
     if(chain.length > 1) chains.push(chain);
   }
 
-  // Strategy 2: If no chains found, try proximity matching (endpoints within 2 bars)
-  if(chains.length === 0) {
-    const TOLERANCE = 2;
-    for(const startSeg of sorted) {
-      const chain = [startSeg];
-      let cur = startSeg;
-      const used = new Set([sorted.indexOf(startSeg)]);
-      while(true) {
-        let bestNext = null, bestDist = Infinity;
-        for(let i = 0; i < sorted.length; i++) {
-          if(used.has(i)) continue;
-          const dist = Math.abs(sorted[i].b1 - cur.b2);
-          if(dist <= TOLERANCE && dist < bestDist) {
-            bestDist = dist; bestNext = i;
-          }
+  // Strategy 2: Proximity matching (±2 bars)
+  const TOLERANCE = 2;
+  for(const startSeg of sorted) {
+    const chain = [startSeg];
+    let cur = startSeg;
+    const used = new Set([sorted.indexOf(startSeg)]);
+    while(true) {
+      let bestNext = null, bestDist = Infinity;
+      for(let i = 0; i < sorted.length; i++) {
+        if(used.has(i)) continue;
+        const dist = Math.abs(sorted[i].b1 - cur.b2);
+        if(dist <= TOLERANCE && dist < bestDist) {
+          bestDist = dist; bestNext = i;
         }
-        if(bestNext === null) break;
-        // Adjust: snap start to prev end
-        const ns = Object.assign({}, sorted[bestNext]);
-        ns.b1 = cur.b2;
-        chain.push(ns);
-        cur = ns;
-        used.add(bestNext);
       }
-      if(chain.length > 1) chains.push(chain);
+      if(bestNext === null) break;
+      const ns = Object.assign({}, sorted[bestNext]);
+      ns.b1 = cur.b2;  // snap
+      chain.push(ns);
+      cur = ns;
+      used.add(bestNext);
     }
+    if(chain.length > 1) chains.push(chain);
   }
 
-  // Strategy 3: Just sort by b1 (fallback)
+  // Fallback: sorted by b1
   if(chains.length === 0 && sorted.length > 0) {
     chains.push(sorted);
   }
 
-  // Score chains by modulus similarity (lower variance = better)
+  return scoreAndRankChains(chains);
+}
+
+function scoreAndRankChains(chains) {
+  // Score by: 1) chain length, 2) modulus similarity (lower variance = better)
   const scored = chains.map(chain => {
     const mods = chain.map(s => s.modulus || Math.sqrt((s.b2-s.b1)**2+((s.p2-s.p1)*100000)**2));
     const avg = mods.reduce((a,b)=>a+b,0)/mods.length;
     const variance = mods.reduce((s,m)=>s+(m-avg)**2,0)/mods.length;
     return { chain, variance, length: chain.length };
   });
-
-  // Sort: longer chains first, then lower variance
   scored.sort((a,b) => b.length - a.length || a.variance - b.variance);
-
-  return scored.slice(0, 3).map(s => s.chain);
+  // Deduplicate (chains with same segments in same order)
+  const unique = [];
+  const seen = new Set();
+  for(const s of scored) {
+    const key = s.chain.map(c => c.b1+'_'+c.b2).join('|');
+    if(!seen.has(key)) { seen.add(key); unique.push(s.chain); }
+    if(unique.length >= 3) break;
+  }
+  return unique;
 }
 // close dropdown on outside click
 document.addEventListener('click', function(e) {
@@ -1560,7 +1675,7 @@ function drawDrawnLines() {
     if (drawPreview.snap) { c2p.strokeStyle='#0f0'; c2p.lineWidth=2; c2p.beginPath(); c2p.arc(xS(drawPreview.b),yS(drawPreview.p),SNAP_RADIUS,0,Math.PI*2); c2p.stroke(); }
   }
   // Wave points preview
-  if (wavePoints.length > 0 && (drawTool === 'wave3' || drawTool === 'wave5' || drawTool === 'triangle')) {
+  if (wavePoints.length > 0 && (drawTool === 'wave3' || drawTool === 'wave5')) {
     const c2w = document.getElementById('chart').getContext('2d');
     c2w.strokeStyle = '#f80'; c2w.lineWidth = 2; c2w.globalAlpha = 0.7;
     // Draw completed legs
@@ -1699,19 +1814,26 @@ cv.addEventListener('click', function(e) {
       return;
     }
 
-    // Multi-click tools: wave3 (4 clicks), wave5 (6 clicks), triangle (5 clicks)
-    if (drawTool === 'wave3' || drawTool === 'wave5' || drawTool === 'triangle') {
+    // Triangle tools: single click → auto-generate pattern from point
+    if (drawTool === 'tri_contract' || drawTool === 'tri_expand') {
+      const triType = drawTool === 'tri_contract' ? 'contracting' : 'expanding';
+      drawTrianglePattern({ bar: Math.round(pt.b), price: pt.p, label: pt.snap || 'b'+Math.round(pt.b) }, triType);
+      return;
+    }
+
+    // Multi-click tools: wave3 (4 clicks), wave5 (6 clicks)
+    if (drawTool === 'wave3' || drawTool === 'wave5') {
       const needed = getWaveN();
       wavePoints.push(pt);
       waveClickCount++;
       if (waveClickCount >= needed) {
-        // Create line segments for each leg
         for(let w = 0; w < wavePoints.length - 1; w++) {
           const wp1 = wavePoints[w], wp2 = wavePoints[w+1];
+          const waveColor = (w % 2 === 0) ? '#4f4' : '#f44';
           const nl = { id: genLineId(),
             b1: Math.round(wp1.b*100)/100, p1: Math.round(wp1.p*100000)/100000,
             b2: Math.round(wp2.b*100)/100, p2: Math.round(wp2.p*100000)/100000,
-            type: 'trendline', color: '#ff0', label: drawTool + '_' + (w+1),
+            type: 'trendline', color: waveColor, label: drawTool + '_' + (w+1),
             active: true, snapped1: wp1.snap, snapped2: wp2.snap,
             waveGroup: wavePoints[0].b + '_' + needed };
           drawnLines.push(nl); pushUndo('add',{id:nl.id});
@@ -1784,7 +1906,7 @@ cv.addEventListener('mousemove', function(e) {
     redrawAll(); return;
   }
   // wave tool preview
-  if (wavePoints.length > 0 && (drawTool === 'wave3' || drawTool === 'wave5' || drawTool === 'triangle')) {
+  if (wavePoints.length > 0 && (drawTool === 'wave3' || drawTool === 'wave5')) {
     drawPreview = resolvePoint(px, py);
     redrawAll(); return;
   }
@@ -1926,8 +2048,14 @@ function showCtxMenu(x, y, contextInfo) {
   if (contextInfo && contextInfo.pivot && nSel === 0) {
     const pv = contextInfo.pivot;
     items.push({t:'--- Pivot: '+pv.label+' ---', header:true});
-    items.push({t:'In-Lines (show)',k:'I',fn:()=>showInLines(pv)});
-    items.push({t:'Out-Lines (Gann)',k:'O',fn:()=>showOutLines(pv)});
+    items.push({t:'In-Lines + Sym Axis + Arc',k:'I',fn:()=>showInLines(pv)});
+    items.push({t:'Out-Lines (Gann fan)',k:'O',fn:()=>showOutLines(pv)});
+    items.push({t:'Wave 3 from here \\u2191',k:'3',fn:()=>startDirectionalWave(pv, 3, 'up')});
+    items.push({t:'Wave 3 from here \\u2193',k:'3',fn:()=>startDirectionalWave(pv, 3, 'down')});
+    items.push({t:'Wave 5 from here \\u2191',k:'5',fn:()=>startDirectionalWave(pv, 5, 'up')});
+    items.push({t:'Wave 5 from here \\u2193',k:'5',fn:()=>startDirectionalWave(pv, 5, 'down')});
+    items.push({t:'\\u25b3 Contracting Triangle',k:'C',fn:()=>drawTrianglePattern(pv, 'contracting')});
+    items.push({t:'\\u25bd Expanding Triangle',k:'E',fn:()=>drawTrianglePattern(pv, 'expanding')});
     items.push({t:'H-Line here',k:'H',fn:()=>{
       const nl={id:genLineId(),b1:0,p1:pv.price,b2:K.length,p2:pv.price,type:'hline',color:'#fa0',label:pv.label,active:true,snapped1:pv.label,snapped2:null};
       drawnLines.push(nl); pushUndo('add',{id:nl.id}); saveDrawnLines(); redrawAll();
@@ -2003,18 +2131,80 @@ function drawFiboOnZigzag(seg, mode) {
 // --- In-Lines: show all zigzag segments connecting to a pivot ---
 function showInLines(pv) {
   const segs = collectVisibleSegs();
+  const inSegs = [];
+  const colors = ['#0ff','#0df','#0bf','#09f','#07f','#0fd','#0fb','#0f9','#0f7'];
   let count = 0;
+  // Group by level
+  const byLevel = {};
   for(const seg of segs) {
     if(seg.b1 === pv.bar || seg.b2 === pv.bar) {
+      const level = seg.source.split(':')[0] || seg.source;
+      if(!byLevel[level]) byLevel[level] = [];
+      byLevel[level].push(seg);
+    }
+  }
+  const levels = Object.keys(byLevel);
+  for(let li = 0; li < levels.length; li++) {
+    const level = levels[li];
+    const color = colors[li % colors.length];
+    for(const seg of byLevel[level]) {
       const nl = { id: genLineId(), b1: seg.b1, p1: seg.p1, b2: seg.b2, p2: seg.p2,
-        type: 'trendline', color: '#0ff', label: 'IN:' + seg.source,
-        active: true, snapped1: null, snapped2: null };
+        type: 'trendline', color: color, label: 'IN:' + seg.source + ' [' + level + ']',
+        active: true, snapped1: null, snapped2: null, inLineGroup: pv.bar };
       drawnLines.push(nl); pushUndo('add', {id: nl.id});
+      inSegs.push(seg);
       count++;
     }
   }
+
+  // Compute symmetry axis of in-lines: average direction vector
+  if(inSegs.length >= 2) {
+    let sumDx = 0, sumDy = 0;
+    for(const seg of inSegs) {
+      // Vector pointing INTO the pivot
+      const dx = pv.bar - (seg.b1 === pv.bar ? seg.b2 : seg.b1);
+      const dy = pv.price - (seg.b1 === pv.bar ? seg.p2 : seg.p1);
+      const len = Math.sqrt(dx*dx + (dy*100000)**2) || 1;
+      sumDx += dx / len;
+      sumDy += (dy*100000) / len;
+    }
+    const axLen = Math.sqrt(sumDx*sumDx + sumDy*sumDy) || 1;
+    const axDx = sumDx / axLen;
+    const axDy = sumDy / axLen / 100000;
+    // Draw symmetry axis (both directions from pivot)
+    const ext = 30;
+    const symAxis = { id: genLineId(),
+      b1: pv.bar - axDx * ext, p1: pv.price - axDy * ext,
+      b2: pv.bar + axDx * ext, p2: pv.price + axDy * ext,
+      type: 'trendline', color: '#f0f', label: 'SYM_AXIS',
+      active: true, snapped1: null, snapped2: null, renderMode: 'extended',
+      dash: [8,4] };
+    drawnLines.push(symAxis); pushUndo('add', {id: symAxis.id});
+
+    // Draw arc: radius = average modulus of in-lines
+    const avgMod = inSegs.reduce((s, seg) => {
+      const dx = seg.b2 - seg.b1;
+      const dy = (seg.p2 - seg.p1) * 100000;
+      return s + Math.sqrt(dx*dx + dy*dy);
+    }, 0) / inSegs.length;
+    // Approximate arc with 36-point polyline
+    const arcSegs = 36;
+    for(let a = 0; a < arcSegs; a++) {
+      const theta1 = (a / arcSegs) * Math.PI * 2;
+      const theta2 = ((a+1) / arcSegs) * Math.PI * 2;
+      const ab1 = pv.bar + Math.cos(theta1) * avgMod;
+      const ap1 = pv.price + Math.sin(theta1) * avgMod / 100000;
+      const ab2 = pv.bar + Math.cos(theta2) * avgMod;
+      const ap2 = pv.price + Math.sin(theta2) * avgMod / 100000;
+      const arcLine = { id: genLineId(), b1: ab1, p1: ap1, b2: ab2, p2: ap2,
+        type: 'trendline', color: 'rgba(255,0,255,0.3)', label: '',
+        active: true, snapped1: null, snapped2: null, arcGroup: pv.bar };
+      drawnLines.push(arcLine); pushUndo('add', {id: arcLine.id});
+    }
+  }
+
   saveDrawnLines(); redrawAll();
-  setAnnotStatus('In-Lines: ' + count + ' segments at ' + pv.label, '#0ff');
+  setAnnotStatus('In-Lines: ' + count + ' segs (' + levels.length + ' levels) + sym axis + arc at ' + pv.label, '#0ff');
 }
 
 // --- Out-Lines: Gann-style fan from a pivot ---
@@ -2038,6 +2228,131 @@ function showOutLines(pv) {
   }
   saveDrawnLines(); redrawAll();
   setAnnotStatus('Gann fan: ' + angles.length * 2 + ' rays from ' + pv.label, '#ff8');
+}
+
+// --- Directional wave from a pivot point ---
+function startDirectionalWave(pv, nWaves, direction) {
+  // Auto-generate a wave pattern from pivot using nearby zigzag structure
+  const segs = collectVisibleSegs();
+  // Find segments that start from or near this pivot, going in the specified direction
+  const candidates = [];
+  for(const seg of segs) {
+    if(Math.abs(seg.b1 - pv.bar) <= 1) {
+      const isUp = seg.p2 > seg.p1;
+      if((direction === 'up' && isUp) || (direction === 'down' && !isUp) || direction === 'horizontal') {
+        candidates.push(seg);
+      }
+    }
+  }
+  if(candidates.length === 0) {
+    // No matching segments found, create guide lines manually
+    const ampRange = mx - mn;
+    const step = ampRange * 0.05;
+    const barStep = 15;
+    const dir = direction === 'up' ? 1 : direction === 'down' ? -1 : 0;
+    const pts = [{ b: pv.bar, p: pv.price }];
+    for(let w = 0; w < nWaves; w++) {
+      const isImpulse = (w % 2 === 0);
+      const dp = isImpulse ? dir * step * (1 - w * 0.15) : -dir * step * 0.5;
+      const db = barStep * (isImpulse ? 1.2 : 0.8);
+      const last = pts[pts.length - 1];
+      pts.push({ b: last.b + db, p: last.p + dp });
+    }
+    for(let w = 0; w < pts.length - 1; w++) {
+      const waveColor = (w % 2 === 0) ? '#4f4' : '#f44';
+      const nl = { id: genLineId(),
+        b1: Math.round(pts[w].b*100)/100, p1: Math.round(pts[w].p*100000)/100000,
+        b2: Math.round(pts[w+1].b*100)/100, p2: Math.round(pts[w+1].p*100000)/100000,
+        type: 'trendline', color: waveColor,
+        label: 'W' + (w+1) + '/' + nWaves + direction.charAt(0).toUpperCase(),
+        active: true, snapped1: w===0?pv.label:null, snapped2: null,
+        waveGroup: 'wave_' + pv.bar + '_' + nWaves + '_' + direction };
+      drawnLines.push(nl); pushUndo('add', {id: nl.id});
+    }
+    saveDrawnLines(); redrawAll();
+    setAnnotStatus(nWaves + '-wave ' + direction + ' guide from ' + pv.label + ' (drag to adjust)', '#8f8');
+    return;
+  }
+  // Use existing zigzag structure to trace wave
+  // Sort candidates by modulus (prefer larger)
+  candidates.sort((a,b) => {
+    const ma = Math.sqrt((a.b2-a.b1)**2+((a.p2-a.p1)*100000)**2);
+    const mb = Math.sqrt((b.b2-b.b1)**2+((b.p2-b.p1)*100000)**2);
+    return mb - ma;
+  });
+  // Chain from first candidate
+  const chain = [candidates[0]];
+  let cur = candidates[0];
+  for(let w = 1; w < nWaves; w++) {
+    let next = null;
+    for(const seg of segs) {
+      if(Math.abs(seg.b1 - cur.b2) <= 1 && seg.b2 !== cur.b1) {
+        next = seg; break;
+      }
+    }
+    if(!next) break;
+    chain.push(next);
+    cur = next;
+  }
+  for(let w = 0; w < chain.length; w++) {
+    const waveColor = (w % 2 === 0) ? '#4f4' : '#f44';
+    const nl = { id: genLineId(), b1: chain[w].b1, p1: chain[w].p1,
+      b2: chain[w].b2, p2: chain[w].p2,
+      type: 'trendline', color: waveColor,
+      label: 'W' + (w+1) + '/' + nWaves + direction.charAt(0).toUpperCase() + ' ' + chain[w].source,
+      active: true, snapped1: null, snapped2: null,
+      waveGroup: 'wave_' + pv.bar + '_' + nWaves + '_' + direction };
+    drawnLines.push(nl); pushUndo('add', {id: nl.id});
+  }
+  saveDrawnLines(); redrawAll();
+  setAnnotStatus(chain.length + '-wave ' + direction + ' from ' + pv.label + ' (from zigzag)', '#8f8');
+}
+
+// --- Contracting/Expanding triangle ---
+function drawTrianglePattern(pv, type) {
+  // type: 'contracting' or 'expanding'
+  const ampRange = mx - mn;
+  const baseAmp = ampRange * 0.08;
+  const barStep = 12;
+  const factor = type === 'contracting' ? 0.75 : 1.33;
+  const pts = [{ b: pv.bar, p: pv.price }];
+  let amp = baseAmp;
+  let dir = 1;
+  for(let w = 0; w < 5; w++) {
+    const last = pts[pts.length - 1];
+    pts.push({ b: last.b + barStep, p: last.p + dir * amp });
+    dir *= -1;
+    amp *= factor;
+  }
+  for(let w = 0; w < pts.length - 1; w++) {
+    const nl = { id: genLineId(),
+      b1: Math.round(pts[w].b*100)/100, p1: Math.round(pts[w].p*100000)/100000,
+      b2: Math.round(pts[w+1].b*100)/100, p2: Math.round(pts[w+1].p*100000)/100000,
+      type: 'trendline', color: type==='contracting'?'#8cf':'#fc8',
+      label: type.charAt(0).toUpperCase() + 'Tri_' + (w+1),
+      active: true, snapped1: w===0?pv.label:null, snapped2: null,
+      waveGroup: type + '_tri_' + pv.bar };
+    drawnLines.push(nl); pushUndo('add', {id: nl.id});
+  }
+  // Add boundary lines (connecting highs and lows)
+  const highs = pts.filter((_,i) => i > 0 && i % 2 === 1);
+  const lows = pts.filter((_,i) => i > 0 && i % 2 === 0);
+  if(highs.length >= 2) {
+    const bl = { id: genLineId(), b1: highs[0].b, p1: highs[0].p,
+      b2: highs[highs.length-1].b, p2: highs[highs.length-1].p,
+      type: 'trendline', color: '#f44', label: type + '_upper',
+      active: true, snapped1: null, snapped2: null, renderMode: 'extended', dash: [6,3] };
+    drawnLines.push(bl); pushUndo('add', {id: bl.id});
+  }
+  if(lows.length >= 2) {
+    const bl = { id: genLineId(), b1: lows[0].b, p1: lows[0].p,
+      b2: lows[lows.length-1].b, p2: lows[lows.length-1].p,
+      type: 'trendline', color: '#4f4', label: type + '_lower',
+      active: true, snapped1: null, snapped2: null, renderMode: 'extended', dash: [6,3] };
+    drawnLines.push(bl); pushUndo('add', {id: bl.id});
+  }
+  saveDrawnLines(); redrawAll();
+  setAnnotStatus(type + ' triangle from ' + pv.label + ' (drag to adjust)', '#8cf');
 }
 
 cv.addEventListener('contextmenu',function(e){
@@ -2092,12 +2407,8 @@ document.addEventListener('keydown',function(e){
   }
 });
 
-// Patch v3 toggle functions
-const _patchDraw=['showAll','hideAll','showType','showBase','toggleExtra','toggleTop','toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
-for(const fn of _patchDraw){const o=window[fn];if(o&&!o._dp){window[fn]=function(){o.apply(this,arguments);drawDrawnLines();};window[fn]._dp=true;}}
-const _patchSldr=['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
-for(const fn of _patchSldr){const o=window[fn];if(o&&!o._dp){window[fn]=function(v){o.call(this,v);drawDrawnLines();};window[fn]._dp=true;}}
-drawDrawnLines();
+// (patching consolidated into single unified patch chain above)
+redrawAll();
 
 // ========== T线/F线绘制 ==========
 function drawAuxLines() {
@@ -2226,32 +2537,8 @@ function updateFLineN(v) {
   if(annSlots.some(s => s)) drawAnnotHighlights();
 }
 
-// 把drawAuxLines加入到原有的draw patch链
-const _patchedFnsAux = ['showAll','hideAll','showType','showBase','toggleExtra','toggleTop',
-  'toggleImpVal','toggleFusion','toggleSym','togglePred','showStep'];
-for(const fn of _patchedFnsAux) {
-  const orig = window[fn];
-  if(orig && !orig._auxPatched) {
-    window[fn] = function() {
-      orig.apply(this, arguments);
-      drawAuxLines();
-    };
-    window[fn]._auxPatched = true;
-  }
-}
-const _patchedSlidersAux = ['updatePeakN','updateValleyN','updateFusionN','updateSymN','updatePredN','updateMinImp'];
-for(const fn of _patchedSlidersAux) {
-  const orig = window[fn];
-  if(orig && !orig._auxPatched) {
-    window[fn] = function(v) {
-      orig.call(this, v);
-      drawAuxLines();
-    };
-    window[fn]._auxPatched = true;
-  }
-}
-// 初始绘制
-drawAuxLines();
+// (aux line patching consolidated into unified patch chain above)
+// Initial draw already handled by redrawAll() above
 
 // Label history dropdown
 function showLabelHist() {
