@@ -511,7 +511,6 @@ for(const m of ANN_MODES) {
   };
 }
 let annotMode = 'zig'; // current active mode
-let decompMode = 'balanced';
 
 // Shortcut: get current mode data
 function md() { return annData[annotMode]; }
@@ -619,7 +618,7 @@ function buildSubBoxes(mode) {
       }
     } else {
       // Auto-decompose into 3 sub-segments
-      const result = autoDecomposeSegment(seg, decompMode);
+      const result = autoDecomposeSegment(seg);
       d.subSlots[i] = result;
       const ci = d.subComboIdx[i] || 0;
       const subs = result.combos[ci] || result.combos[0] || [seg];
@@ -629,9 +628,21 @@ function buildSubBoxes(mode) {
         if(!sb) continue;
         if(j < subs.length) {
           const s = subs[j];
-          const dir = s.p2 > s.p1 ? '\\u2191' : '\\u2193';
+          const sl1 = barToLabel(s.b1);
+          const sl2 = barToLabel(s.b2);
+          const sAmp = Math.abs(s.p2 - s.p1);
+          const sK = Math.abs(s.b2 - s.b1);
+          const sSlope = sK > 0 ? sAmp / sK : 0;
+          const sMod = Math.sqrt(sK*sK + (sAmp*100000)*(sAmp*100000));
           const dc = s.p2 > s.p1 ? '#4f4' : '#f44';
-          sb.innerHTML = '<span style="color:'+dc+';">'+dir+'</span><span style="color:#665;font-size:6px;margin-left:1px;">b'+s.b1+'\\u2192'+s.b2+'</span>';
+          const subLetter = String.fromCharCode(97+i) + '\\u2032' + (j+1);
+          // Format: 序号+端点字母 δ幅度 δK线 δ幅/K modulus
+          sb.innerHTML =
+            '<span style="color:'+dc+';">' + subLetter + '</span>' +
+            '<span style="color:#886;font-size:6px;">' + sl1+sl2 + '</span><br>' +
+            '<span style="color:#cc8;font-size:6px;">' + (sAmp*10000).toFixed(1) + 'p</span>' +
+            '<span style="color:#8a8;font-size:6px;">' + sK + 'K</span>' +
+            '<span style="color:#aaa;font-size:6px;">m' + sMod.toFixed(0) + '</span>';
           sb.style.background = '#0a0a18';
           sb.style.borderColor = '#443';
           sb.style.color = '#a86';
@@ -671,11 +682,10 @@ function isBaseLevel(seg) {
   return true;  // no internal pivots → L0
 }
 
-// Auto-decompose a segment into sub-structure
-// Returns { mode: 'simplest'|'largest'|'balanced'|'symmetric', combos: [[legs],[legs],[legs]] }
-// Each combo is an array of 3 leg objects
-function autoDecomposeSegment(seg, mode) {
-  mode = mode || 'balanced';
+// Auto-decompose a segment into 3 sub-legs
+// Scoring: balance (modulus variance) + symmetric (|modA - modC|)
+// Returns { combos: [[legs],[legs],[legs]] } — top 3 candidates
+function autoDecomposeSegment(seg) {
   // Find all pivot points between seg.b1 and seg.b2 from all visible snapshots
   const pivots = [];
   for(let si = 0; si < S.length; si++) {
@@ -687,7 +697,7 @@ function autoDecomposeSegment(seg, mode) {
       }
     }
   }
-  if(pivots.length < 2) return { mode: mode, combos: [[seg]] };
+  if(pivots.length < 2) return { combos: [[seg]] };
 
   const seen = new Set();
   const uniq = [];
@@ -696,7 +706,7 @@ function autoDecomposeSegment(seg, mode) {
   }
   uniq.sort((a,b) => a.bar - b.bar);
 
-  // Generate all possible 3-leg splits
+  // Enumerate all C(N,2) pairs of pivots as split points → 3-leg candidates
   const candidates = [];
   for(let i = 0; i < uniq.length; i++) {
     for(let j = i+1; j < uniq.length; j++) {
@@ -706,38 +716,22 @@ function autoDecomposeSegment(seg, mode) {
         { b1: uniq[j].bar, p1: uniq[j].price, b2: seg.b2, p2: seg.p2, source: 'sub' }
       ];
       const lens = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
-      const times = legs.map(l => Math.abs(l.b2-l.b1));
-      const amps = legs.map(l => Math.abs(l.p2-l.p1));
       const avgLen = (lens[0]+lens[1]+lens[2]) / 3;
+      // Balance: modulus variance (lower = more equal-length legs)
       const variance = lens.reduce((s,l) => s + (l-avgLen)**2, 0) / 3;
-      // Symmetry score: how similar are legs[0] and legs[2] (like A and C in Elliott)
-      const symScore = Math.abs(lens[0] - lens[2]) / (avgLen || 1);
-      // Simplicity: minimize number of pivots used (always 2 for 3-leg, so rank by largest sub-seg)
-      const maxSub = Math.max(...lens);
-      candidates.push({ legs, variance, symScore, maxSub, totalLen: lens[0]+lens[1]+lens[2], lens });
+      // Symmetric: |modulus_A - modulus_C| normalized (lower = more symmetric)
+      const symDiff = Math.abs(lens[0] - lens[2]) / (avgLen || 1);
+      // Combined score: balance + symmetric (both minimize, equal weight)
+      const score = variance / (avgLen*avgLen || 1) + symDiff;
+      candidates.push({ legs, score });
     }
   }
-  if(candidates.length === 0) return { mode: mode, combos: [[seg]] };
+  if(candidates.length === 0) return { combos: [[seg]] };
 
-  // Score by mode
-  let scored;
-  if(mode === 'simplest') {
-    // Fewest internal pivots → largest sub-segments → minimize total segments → maximize maxSub
-    scored = [...candidates].sort((a,b) => b.maxSub - a.maxSub);
-  } else if(mode === 'largest') {
-    // Maximize the scale of the middle segment (B wave = largest retracement)
-    scored = [...candidates].sort((a,b) => b.lens[1] - a.lens[1]);
-  } else if(mode === 'symmetric') {
-    // Minimize asymmetry between first and third legs
-    scored = [...candidates].sort((a,b) => a.symScore - b.symScore);
-  } else {
-    // 'balanced' — minimize modulus variance (most equal-length legs)
-    scored = [...candidates].sort((a,b) => a.variance - b.variance);
-  }
-
-  // Return top 3 combos
-  const top3 = scored.slice(0, 3).map(c => c.legs);
-  return { mode: mode, combos: top3 };
+  // Sort by combined score (lower = better)
+  candidates.sort((a,b) => a.score - b.score);
+  const top3 = candidates.slice(0, 3).map(c => c.legs);
+  return { combos: top3 };
 }
 
 function parseManualInput(idx, val) {
@@ -806,6 +800,12 @@ function setActiveSlot(mode, idx) {
   }
 }
 
+// Lookup importance for a bar from TOP array
+function barImp(bar) {
+  for(const p of TOP) { if(p.bar === bar) return p.imp; }
+  return 0;
+}
+
 function renderSlot(mode, idx) {
   const box = document.getElementById('segBox_' + mode + '_' + idx);
   if(!box) return;
@@ -817,20 +817,35 @@ function renderSlot(mode, idx) {
     box.style.background = '#111';
     return;
   }
-  const dir = seg.p2 > seg.p1 ? '\\u2191' : '\\u2193';
-  const dc = seg.p2 > seg.p1 ? '#4f4' : '#f44';
+  // Compute display values
   const lbl1 = seg.lbl1 || barToLabel(seg.b1);
   const lbl2 = seg.lbl2 || barToLabel(seg.b2);
+  const endpts = lbl1 + lbl2;  // e.g. "H3L5" (no arrow)
+  const dAmp = Math.abs(seg.p2 - seg.p1);
+  const dK = Math.abs(seg.b2 - seg.b1);
+  const slope = dK > 0 ? dAmp / dK : 0;
+  const mod = Math.sqrt(dK * dK + (dAmp * 100000) * (dAmp * 100000));
+  const imp1 = barImp(seg.b1);
+  const imp2 = barImp(seg.b2);
+  const impProd = imp1 * imp2;
+  const dc = seg.p2 > seg.p1 ? '#4f4' : '#f44';
+  const letter = String.fromCharCode(97 + idx);
   const src = seg.source || '';
   const isDrawn = src.startsWith('DRAW:');
-  const srcColor = isDrawn ? '#ff0' : '#4af';
   const srcBg = isDrawn ? '#1a1a00' : '#0a0a1a';
-  const srcLabel = isDrawn ? 'D' : (seg.level || src.slice(0,3));
-  const letter = String.fromCharCode(97+idx);
+  // Format: 序号+端点字母 δ幅度 δK线 δ幅/K modulus 端点重要性乘积
   box.innerHTML =
-    '<div style="color:#aaa;">' + letter + ' <span style="color:'+srcColor+';font-weight:bold;">' + lbl1 + '\\u2192' + lbl2 + '</span> <span style="color:' + dc + ';">' + dir + '</span></div>' +
-    '<div style="color:#8cf;font-size:9px;">b' + seg.b1 + ' ' + seg.p1.toFixed(5) + ' <span style="color:'+srcColor+';font-size:8px;">' + srcLabel + '</span></div>' +
-    '<div style="color:#fc8;font-size:9px;">b' + seg.b2 + ' ' + seg.p2.toFixed(5) + '</div>';
+    '<div style="color:#aaa;white-space:nowrap;overflow:hidden;">' +
+      '<span style="color:'+dc+';font-weight:bold;">' + letter + '</span>' +
+      '<span style="color:#8cf;">' + endpts + '</span>' +
+      ' <span style="color:#cc8;">' + (dAmp*10000).toFixed(1) + 'p</span>' +
+      ' <span style="color:#8a8;">' + dK + 'K</span>' +
+    '</div>' +
+    '<div style="color:#888;white-space:nowrap;overflow:hidden;">' +
+      '<span style="color:#a8a;">' + (slope*10000).toFixed(2) + '</span>' +
+      ' <span style="color:#aaa;">m' + mod.toFixed(1) + '</span>' +
+      ' <span style="color:#c86;">' + impProd.toFixed(3) + '</span>' +
+    '</div>';
   box.style.borderColor = (idx === d.active) ? '#f0c040' : (isDrawn ? '#554400' : '#003344');
   box.style.background = srcBg;
 }
@@ -1247,7 +1262,7 @@ async function submitAnnotation() {
       const ci = d.subComboIdx[i] || 0;
       const combo = d.subSlots[i].combos ? (d.subSlots[i].combos[ci] || d.subSlots[i].combos[0]) : null;
       l2Data[i] = {
-        mode: d.subSlots[i].mode || decompMode,
+        mode: 'balance+symmetric',
         comboIdx: ci,
         nCombos: d.subSlots[i].combos ? d.subSlots[i].combos.length : 0,
         subs: combo || []
@@ -1263,7 +1278,7 @@ async function submitAnnotation() {
         segments: filled,
         label: label,
         annotMode: annotMode,
-        decompMode: decompMode,
+        decompMode: 'balance+symmetric',
         l2: l2Data,
         window: { start: WINDOW_START, end: WINDOW_END, win: WINDOW_WIN },
       })
