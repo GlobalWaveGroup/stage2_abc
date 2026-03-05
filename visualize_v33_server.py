@@ -56,6 +56,9 @@ async def annotate(request: Request):
     segments = data.get('segments', [])
     label = data.get('label', '').strip()
     window = data.get('window', {})
+    annot_mode = data.get('annotMode', 'zig')
+    decomp_mode = data.get('decompMode', 'balanced')
+    l2_data = data.get('l2', {})
 
     if len(segments) < 2:
         return JSONResponse({'error': '至少需要2条线段'}, status_code=400)
@@ -116,10 +119,13 @@ async def annotate(request: Request):
         'id': datetime.now().strftime('%Y%m%d_%H%M%S'),
         'timestamp': datetime.now().isoformat(),
         'label': label,
+        'annot_mode': annot_mode,
+        'decomp_mode': decomp_mode,
         'n_segments': n_segs,
         'dir_sequence': dir_seq,
         'window': window,
         'segments': features,
+        'l2': l2_data,
         'ratios': ratios,
         'summary': {
             'total_bars': total_bars,
@@ -422,27 +428,38 @@ def index(request: Request):
     # === 注入标注面板 (在</script>之前) ===
     # 标注面板HTML放在canvas和info之后
     annotation_panel_html = '''
-<!-- Annotation Panel — Dual Layer -->
+<!-- Annotation Panel — 3-Mode + Dual Layer + Auto-Fill -->
 <div id="annotPanel" style="background:#0d0d20;border:1px solid #335;border-radius:4px;padding:8px 12px;margin-top:6px;">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+  <!-- Row 1: Mode selector + controls -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
     <span style="color:#f0c040;font-weight:bold;font-size:13px;">Annotate</span>
-    <span style="color:#888;font-size:11px;">dblclick seg | Draw+select lines then [Fill] | right-click for tools</span>
-    <button id="autoFillBtn" onclick="autoFillFromSelection()" style="background:#2a3a5a;color:#6cf;border:1px solid #456;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-weight:bold;" title="Auto-fill from selected drawn lines">Fill</button>
+    <span style="color:#555;font-size:10px;">|</span>
+    <!-- 3 source modes, all co-exist, visually distinct -->
+    <span id="modeZig" onclick="setAnnotMode('zig')" style="color:#4af;font-size:11px;cursor:pointer;padding:2px 6px;border:1px solid #4af;border-radius:3px;background:#1a2a4a;" title="System zigzag segments (dblclick to select)">Sys</span>
+    <span id="modeDraw" onclick="setAnnotMode('draw')" style="color:#ff0;font-size:11px;cursor:pointer;padding:2px 6px;border:1px solid #333;border-radius:3px;" title="Hand-drawn lines (select+Fill)">Draw</span>
+    <span id="modeMix" onclick="setAnnotMode('mix')" style="color:#f80;font-size:11px;cursor:pointer;padding:2px 6px;border:1px solid #333;border-radius:3px;" title="Mix: system + hand-drawn together">Mix</span>
+    <span style="color:#555;font-size:10px;">|</span>
+    <span style="color:#666;font-size:10px;">dblclick first &amp; last seg, middle auto-fills</span>
+    <span style="color:#555;font-size:10px;">|</span>
+    <button id="autoFillBtn" onclick="autoFillFromSelection()" style="background:#2a3a5a;color:#6cf;border:1px solid #456;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:bold;" title="Auto-fill from selected drawn lines (Draw/Mix mode)">Fill</button>
     <span style="color:#555;font-size:10px;">Combo:</span>
     <select id="comboSel" onchange="switchCombo(this.value)" style="background:#111;color:#ccc;border:1px solid #444;font-size:10px;padding:1px 3px;">
       <option value="0">1</option><option value="1">2</option><option value="2">3</option>
     </select>
   </div>
   <!-- Layer 1: Primary segments (up to 9) -->
-  <div style="margin-bottom:4px;">
-    <span style="color:#8af;font-size:10px;font-weight:bold;">L1 Primary</span>
+  <div style="margin-bottom:2px;">
+    <span style="color:#8af;font-size:10px;font-weight:bold;">L1</span>
+    <span id="l1Info" style="color:#555;font-size:9px;margin-left:4px;"></span>
     <div id="segBoxes" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;"></div>
   </div>
-  <!-- Layer 2: Sub-structure (up to 27) -->
-  <div id="layer2Panel" style="display:none;margin-bottom:4px;">
-    <span style="color:#fa8;font-size:10px;font-weight:bold;">L2 Sub-Structure</span>
+  <!-- Layer 2: Sub-structure (auto, up to 27) -->
+  <div id="layer2Panel" style="margin-bottom:2px;">
+    <span style="color:#fa8;font-size:10px;font-weight:bold;">L2</span>
+    <span id="l2Info" style="color:#555;font-size:9px;margin-left:4px;">auto-decompose non-L0 segments</span>
     <div id="subBoxes" style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px;"></div>
   </div>
+  <!-- Row bottom: Label + Submit -->
   <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
     <span style="color:#aaa;font-size:11px;">Label:</span>
     <div style="position:relative;display:inline-block;">
@@ -454,7 +471,6 @@ def index(request: Request):
     <button onclick="submitAnnotation()" style="background:#2a5a2a;color:#8f8;border:1px solid #4a4;padding:4px 14px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:bold;">Submit</button>
     <button onclick="clearAnnotation()" style="background:#3a1a1a;color:#f88;border:1px solid #644;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Clear</button>
     <button onclick="undoLastSeg()" style="background:#2a2a1a;color:#ff8;border:1px solid #554;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">Undo</button>
-    <button onclick="toggleLayer2()" style="background:#2a2a3a;color:#fa8;border:1px solid #544;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">L2</button>
     <span id="annotStatus" style="color:#888;font-size:11px;margin-left:8px;"></span>
   </div>
 </div>
@@ -470,22 +486,36 @@ def index(request: Request):
     # === 注入标注JS (在最后的 draw(); 之后，</script>之前) ===
     annotation_js = '''
 
-// ========== ANNOTATION SYSTEM (Dual-Layer) ==========
+// ========== ANNOTATION SYSTEM (3-Mode + Auto-Fill + Recursive Decompose) ==========
 const ANN_MAX = 9;
-const SUB_MAX = 3;  // max sub-segments per L1 slot
-let annSlots = [];  // L1: [{b1,p1,b2,p2,source},...] selected segments
-let annActive = 0;  // which L1 slot is active
+const SUB_MAX = 3;
+let annSlots = [];     // L1: [{b1,p1,b2,p2,source,level},...] selected segments
+let annActive = 0;
 let annLocked = false;
-let showLayer2 = false;
-let subSlots = [];  // L2: subSlots[i] = [{b1,p1,b2,p2},...] (up to 3) for each L1 slot
-let combos = [null, null, null];  // 3 combo alternatives
+let subSlots = [];     // L2: subSlots[i] = [{b1,p1,b2,p2},...] per L1 slot
+let combos = [null, null, null];
 let activeCombo = 0;
+let annotMode = 'zig'; // 'zig' = system zigzag, 'draw' = hand-drawn, 'mix' = both
+let annSelectCount = 0; // how many dblclick selections so far (for head-tail logic)
+let annFirstSeg = null; // first selected segment (the "head" or any selected seg)
+let annSecondSeg = null; // second selected segment (defines the range)
 
-function toggleLayer2() {
-  showLayer2 = !showLayer2;
-  const p = document.getElementById('layer2Panel');
-  if(p) p.style.display = showLayer2 ? 'block' : 'none';
-  if(showLayer2) buildSubBoxes();
+function setAnnotMode(mode) {
+  annotMode = mode;
+  const modes = ['zig','draw','mix'];
+  const ids = ['modeZig','modeDraw','modeMix'];
+  const colors = ['#4af','#ff0','#f80'];
+  const bgs = ['#1a2a4a','#4a4a00','#4a2a00'];
+  for(let i = 0; i < 3; i++) {
+    const el = document.getElementById(ids[i]);
+    if(el) {
+      el.style.borderColor = modes[i] === mode ? colors[i] : '#333';
+      el.style.background = modes[i] === mode ? bgs[i] : '';
+    }
+  }
+  // Reset selection state
+  annSelectCount = 0; annFirstSeg = null; annSecondSeg = null;
+  setAnnotStatus('Mode: ' + ({zig:'System zigzag',draw:'Hand-drawn',mix:'Mix'}[mode]) + ' | dblclick first & last seg', '#888');
 }
 
 // Build L1 segment boxes UI
@@ -524,6 +554,7 @@ function toggleLayer2() {
 })();
 
 // Build L2 sub-structure boxes
+// Auto-decompose each non-L0 L1 segment into 3 sub-segments
 function buildSubBoxes() {
   const container = document.getElementById('subBoxes');
   if(!container) return;
@@ -536,7 +567,7 @@ function buildSubBoxes() {
   const modeRow = document.createElement('div');
   modeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:3px;align-items:center;';
   const modes = ['balanced','simplest','largest','symmetric'];
-  const modeLabels = {'balanced':'Balanced','simplest':'Simplest','largest':'Largest B','symmetric':'Symmetric A=C'};
+  const modeLabels = {'balanced':'Balanced','simplest':'Simplest','largest':'Largest B','symmetric':'Sym A=C'};
   for(const m of modes) {
     const mb = document.createElement('span');
     mb.style.cssText = 'color:' + (decompMode===m?'#fa8':'#666') + ';font-size:9px;cursor:pointer;padding:1px 4px;border:1px solid '+(decompMode===m?'#a64':'#333')+';border-radius:2px;';
@@ -546,54 +577,103 @@ function buildSubBoxes() {
   }
   container.appendChild(modeRow);
 
+  let totalSubBoxes = 0;
+
   for(let i = 0; i < ANN_MAX; i++) {
     if(!annSlots[i]) continue;
-    const result = autoDecomposeSegment(annSlots[i], decompMode);
-    subSlots[i] = result;
-    const ci = subComboIdx[i] || 0;
-    const subs = result.combos[ci] || result.combos[0] || [annSlots[i]];
+    const seg = annSlots[i];
 
-    // Create a group for this L1 slot
-    const group = document.createElement('div');
-    group.style.cssText = 'display:flex;flex-direction:column;margin-right:6px;margin-bottom:2px;';
+    // Determine if this segment is L0 (base level = cannot decompose further)
+    // A segment is L0 if its time span is very short or it came from base zigzag
+    const isL0 = isBaseLevel(seg);
 
-    // Header with combo switcher
-    const hdr = document.createElement('div');
-    hdr.style.cssText = 'display:flex;align-items:center;gap:2px;';
-    const hdrLabel = document.createElement('span');
-    hdrLabel.style.cssText = 'color:#886;font-size:8px;';
-    hdrLabel.textContent = 'S' + (i+1);
-    hdr.appendChild(hdrLabel);
-    // Combo switch buttons (1/2/3)
-    if(result.combos.length > 1) {
-      for(let c = 0; c < Math.min(3, result.combos.length); c++) {
-        const cb = document.createElement('span');
-        cb.style.cssText = 'color:'+(c===ci?'#fa8':'#555')+';font-size:7px;cursor:pointer;padding:0 2px;border:1px solid '+(c===ci?'#a64':'#222')+';border-radius:1px;';
-        cb.textContent = '' + (c+1);
-        (function(slot, combo) {
-          cb.onclick = function() { subComboIdx[slot] = combo; buildSubBoxes(); };
-        })(i, c);
-        hdr.appendChild(cb);
-      }
+    if(isL0) {
+      // L0: show as single box, no decomposition
+      subSlots[i] = { mode: 'L0', combos: [[seg]] };
+      const group = createSubGroup(i, [seg], 'L0', 0);
+      container.appendChild(group);
+      totalSubBoxes += 1;
+    } else {
+      // Non-L0: auto-decompose into 3 sub-segments
+      const result = autoDecomposeSegment(seg, decompMode);
+      subSlots[i] = result;
+      const ci = subComboIdx[i] || 0;
+      const subs = result.combos[ci] || result.combos[0] || [seg];
+      const group = createSubGroup(i, subs, seg.level || '?', result.combos.length > 1 ? result.combos.length : 0);
+      container.appendChild(group);
+      totalSubBoxes += subs.length;
     }
-    group.appendChild(hdr);
-
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:1px;';
-    for(let j = 0; j < subs.length; j++) {
-      const sub = subs[j];
-      const sbox = document.createElement('div');
-      sbox.style.cssText = 'min-width:75px;height:28px;background:#0a0a18;border:1px solid #443;border-radius:2px;padding:2px 3px;font-size:8px;font-family:monospace;color:#a86;display:flex;flex-direction:column;justify-content:center;';
-      const d = sub.p2 > sub.p1 ? '\\u2191' : '\\u2193';
-      const dc = sub.p2 > sub.p1 ? '#4f4' : '#f44';
-      const mod = Math.sqrt((sub.b2-sub.b1)**2 + ((sub.p2-sub.p1)*100000)**2).toFixed(1);
-      sbox.innerHTML = '<div style="color:#886;">s'+(j+1)+' <span style="color:'+dc+';">'+d+'</span> <span style="color:#554;">m'+mod+'</span></div>' +
-        '<div style="color:#665;font-size:7px;">b'+sub.b1+'\\u2192b'+sub.b2+'</div>';
-      row.appendChild(sbox);
-    }
-    group.appendChild(row);
-    container.appendChild(group);
   }
+
+  // Update L2 info
+  const info = document.getElementById('l2Info');
+  if(info) info.textContent = totalSubBoxes + ' sub-segments | mode: ' + decompMode;
+}
+
+// Check if a segment is base level (L0 = no further decomposition)
+function isBaseLevel(seg) {
+  // If source says 'base' or 'A0', it's L0
+  const src = (seg.source || '').toLowerCase();
+  if(src.includes('base') || src === 'a0' || src.startsWith('draw:')) return false;  // drawn lines can be decomposed
+  // If span is ≤ 3 bars, too small to decompose
+  if(Math.abs(seg.b2 - seg.b1) <= 3) return true;
+  // If it came from the base snapshot (first snapshot)
+  if(S.length > 0 && seg.source === S[0].label) return true;
+  // Check if there are any pivot points inside this segment
+  for(let si = 0; si < S.length; si++) {
+    if(!vis[si]) continue;
+    for(const pt of S[si].pts) {
+      if(pt.bar > seg.b1 && pt.bar < seg.b2) return false;  // has internal pivots → can decompose
+    }
+  }
+  return true;  // no internal pivots → L0
+}
+
+// Create a sub-group element for L2 display
+function createSubGroup(slotIdx, subs, level, nCombos) {
+  const group = document.createElement('div');
+  group.style.cssText = 'display:flex;flex-direction:column;margin-right:6px;margin-bottom:2px;';
+  const letter = String.fromCharCode(97 + slotIdx);
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;gap:2px;';
+  const hdrLabel = document.createElement('span');
+  hdrLabel.style.cssText = 'color:#886;font-size:8px;';
+  hdrLabel.textContent = letter + (level === 'L0' ? ' (L0)' : ' \\u2192' + subs.length);
+  hdr.appendChild(hdrLabel);
+
+  // Combo switch buttons
+  if(nCombos > 1) {
+    const ci = subComboIdx[slotIdx] || 0;
+    for(let c = 0; c < Math.min(3, nCombos); c++) {
+      const cb = document.createElement('span');
+      cb.style.cssText = 'color:'+(c===ci?'#fa8':'#555')+';font-size:7px;cursor:pointer;padding:0 2px;border:1px solid '+(c===ci?'#a64':'#222')+';border-radius:1px;';
+      cb.textContent = '' + (c+1);
+      (function(slot, combo) {
+        cb.onclick = function() { subComboIdx[slot] = combo; buildSubBoxes(); };
+      })(slotIdx, c);
+      hdr.appendChild(cb);
+    }
+  }
+  group.appendChild(hdr);
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:1px;';
+  for(let j = 0; j < subs.length; j++) {
+    const sub = subs[j];
+    const sbox = document.createElement('div');
+    const isL0 = (subs.length === 1 && level === 'L0');
+    sbox.style.cssText = 'min-width:70px;height:26px;background:' + (isL0 ? '#0a0a10' : '#0a0a18') + ';border:1px solid ' + (isL0 ? '#333' : '#443') + ';border-radius:2px;padding:2px 3px;font-size:8px;font-family:monospace;color:#a86;display:flex;flex-direction:column;justify-content:center;';
+    const d = sub.p2 > sub.p1 ? '\\u2191' : '\\u2193';
+    const dc = sub.p2 > sub.p1 ? '#4f4' : '#f44';
+    const mod = Math.sqrt((sub.b2-sub.b1)**2 + ((sub.p2-sub.p1)*100000)**2).toFixed(1);
+    const subLetter = subs.length > 1 ? String.fromCharCode(97 + slotIdx) + '\\u2032' + (j+1) : '';
+    sbox.innerHTML = '<div style="color:#886;">' + subLetter + ' <span style="color:'+dc+';">'+d+'</span> <span style="color:#554;">m'+mod+'</span></div>' +
+      '<div style="color:#665;font-size:7px;">b'+sub.b1+'\\u2192b'+sub.b2+'</div>';
+    row.appendChild(sbox);
+  }
+  group.appendChild(row);
+  return group;
 }
 
 // Auto-decompose a segment into sub-structure
@@ -740,19 +820,27 @@ function renderSlot(idx) {
   const box = document.getElementById('segBox' + idx);
   const seg = annSlots[idx];
   if(!seg) {
-    box.innerHTML = '<div style="color:#556;text-align:center;">S' + (idx+1) + '</div>';
+    box.innerHTML = '<div style="color:#556;text-align:center;">' + String.fromCharCode(97+idx) + '</div>';
     box.style.borderColor = (idx === annActive) ? '#f0c040' : '#333';
     return;
   }
-  const d = seg.p2 > seg.p1 ? '↑' : '↓';
+  const d = seg.p2 > seg.p1 ? '\\u2191' : '\\u2193';
   const dc = seg.p2 > seg.p1 ? '#4f4' : '#f44';
   const lbl1 = seg.lbl1 || barToLabel(seg.b1);
   const lbl2 = seg.lbl2 || barToLabel(seg.b2);
+  // Source type visual: system=blue border, drawn=yellow border, mixed=orange
+  const src = seg.source || '';
+  const isDrawn = src.startsWith('DRAW:');
+  const srcColor = isDrawn ? '#ff0' : '#4af';
+  const srcBg = isDrawn ? '#1a1a00' : '#0a0a1a';
+  const srcLabel = isDrawn ? 'D' : (seg.level || src.slice(0,3));
+  const letter = String.fromCharCode(97+idx);  // a,b,c,d...
   box.innerHTML =
-    '<div style="color:#aaa;">S' + (idx+1) + ' <span style="color:#ff0;font-weight:bold;">' + lbl1 + '→' + lbl2 + '</span> <span style="color:' + dc + ';">' + d + '</span></div>' +
-    '<div style="color:#8cf;font-size:9px;">b' + seg.b1 + ' ' + seg.p1.toFixed(5) + ' <span style="color:#556;">' + (seg.source||'') + '</span></div>' +
+    '<div style="color:#aaa;">' + letter + ' <span style="color:'+srcColor+';font-weight:bold;">' + lbl1 + '\\u2192' + lbl2 + '</span> <span style="color:' + dc + ';">' + d + '</span></div>' +
+    '<div style="color:#8cf;font-size:9px;">b' + seg.b1 + ' ' + seg.p1.toFixed(5) + ' <span style="color:'+srcColor+';font-size:8px;">' + srcLabel + '</span></div>' +
     '<div style="color:#fc8;font-size:9px;">b' + seg.b2 + ' ' + seg.p2.toFixed(5) + '</div>';
-  box.style.borderColor = (idx === annActive) ? '#f0c040' : '#4a4';
+  box.style.borderColor = (idx === annActive) ? '#f0c040' : (isDrawn ? '#554400' : '#003344');
+  box.style.background = srcBg;
 }
 
 // Collect all visible segments for hit-test
@@ -872,68 +960,169 @@ function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
   return best;
 }
 
-// Double-click handler for segment selection
+// Double-click handler: HEAD-TAIL selection with auto-fill of middle segments
 cv.addEventListener('dblclick', function(e) {
   if(annLocked) return;
-  if(drawTool) return;  // 画线模式下不触发标注
+  if(drawTool) return;
   const rect = cv.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
+  const cmx = e.clientX - rect.left;
+  const cmy = e.clientY - rect.top;
 
-  const allSegs = collectVisibleSegs();
-  let best = null, bestDist = 20;
-
-  for(const seg of allSegs) {
-    const d = distToSeg(mx, my, seg);
-    if(d < bestDist) {
-      bestDist = d;
-      best = seg;
-    }
+  // Collect segments based on current mode
+  let allSegs;
+  if(annotMode === 'zig') {
+    allSegs = collectVisibleSegs().filter(s => !s.source.startsWith('DRAW:'));
+  } else if(annotMode === 'draw') {
+    allSegs = collectVisibleSegs().filter(s => s.source.startsWith('DRAW:'));
+  } else {
+    allSegs = collectVisibleSegs();  // mix: all
   }
 
+  // Find nearest segment
+  let best = null, bestDist = 20;
+  for(const seg of allSegs) {
+    const d = distToSeg(cmx, cmy, seg);
+    if(d < bestDist) { bestDist = d; best = seg; }
+  }
   if(!best) {
-    setAnnotStatus('No segment found near click', '#f88');
+    setAnnotStatus('No segment found near click (' + annotMode + ' mode)', '#f88');
     return;
   }
 
-  // Check continuity — if not continuous, try to auto-fill bridge (B segment)
-  if(!checkContinuity(annActive, best)) {
-    const prev = annSlots[annActive - 1];
-    if(prev) {
-      // Try to find a bridge segment: prev.b2 → best.b1
-      const bridge = findBridgeSeg(prev.b2, best.b1, allSegs);
-      if(bridge) {
-        // Auto-fill bridge as current slot, then put best in next slot
-        annSlots[annActive] = { b1: bridge.b1, p1: bridge.p1, b2: bridge.b2, p2: bridge.p2, source: bridge.source, lbl1: barToLabel(bridge.b1), lbl2: barToLabel(bridge.b2) };
-        renderSlot(annActive);
-        const bridgeSlot = annActive;
-        annActive++;
-        if(annActive < ANN_MAX) {
-          annSlots[annActive] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2, source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
-          renderSlot(annActive);
-          setAnnotStatus('Auto-filled S' + (bridgeSlot+1) + ' as bridge (' + bridge.source + '), S' + (annActive+1) + ': ' + barToLabel(best.b1) + '→' + barToLabel(best.b2), '#8f8');
-          drawAnnotHighlights();
-          if(annActive < ANN_MAX - 1) setActiveSlot(annActive + 1);
-          return;
-        }
+  annSelectCount++;
+
+  if(annSelectCount === 1) {
+    // === FIRST SELECTION ===
+    annFirstSeg = best;
+    annSlots = [];
+    annSlots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
+      source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
+    for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
+    renderSlot(0);
+    setActiveSlot(0);
+    drawAnnotHighlights();
+    setAnnotStatus('First seg: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
+      ' (' + best.source + ') | now dblclick the last seg to auto-fill range', '#8cf');
+    return;
+  }
+
+  if(annSelectCount === 2) {
+    // === SECOND SELECTION → AUTO-FILL RANGE ===
+    annSecondSeg = best;
+    const seg1 = annFirstSeg, seg2 = annSecondSeg;
+
+    // Determine range: leftmost to rightmost (natural order = left to right)
+    const rangeStart = Math.min(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
+    const rangeEnd = Math.max(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
+
+    // Find ALL segments in this range from visible segs, build a connected chain
+    const rangeSegs = allSegs.filter(s =>
+      s.b1 >= rangeStart && s.b2 <= rangeEnd && s.b1 < s.b2
+    );
+
+    // Build chain: find connected segments from rangeStart to rangeEnd
+    const chain = buildNaturalChain(rangeSegs, rangeStart, rangeEnd, allSegs);
+
+    if(chain.length === 0) {
+      // Fallback: just use the two selected segments
+      annSlots = [];
+      const sorted = [seg1, seg2].sort((a,b) => Math.min(a.b1,a.b2) - Math.min(b.b1,b.b2));
+      for(let i = 0; i < sorted.length; i++) {
+        annSlots[i] = { b1: sorted[i].b1, p1: sorted[i].p1, b2: sorted[i].b2, p2: sorted[i].p2,
+          source: sorted[i].source, lbl1: barToLabel(sorted[i].b1), lbl2: barToLabel(sorted[i].b2) };
       }
-      // No bridge found
-      setAnnotStatus('Not continuous! ' + barToLabel(prev.b2) + '(b' + prev.b2 + ') → ' + barToLabel(best.b1) + '(b' + best.b1 + ') no bridge found', '#f88');
-      return;
+      for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
+      setAnnotStatus('Only 2 segs found (no chain in range)', '#ff8');
+    } else {
+      // Fill L1 slots with the chain
+      annSlots = [];
+      for(let i = 0; i < Math.min(chain.length, ANN_MAX); i++) {
+        const s = chain[i];
+        annSlots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
+          source: s.source, level: s.level || 'base',
+          lbl1: barToLabel(s.b1), lbl2: barToLabel(s.b2) };
+      }
+      for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
+      setAnnotStatus('Auto-filled ' + chain.length + ' segs: ' +
+        barToLabel(rangeStart) + '\\u2192' + barToLabel(rangeEnd) + ' (natural order)', '#8f8');
+    }
+    drawAnnotHighlights();
+    // Auto-decompose L2
+    buildSubBoxes();
+    // Allow further selections (reset to accept more)
+    annSelectCount = 0; annFirstSeg = null; annSecondSeg = null;
+    return;
+  }
+
+  // Additional selections (3+): append to existing chain
+  annSelectCount = 0;
+  annFirstSeg = best;
+  annSelectCount = 1;
+  // Same as first selection
+  annSlots = [];
+  annSlots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
+    source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
+  for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
+  renderSlot(0);
+  setActiveSlot(0);
+  drawAnnotHighlights();
+  setAnnotStatus('Restarted: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
+    ' | dblclick last seg', '#8cf');
+});
+
+// Build a natural chain of connected segments covering [startBar, endBar]
+// Tries multiple zigzag levels to find the best connected path
+function buildNaturalChain(rangeSegs, startBar, endBar, allSegs) {
+  // Strategy: for each snapshot level, try to find a contiguous chain
+  // Then pick the level with fewest segments (highest level = fewer, longer segments)
+  // But also consider that the selected segments might span different levels
+
+  const chains = [];
+
+  // Try each visible snapshot level
+  for(let si = 0; si < S.length; si++) {
+    if(!vis[si]) continue;
+    const pts = S[si].pts;
+    // Find the sub-chain within [startBar, endBar]
+    const chain = [];
+    let started = false;
+    for(let j = 0; j < pts.length - 1; j++) {
+      const seg = { b1: pts[j].bar, p1: pts[j].y, b2: pts[j+1].bar, p2: pts[j+1].y,
+        source: S[si].label, level: S[si].label };
+      if(seg.b1 >= startBar && !started) started = true;
+      if(started) {
+        chain.push(seg);
+        if(seg.b2 >= endBar) break;
+      }
+    }
+    // Validate: chain must cover from startBar to endBar
+    if(chain.length > 0 && chain[0].b1 <= startBar + 2 &&
+       chain[chain.length-1].b2 >= endBar - 2 && chain.length <= ANN_MAX) {
+      chains.push({ level: S[si].label, chain: chain, n: chain.length });
     }
   }
 
-  // Fill slot
-  annSlots[annActive] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2, source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
-  renderSlot(annActive);
-  setAnnotStatus('S' + (annActive+1) + ': ' + barToLabel(best.b1) + '→' + barToLabel(best.b2) + ' (' + best.source + ')', '#8f8');
-
-  drawAnnotHighlights();
-
-  if(annActive < ANN_MAX - 1) {
-    setActiveSlot(annActive + 1);
+  // Also try drawn lines (if in draw or mix mode)
+  if(annotMode === 'draw' || annotMode === 'mix') {
+    const drawSegs = rangeSegs.filter(s => s.source.startsWith('DRAW:'));
+    if(drawSegs.length > 0) {
+      drawSegs.sort((a,b) => a.b1 - b.b1);
+      chains.push({ level: 'DRAW', chain: drawSegs, n: drawSegs.length });
+    }
   }
-});
+
+  if(chains.length === 0) return [];
+
+  // Sort: prefer chains with moderate segment count (not too few, not too many)
+  // Ideal: 3-7 segments
+  chains.sort((a,b) => {
+    const idealA = Math.abs(a.n - 5);
+    const idealB = Math.abs(b.n - 5);
+    return idealA - idealB;
+  });
+
+  return chains[0].chain;
+}
 
 // Draw highlights for selected segments + K-line highlighting
 function drawAnnotHighlights() {
@@ -1009,7 +1198,8 @@ function drawAnnotHighlights() {
     const smy = (yS(seg.p1) + yS(seg.p2)) / 2;
     const sl1 = seg.lbl1 || barToLabel(seg.b1);
     const sl2 = seg.lbl2 || barToLabel(seg.b2);
-    cx.fillText('S' + (i+1) + ' ' + sl1 + '→' + sl2, smx, smy - 8);
+    const letter = String.fromCharCode(97 + i);
+    cx.fillText(letter + ' ' + sl1 + '\\u2192' + sl2, smx, smy - 8);
   }
   cx.restore();
   cx.setLineDash([]);
@@ -1026,10 +1216,20 @@ function setAnnotStatus(msg, color) {
 function clearAnnotation() {
   annSlots = [];
   annLocked = false;
+  annSelectCount = 0;
+  annFirstSeg = null;
+  annSecondSeg = null;
+  subSlots = [];
+  subComboIdx = {};
   for(let i = 0; i < ANN_MAX; i++) renderSlot(i);
   setActiveSlot(0);
+  // Clear L2 display
+  const subC = document.getElementById('subBoxes');
+  if(subC) subC.innerHTML = '';
+  const l2i = document.getElementById('l2Info');
+  if(l2i) l2i.textContent = '';
   setAnnotStatus('Cleared', '#888');
-  draw();
+  draw(); drawAuxLines(); drawDrawnLines();
 }
 
 function undoLastSeg() {
@@ -1044,8 +1244,9 @@ function undoLastSeg() {
     annSlots.length = last;
     renderSlot(last);
     setActiveSlot(last);
-    setAnnotStatus('Undone S' + (last+1), '#ff8');
+    setAnnotStatus('Undone ' + String.fromCharCode(97+last), '#ff8');
     drawAnnotHighlights();
+    buildSubBoxes();
   }
 }
 
@@ -1075,6 +1276,22 @@ async function submitAnnotation() {
   annLocked = true;
   setAnnotStatus('Submitting...', '#ff8');
 
+  // Collect L2 decomposition data
+  const l2Data = {};
+  for(let i = 0; i < annSlots.length; i++) {
+    if(!annSlots[i]) continue;
+    if(subSlots[i]) {
+      const ci = subComboIdx[i] || 0;
+      const combo = subSlots[i].combos ? (subSlots[i].combos[ci] || subSlots[i].combos[0]) : null;
+      l2Data[i] = {
+        mode: subSlots[i].mode || decompMode,
+        comboIdx: ci,
+        nCombos: subSlots[i].combos ? subSlots[i].combos.length : 0,
+        subs: combo || []
+      };
+    }
+  }
+
   try {
     const resp = await fetch('/annotate', {
       method: 'POST',
@@ -1082,6 +1299,9 @@ async function submitAnnotation() {
       body: JSON.stringify({
         segments: filled,
         label: label,
+        annotMode: annotMode,
+        decompMode: decompMode,
+        l2: l2Data,
         window: { start: WINDOW_START, end: WINDOW_END, win: WINDOW_WIN },
       })
     });
