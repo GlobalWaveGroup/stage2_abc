@@ -529,7 +529,7 @@ function setAnnotMode(mode) {
     const block = document.getElementById('modeBlock_' + m);
     if(block) block.style.opacity = m === mode ? '1' : '0.5';
   }
-  setAnnotStatus('Mode: ' + ({zig:'System zigzag',draw:'Hand-drawn',mix:'Mix'}[mode]) + ' | dblclick first & last seg', '#888');
+  setAnnotStatus('Mode: ' + ({zig:'System zigzag',draw:'Hand-drawn',mix:'Mix'}[mode]) + ' | click=select seg, dblclick=decompose', '#888');
 }
 
 // Build L1 (9 boxes) + L2 (9×3 sub-boxes) for ALL 3 modes
@@ -1030,147 +1030,196 @@ function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
   return best;
 }
 
-// Double-click handler: HEAD-TAIL selection with auto-fill of middle segments
-// 1st dblclick = select first seg (shown in slot a, highlighted)
-// 2nd dblclick = select last seg → auto 3-split the range → fill L1
-// 3rd+ dblclick = restart
+// ========== HL-CHAIN: build zigzag segments from important H/L points ==========
+// Takes the top-N peaks and top-N valleys (by importance), sorts by bar,
+// enforces HL alternation to form a clean zigzag chain.
+function buildHLChain() {
+  const shown = PEAKS.slice(0, peakTopN).concat(VALS.slice(0, valleyTopN));
+  shown.sort(function(a, b) { return a.bar - b.bar; });
+  if(shown.length < 2) return [];
+  // Enforce HL alternation: skip consecutive same-dir points
+  var chain = [shown[0]];
+  for(var i = 1; i < shown.length; i++) {
+    if(shown[i].dir !== chain[chain.length - 1].dir) {
+      chain.push(shown[i]);
+    }
+  }
+  // Build segments from consecutive points
+  var segs = [];
+  for(var i = 0; i < chain.length - 1; i++) {
+    segs.push({
+      b1: chain[i].bar, p1: chain[i].price,
+      b2: chain[i+1].bar, p2: chain[i+1].price,
+      source: 'HL', lbl1: chain[i].label, lbl2: chain[i+1].label
+    });
+  }
+  return segs;
+}
+
+// Find nearest HL-chain segment to pixel (cmx,cmy)
+function findNearestHLSeg(cmx, cmy) {
+  var segs;
+  if(annotMode === 'draw') {
+    // Draw mode: use hand-drawn zigzag lines
+    segs = collectVisibleSegs().filter(function(s) { return s.source.startsWith('DRAW:'); });
+  } else {
+    // Sys/Mix mode: use HL chain
+    segs = buildHLChain();
+  }
+  var best = null, bestDist = 25;
+  for(var i = 0; i < segs.length; i++) {
+    var dd = distToSeg(cmx, cmy, segs[i]);
+    if(dd < bestDist) { bestDist = dd; best = segs[i]; }
+  }
+  return best;
+}
+
+// Timer to distinguish single-click from double-click
+var _annClickTimer = null;
+
+// ========== SINGLE-CLICK: select segment ==========
+// 1st click = select first seg (highlight, fill slot a)
+// 2nd click = select last seg → auto-fill all HL segments between them into L1
+cv.addEventListener('click', function _annClick(e) {
+  if(e.button !== 0) return;
+  if(drawTool) return;
+  if(drawPhase > 0) return;  // drawing in progress
+  const d = md();
+  if(d.locked) return;
+  const rect = cv.getBoundingClientRect();
+  const cmx = e.clientX - rect.left, cmy = e.clientY - rect.top;
+
+  // Only handle if near an HL segment
+  const seg = findNearestHLSeg(cmx, cmy);
+  if(!seg) return;  // not near any HL seg — fall through to default click
+
+  // Delay to distinguish from dblclick
+  if(_annClickTimer) { clearTimeout(_annClickTimer); _annClickTimer = null; }
+  _annClickTimer = setTimeout(function() {
+    _annClickTimer = null;
+
+    if(d.selectCount === 0) {
+      // 1st click: select first segment
+      d.selectCount = 1;
+      d.firstSeg = seg;
+      d.slots = [];
+      d.slots[0] = { b1: seg.b1, p1: seg.p1, b2: seg.b2, p2: seg.p2,
+        source: seg.source, lbl1: seg.lbl1 || barToLabel(seg.b1), lbl2: seg.lbl2 || barToLabel(seg.b2) };
+      for(var i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+      setActiveSlot(annotMode, 0);
+      drawAnnotHighlights();
+      setAnnotStatus('First: ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2) +
+        ' | click last seg to define range', '#8cf');
+      return;
+    }
+
+    if(d.selectCount === 1) {
+      // 2nd click: select last segment → fill all HL segs in between
+      d.selectCount = 0;
+      d.secondSeg = seg;
+      var seg1 = d.firstSeg, seg2 = d.secondSeg;
+      var rangeStart = Math.min(seg1.b1, seg2.b1);
+      var rangeEnd = Math.max(seg1.b2, seg2.b2);
+
+      // Get all HL chain segments within [rangeStart, rangeEnd]
+      var hlSegs = buildHLChain();
+      var inRange = [];
+      for(var i = 0; i < hlSegs.length; i++) {
+        if(hlSegs[i].b1 >= rangeStart && hlSegs[i].b2 <= rangeEnd) {
+          inRange.push(hlSegs[i]);
+        }
+      }
+
+      if(inRange.length === 0) inRange = [seg1, seg2].sort(function(a,b) { return a.b1 - b.b1; });
+
+      d.slots = [];
+      for(var i = 0; i < Math.min(inRange.length, ANN_MAX); i++) {
+        var s = inRange[i];
+        d.slots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
+          source: s.source || 'HL',
+          lbl1: s.lbl1 || barToLabel(s.b1), lbl2: s.lbl2 || barToLabel(s.b2) };
+      }
+      for(var i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+      drawAnnotHighlights();
+      buildSubBoxes(annotMode);
+      setAnnotStatus('Range: ' + barToLabel(rangeStart) + '\\u2192' + barToLabel(rangeEnd) +
+        ' | ' + inRange.length + ' segs', '#8f8');
+      d.firstSeg = null; d.secondSeg = null;
+      return;
+    }
+  }, 250);
+});
+
+// ========== DOUBLE-CLICK: decompose segment into sub-structure ==========
+// Dblclick on a segment → 3-split → fill L1 slots 0-2
+// Repeat dblclick on same segment → cycle through candidate solutions
 cv.addEventListener('dblclick', function(e) {
+  // Cancel pending single-click
+  if(_annClickTimer) { clearTimeout(_annClickTimer); _annClickTimer = null; }
+
   const d = md();
   if(d.locked) return;
   if(drawTool) return;
   const rect = cv.getBoundingClientRect();
-  const cmx = e.clientX - rect.left;
-  const cmy = e.clientY - rect.top;
+  const cmx = e.clientX - rect.left, cmy = e.clientY - rect.top;
 
-  // Collect segments based on current mode
-  let allSegs;
-  if(annotMode === 'zig') {
-    // Collect zigzag segments from all visible snapshots (exclude EX/FUS/SYM/DRAW)
-    allSegs = collectVisibleSegs().filter(function(s) {
-      return !s.source.startsWith('DRAW:') && !s.source.startsWith('EX:') &&
-             !s.source.startsWith('FUS:') && !s.source.startsWith('SYM:');
-    });
-  } else if(annotMode === 'draw') {
-    allSegs = collectVisibleSegs().filter(function(s) { return s.source.startsWith('DRAW:'); });
-  } else {
-    allSegs = collectVisibleSegs();
-  }
-
-  // Find nearest segment — among candidates within threshold,
-  // prefer SHORTEST time-span (most precise level) to avoid selecting
-  // an overlapping long segment from a higher snapshot level
-  let best = null, bestDist = 20;
-  var nearCandidates = [];
-  for(const seg of allSegs) {
-    const dd = distToSeg(cmx, cmy, seg);
-    if(dd < 20) nearCandidates.push({ seg: seg, dist: dd });
-  }
-  if(nearCandidates.length > 0) {
-    // Sort: first by distance (closest), then by time-span (shortest = most specific)
-    nearCandidates.sort(function(a, b) {
-      // Within 3px of each other → prefer shorter segment
-      if(Math.abs(a.dist - b.dist) < 3) {
-        return Math.abs(a.seg.b2 - a.seg.b1) - Math.abs(b.seg.b2 - b.seg.b1);
-      }
-      return a.dist - b.dist;
-    });
-    best = nearCandidates[0].seg;
-    bestDist = nearCandidates[0].dist;
-  }
-  if(!best) {
-    setAnnotStatus('No segment found near click (' + annotMode + ' mode)', '#f88');
+  const seg = findNearestHLSeg(cmx, cmy);
+  if(!seg) {
+    setAnnotStatus('No HL segment near dblclick', '#f88');
     return;
   }
 
-  d.selectCount++;
+  // Reset single-click state
+  d.selectCount = 0; d.firstSeg = null; d.secondSeg = null;
 
-  if(d.selectCount === 1) {
-    d.firstSeg = best;
+  // Check if same segment as last dblclick → cycle candidate
+  if(d._dblSeg && d._dblSeg.b1 === seg.b1 && d._dblSeg.b2 === seg.b2 && d._dblCombos && d._dblCombos.length > 0) {
+    d._dblIdx = ((d._dblIdx || 0) + 1) % d._dblCombos.length;
+    var legs = d._dblCombos[d._dblIdx];
     d.slots = [];
-    d.slots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
-      source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
-    for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
-    setActiveSlot(annotMode, 0);
-    drawAnnotHighlights();
-    setAnnotStatus('First: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
-      ' (' + best.source + ') | dblclick last seg', '#8cf');
-    return;
-  }
-
-  if(d.selectCount === 2) {
-    d.secondSeg = best;
-    const seg1 = d.firstSeg, seg2 = d.secondSeg;
-    const rangeStart = Math.min(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
-    const rangeEnd = Math.max(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
-
-    const rangeSegs = allSegs.filter(function(s) {
-      return s.b1 >= rangeStart && s.b2 <= rangeEnd && s.b1 < s.b2;
-    });
-    const chain = buildNaturalChain(rangeSegs, rangeStart, rangeEnd, allSegs);
-
-    if(chain.length === 0) {
-      d.slots = [];
-      const sorted = [seg1, seg2].sort(function(a,b) { return Math.min(a.b1,a.b2) - Math.min(b.b1,b.b2); });
-      for(let i = 0; i < sorted.length; i++) {
-        d.slots[i] = { b1: sorted[i].b1, p1: sorted[i].p1, b2: sorted[i].b2, p2: sorted[i].p2,
-          source: sorted[i].source, lbl1: barToLabel(sorted[i].b1), lbl2: barToLabel(sorted[i].b2) };
-      }
-      for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
-      setAnnotStatus('Only 2 segs found (no chain in range)', '#ff8');
-    } else {
-      d.slots = [];
-      for(let i = 0; i < Math.min(chain.length, ANN_MAX); i++) {
-        const s = chain[i];
-        d.slots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
-          source: s.source, level: s.level || 'base',
-          lbl1: barToLabel(s.b1), lbl2: barToLabel(s.b2) };
-      }
-      for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
-      setAnnotStatus('Auto-filled ' + chain.length + ' segs: ' +
-        barToLabel(rangeStart) + '\\u2192' + barToLabel(rangeEnd), '#8f8');
+    for(var i = 0; i < Math.min(legs.length, 3); i++) {
+      d.slots[i] = { b1: legs[i].b1, p1: legs[i].p1, b2: legs[i].b2, p2: legs[i].p2,
+        source: 'sub', lbl1: barToLabel(legs[i].b1), lbl2: barToLabel(legs[i].b2) };
     }
+    for(var i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
     drawAnnotHighlights();
     buildSubBoxes(annotMode);
-    d.selectCount = 0; d.firstSeg = null; d.secondSeg = null;
+    setAnnotStatus('3-split ' + (d._dblIdx+1) + '/' + d._dblCombos.length +
+      ' for ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2), '#8cf');
     return;
   }
 
-  // 3+: restart
-  d.selectCount = 1;
-  d.firstSeg = best;
+  // New segment: decompose
+  d._dblSeg = seg;
+  d._dblIdx = 0;
+  var result = autoDecomposeSegment(seg);
+  d._dblCombos = result.combos || [];
+
+  if(d._dblCombos.length === 0 || (d._dblCombos[0].length === 1)) {
+    // Cannot decompose
+    d.slots = [];
+    d.slots[0] = { b1: seg.b1, p1: seg.p1, b2: seg.b2, p2: seg.p2,
+      source: seg.source, lbl1: barToLabel(seg.b1), lbl2: barToLabel(seg.b2) };
+    for(var i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+    drawAnnotHighlights();
+    setAnnotStatus('Cannot decompose ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2), '#ff8');
+    return;
+  }
+
+  // Show first candidate
+  var legs = d._dblCombos[0];
   d.slots = [];
-  d.slots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
-    source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
-  for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
-  setActiveSlot(annotMode, 0);
+  for(var i = 0; i < Math.min(legs.length, 3); i++) {
+    d.slots[i] = { b1: legs[i].b1, p1: legs[i].p1, b2: legs[i].b2, p2: legs[i].p2,
+      source: 'sub', lbl1: barToLabel(legs[i].b1), lbl2: barToLabel(legs[i].b2) };
+  }
+  for(var i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
   drawAnnotHighlights();
-  setAnnotStatus('Restarted: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
-    ' | dblclick last seg', '#8cf');
+  buildSubBoxes(annotMode);
+  var nCand = d._dblCombos.length;
+  setAnnotStatus('3-split 1/' + nCand + ' for ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2) +
+    (nCand > 1 ? ' | dblclick again for next' : ''), '#8f8');
 });
-
-// Build a 3-segment chain covering [startBar, endBar]
-// Uses same logic as autoDecomposeSegment: balance + symmetric + importance
-// This is the reverse of merge: one parent segment → 3 sub-segments
-function buildNaturalChain(rangeSegs, startBar, endBar, allSegs) {
-  // Find prices at start and end bars
-  let startPrice = null, endPrice = null;
-  for(const s of allSegs) {
-    if(s.b1 === startBar || Math.abs(s.b1 - startBar) <= 1) startPrice = s.p1;
-    if(s.b2 === endBar || Math.abs(s.b2 - endBar) <= 1) endPrice = s.p2;
-    if(s.b2 === startBar || Math.abs(s.b2 - startBar) <= 1) startPrice = s.p2;
-    if(s.b1 === endBar || Math.abs(s.b1 - endBar) <= 1) endPrice = s.p1;
-  }
-  if(startPrice === null || endPrice === null) return [];
-
-  // Construct virtual parent segment
-  const parent = { b1: startBar, p1: startPrice, b2: endBar, p2: endPrice, source: 'range' };
-  // Use the 3-split decomposition
-  const result = autoDecomposeSegment(parent);
-  if(result.combos.length > 0 && result.combos[0].length === 3) {
-    return result.combos[0];
-  }
-  return [];
-}
 
 // Draw highlights for selected segments + K-line highlighting
 function drawAnnotHighlights() {
@@ -1258,6 +1307,9 @@ function clearAnnotation() {
   d.selectCount = 0;
   d.firstSeg = null;
   d.secondSeg = null;
+  d._dblSeg = null;
+  d._dblCombos = [];
+  d._dblIdx = 0;
   d.subSlots = [];
   d.subComboIdx = {};
   for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
