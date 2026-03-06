@@ -505,13 +505,9 @@ for(const m of ANN_MODES) {
     locked: false,
     subSlots: [],     // L2: subSlots[i] = {mode,combos}
     subComboIdx: {},  // per-slot combo index
-    // Single-click: select endpoints to define parent interval
-    clickCount: 0,    // 0=idle, 1=head selected (waiting for tail)
-    clickHead: null,  // {bar, price} of head endpoint
-    // Double-click: decompose a segment, cycle through candidates
-    dblSeg: null,     // the segment being decomposed (null = none)
-    dblCandidates: [],// all 3-split candidates from autoDecomposeSegment
-    dblIdx: 0,        // which candidate is currently shown (0-based)
+    selectCount: 0,   // dblclick count for head-tail
+    firstSeg: null,   // first selected seg
+    secondSeg: null,  // second selected seg
   };
 }
 let annotMode = 'zig'; // current active mode
@@ -533,7 +529,7 @@ function setAnnotMode(mode) {
     const block = document.getElementById('modeBlock_' + m);
     if(block) block.style.opacity = m === mode ? '1' : '0.5';
   }
-  setAnnotStatus('Mode: ' + ({zig:'System zigzag',draw:'Hand-drawn',mix:'Mix'}[mode]) + ' | click to select head/tail, dblclick to decompose', '#888');
+  setAnnotStatus('Mode: ' + ({zig:'System zigzag',draw:'Hand-drawn',mix:'Mix'}[mode]) + ' | dblclick first & last seg', '#888');
 }
 
 // Build L1 (9 boxes) + L2 (9×3 sub-boxes) for ALL 3 modes
@@ -1034,70 +1030,11 @@ function findBridgeSeg(prevEndBar, segStartBar, allSegs) {
   return best;
 }
 
-// Timer to distinguish single-click from double-click (250ms delay)
-let _annClickTimer = null;
-
-// Collect segments filtered by current annotation mode
-function getAnnotSegs() {
-  const all = collectVisibleSegs();
-  if(annotMode === 'zig') {
-    // Sys mode: ONLY zigzag snapshot segments (exclude EX/FUS/SYM/DRAW)
-    return all.filter(s => {
-      const src = s.source;
-      return !src.startsWith('DRAW:') && !src.startsWith('EX:') &&
-             !src.startsWith('FUS:') && !src.startsWith('SYM:');
-    });
-  }
-  if(annotMode === 'draw') return all.filter(s => s.source.startsWith('DRAW:'));
-  return all;  // mix
-}
-
-// Find nearest segment to pixel (cmx,cmy), returns {seg, dist} or null
-function findNearestSeg(cmx, cmy, maxDist) {
-  maxDist = maxDist || 20;
-  const segs = getAnnotSegs();
-  let best = null, bestDist = maxDist;
-  for(const s of segs) {
-    const dd = distToSeg(cmx, cmy, s);
-    if(dd < bestDist) { bestDist = dd; best = s; }
-  }
-  return best ? { seg: best, dist: bestDist } : null;
-}
-
-// Determine which endpoint of a segment is closer to click point
-function nearerEndpoint(cmx, cmy, seg) {
-  const d1 = Math.sqrt((cmx - xS(seg.b1))**2 + (cmy - yS(seg.p1))**2);
-  const d2 = Math.sqrt((cmx - xS(seg.b2))**2 + (cmy - yS(seg.p2))**2);
-  return d1 <= d2 ? { bar: seg.b1, price: seg.p1 } : { bar: seg.b2, price: seg.p2 };
-}
-
-// Fill L1 slots 0-2 with a 3-leg split result and render
-function fillL1With3Split(legs) {
-  const d = md();
-  d.slots = [];
-  for(let i = 0; i < Math.min(legs.length, 3); i++) {
-    const s = legs[i];
-    d.slots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
-      source: s.source || 'sub', lbl1: barToLabel(s.b1), lbl2: barToLabel(s.b2) };
-  }
-  for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
-  setActiveSlot(annotMode, 0);
-  drawAnnotHighlights();
-  buildSubBoxes(annotMode);
-}
-
-// Check if two segments are the "same" (same endpoints)
-function sameSeg(a, b) {
-  return a && b && a.b1 === b.b1 && a.b2 === b.b2 &&
-    Math.abs(a.p1 - b.p1) < 1e-8 && Math.abs(a.p2 - b.p2) < 1e-8;
-}
-
-// Double-click handler: decompose THIS segment into 3 sub-legs
-// Repeat dblclick on same segment → cycle through candidate solutions
+// Double-click handler: HEAD-TAIL selection with auto-fill of middle segments
+// 1st dblclick = select first seg (shown in slot a, highlighted)
+// 2nd dblclick = select last seg → auto 3-split the range → fill L1
+// 3rd+ dblclick = restart
 cv.addEventListener('dblclick', function(e) {
-  // Cancel any pending single-click action (dblclick takes priority)
-  if(_annClickTimer) { clearTimeout(_annClickTimer); _annClickTimer = null; }
-
   const d = md();
   if(d.locked) return;
   if(drawTool) return;
@@ -1105,49 +1042,94 @@ cv.addEventListener('dblclick', function(e) {
   const cmx = e.clientX - rect.left;
   const cmy = e.clientY - rect.top;
 
-  const hit = findNearestSeg(cmx, cmy);
-  if(!hit) {
-    setAnnotStatus('No segment near dblclick (' + annotMode + ')', '#f88');
-    return;
-  }
-  const seg = hit.seg;
-
-  // Check if this is the same segment as last dblclick → cycle to next candidate
-  if(sameSeg(seg, d.dblSeg) && d.dblCandidates.length > 0) {
-    d.dblIdx = (d.dblIdx + 1) % d.dblCandidates.length;
-    const legs = d.dblCandidates[d.dblIdx];
-    fillL1With3Split(legs);
-    setAnnotStatus('3-split candidate ' + (d.dblIdx+1) + '/' + d.dblCandidates.length +
-      ' for ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2), '#8cf');
-    return;
+  // Collect segments based on current mode
+  let allSegs;
+  if(annotMode === 'zig') {
+    allSegs = collectVisibleSegs().filter(function(s) {
+      return !s.source.startsWith('DRAW:') && !s.source.startsWith('EX:') &&
+             !s.source.startsWith('FUS:') && !s.source.startsWith('SYM:');
+    });
+  } else if(annotMode === 'draw') {
+    allSegs = collectVisibleSegs().filter(function(s) { return s.source.startsWith('DRAW:'); });
+  } else {
+    allSegs = collectVisibleSegs();
   }
 
-  // New segment: compute all candidates
-  d.dblSeg = seg;
-  d.dblIdx = 0;
-  // Reset single-click state (dblclick supersedes)
-  d.clickCount = 0; d.clickHead = null;
+  // Find nearest segment
+  let best = null, bestDist = 20;
+  for(const seg of allSegs) {
+    const dd = distToSeg(cmx, cmy, seg);
+    if(dd < bestDist) { bestDist = dd; best = seg; }
+  }
+  if(!best) {
+    setAnnotStatus('No segment found near click (' + annotMode + ' mode)', '#f88');
+    return;
+  }
 
-  const result = autoDecomposeSegment(seg);
-  d.dblCandidates = result.combos || [];
+  d.selectCount++;
 
-  if(d.dblCandidates.length === 0 || (d.dblCandidates.length === 1 && d.dblCandidates[0].length === 1 && sameSeg(d.dblCandidates[0][0], seg))) {
-    // Cannot decompose (no internal pivots or too small)
+  if(d.selectCount === 1) {
+    d.firstSeg = best;
     d.slots = [];
-    d.slots[0] = { b1: seg.b1, p1: seg.p1, b2: seg.b2, p2: seg.p2,
-      source: seg.source, lbl1: barToLabel(seg.b1), lbl2: barToLabel(seg.b2) };
+    d.slots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
+      source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
     for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
     setActiveSlot(annotMode, 0);
     drawAnnotHighlights();
-    setAnnotStatus('Cannot decompose ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2) + ' (L0 / no pivots)', '#ff8');
+    setAnnotStatus('First: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
+      ' (' + best.source + ') | dblclick last seg', '#8cf');
     return;
   }
 
-  // Show first (best) candidate
-  fillL1With3Split(d.dblCandidates[0]);
-  const nCand = d.dblCandidates.length;
-  setAnnotStatus('3-split 1/' + nCand + ' for ' + barToLabel(seg.b1) + '\\u2192' + barToLabel(seg.b2) +
-    (nCand > 1 ? ' | dblclick again for next' : ''), '#8f8');
+  if(d.selectCount === 2) {
+    d.secondSeg = best;
+    const seg1 = d.firstSeg, seg2 = d.secondSeg;
+    const rangeStart = Math.min(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
+    const rangeEnd = Math.max(seg1.b1, seg1.b2, seg2.b1, seg2.b2);
+
+    const rangeSegs = allSegs.filter(function(s) {
+      return s.b1 >= rangeStart && s.b2 <= rangeEnd && s.b1 < s.b2;
+    });
+    const chain = buildNaturalChain(rangeSegs, rangeStart, rangeEnd, allSegs);
+
+    if(chain.length === 0) {
+      d.slots = [];
+      const sorted = [seg1, seg2].sort(function(a,b) { return Math.min(a.b1,a.b2) - Math.min(b.b1,b.b2); });
+      for(let i = 0; i < sorted.length; i++) {
+        d.slots[i] = { b1: sorted[i].b1, p1: sorted[i].p1, b2: sorted[i].b2, p2: sorted[i].p2,
+          source: sorted[i].source, lbl1: barToLabel(sorted[i].b1), lbl2: barToLabel(sorted[i].b2) };
+      }
+      for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+      setAnnotStatus('Only 2 segs found (no chain in range)', '#ff8');
+    } else {
+      d.slots = [];
+      for(let i = 0; i < Math.min(chain.length, ANN_MAX); i++) {
+        const s = chain[i];
+        d.slots[i] = { b1: s.b1, p1: s.p1, b2: s.b2, p2: s.p2,
+          source: s.source, level: s.level || 'base',
+          lbl1: barToLabel(s.b1), lbl2: barToLabel(s.b2) };
+      }
+      for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+      setAnnotStatus('Auto-filled ' + chain.length + ' segs: ' +
+        barToLabel(rangeStart) + '\\u2192' + barToLabel(rangeEnd), '#8f8');
+    }
+    drawAnnotHighlights();
+    buildSubBoxes(annotMode);
+    d.selectCount = 0; d.firstSeg = null; d.secondSeg = null;
+    return;
+  }
+
+  // 3+: restart
+  d.selectCount = 1;
+  d.firstSeg = best;
+  d.slots = [];
+  d.slots[0] = { b1: best.b1, p1: best.p1, b2: best.b2, p2: best.p2,
+    source: best.source, lbl1: barToLabel(best.b1), lbl2: barToLabel(best.b2) };
+  for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
+  setActiveSlot(annotMode, 0);
+  drawAnnotHighlights();
+  setAnnotStatus('Restarted: ' + barToLabel(best.b1) + '\\u2192' + barToLabel(best.b2) +
+    ' | dblclick last seg', '#8cf');
 });
 
 // Build a 3-segment chain covering [startBar, endBar]
@@ -1239,22 +1221,6 @@ function drawAnnotHighlights() {
     const letter = String.fromCharCode(97 + i);
     cx.fillText(letter + ' ' + sl1 + sl2, smx, smy - 8);
   }
-  // Draw head-selection marker when waiting for tail click
-  if(d.clickCount === 1 && d.clickHead) {
-    const hx = xS(d.clickHead.bar), hy = yS(d.clickHead.price);
-    cx.strokeStyle = '#f0c040';
-    cx.lineWidth = 3;
-    cx.globalAlpha = 0.9;
-    cx.setLineDash([4, 4]);
-    cx.beginPath(); cx.arc(hx, hy, 10, 0, Math.PI*2); cx.stroke();
-    cx.beginPath(); cx.arc(hx, hy, 16, 0, Math.PI*2); cx.stroke();
-    cx.setLineDash([]);
-    cx.fillStyle = '#f0c040';
-    cx.font = 'bold 11px monospace';
-    cx.textAlign = 'center';
-    cx.fillText('HEAD', hx, hy - 20);
-  }
-
   cx.restore();
   cx.setLineDash([]);
   cx.globalAlpha = 1;
@@ -1273,11 +1239,9 @@ function clearAnnotation() {
   const d = md();
   d.slots = [];
   d.locked = false;
-  d.clickCount = 0;
-  d.clickHead = null;
-  d.dblSeg = null;
-  d.dblCandidates = [];
-  d.dblIdx = 0;
+  d.selectCount = 0;
+  d.firstSeg = null;
+  d.secondSeg = null;
   d.subSlots = [];
   d.subComboIdx = {};
   for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
@@ -2117,88 +2081,7 @@ cv.addEventListener('click', function(e) {
     return;
   }
 
-  // 非画线模式: annotation single-click (delayed 250ms to avoid dblclick conflict)
-  // OR drawn-line selection
-  const annD = md();
-  console.log('[click] drawTool=', drawTool, 'locked=', annD.locked, 'px=', px, 'py=', py);
-  if(!annD.locked) {
-    const annHit = findNearestSeg(px, py);
-    console.log('[click] annHit=', annHit ? (annHit.seg.source + ' dist=' + annHit.dist.toFixed(1)) : 'null');
-    if(annHit) {
-      // Cancel any previous pending click timer before setting new one
-      if(_annClickTimer) { clearTimeout(_annClickTimer); _annClickTimer = null; }
-      // Delay to distinguish from dblclick
-      const _px = px, _py = py;
-      _annClickTimer = setTimeout(function() {
-        _annClickTimer = null;
-        const ep = nearerEndpoint(_px, _py, annHit.seg);
-        const epLabel = barToLabel(ep.bar);
-        console.log('[click-timer] fired, clickCount=', annD.clickCount, 'ep=', epLabel);
-
-        if(annD.clickCount === 0) {
-          // First click: select HEAD endpoint
-          annD.clickCount = 1;
-          annD.clickHead = ep;
-          // Reset dblclick state since we're starting a new single-click flow
-          annD.dblSeg = null; annD.dblCandidates = []; annD.dblIdx = 0;
-          // Visual feedback: show selected head in status
-          setAnnotStatus('Head: ' + epLabel + ' (click another segment for tail)', '#8cf');
-          drawAnnotHighlights();
-          return;
-        }
-
-        if(annD.clickCount === 1) {
-          // Second click: select TAIL endpoint → define interval → auto 3-split
-          annD.clickCount = 0;
-          const head = annD.clickHead;
-          const tail = ep;
-          annD.clickHead = null;
-
-          // Ensure head.bar < tail.bar (swap if needed)
-          let startBar = head.bar, startPrice = head.price;
-          let endBar = tail.bar, endPrice = tail.price;
-          if(startBar > endBar) {
-            [startBar, endBar] = [endBar, startBar];
-            [startPrice, endPrice] = [endPrice, startPrice];
-          }
-
-          if(startBar === endBar) {
-            setAnnotStatus('Head and tail are same point (' + epLabel + '), try again', '#f88');
-            return;
-          }
-
-          // Construct parent segment from head to tail
-          const parentSeg = { b1: startBar, p1: startPrice, b2: endBar, p2: endPrice, source: 'interval' };
-          const result = autoDecomposeSegment(parentSeg);
-
-          // Also store as dblclick-compatible so user can cycle with dblclick later
-          annD.dblSeg = parentSeg;
-          annD.dblCandidates = result.combos || [];
-          annD.dblIdx = 0;
-
-          if(annD.dblCandidates.length > 0 && annD.dblCandidates[0].length === 3) {
-            fillL1With3Split(annD.dblCandidates[0]);
-            const nCand = annD.dblCandidates.length;
-            setAnnotStatus('Interval ' + barToLabel(startBar) + '\\u2192' + barToLabel(endBar) +
-              ' | 3-split 1/' + nCand + (nCand > 1 ? ' (dblclick to cycle)' : ''), '#8f8');
-          } else {
-            // No valid 3-split; put the whole interval as slot 0
-            annD.slots = [];
-            annD.slots[0] = { b1: startBar, p1: startPrice, b2: endBar, p2: endPrice,
-              source: 'interval', lbl1: barToLabel(startBar), lbl2: barToLabel(endBar) };
-            for(let i = 0; i < ANN_MAX; i++) renderSlot(annotMode, i);
-            setActiveSlot(annotMode, 0);
-            drawAnnotHighlights();
-            setAnnotStatus('Interval ' + barToLabel(startBar) + '\\u2192' + barToLabel(endBar) +
-              ' | no valid 3-split found', '#ff8');
-          }
-        }
-      }, 250);
-      return;  // exit click handler, let timer decide
-    }
-  }
-
-  // Drawn-line selection (existing logic)
+  // 非画线模式: drawn-line selection (existing logic)
   const hit = hitTest(px, py);
   if (hit.idx >= 0) {
     if (e.shiftKey) {
