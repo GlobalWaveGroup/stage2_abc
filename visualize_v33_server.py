@@ -415,10 +415,10 @@ def index(request: Request):
     </div>
   </span>
   <span style="color:#888;font-size:12px;">|</span>
-  <span id="tlineBtn" class="active" onclick="toggleTLines()" style="color:#0d8;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">T:{len(trendlines)}</span>
+  <span id="tlineBtn" onclick="toggleTLines()" style="color:#0d8;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">T:{len(trendlines)}</span>
   <input type="range" min="0" max="{len(trendlines)}" value="{min(10, len(trendlines))}" oninput="updateTLineN(this.value)" style="width:50px;vertical-align:middle;">
   <span id="tlineN" style="color:#0d8;font-size:10px;">{min(10, len(trendlines))}</span>
-  <span id="flineBtn" class="active" onclick="toggleFLines()" style="color:#fa0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">F:{len(horizontals)}</span>
+  <span id="flineBtn" onclick="toggleFLines()" style="color:#fa0;font-size:11px;cursor:pointer;padding:1px 4px;border:1px solid #333;border-radius:3px;">F:{len(horizontals)}</span>
   <input type="range" min="0" max="{len(horizontals)}" value="{min(10, len(horizontals))}" oninput="updateFLineN(this.value)" style="width:50px;vertical-align:middle;">
   <span id="flineN" style="color:#fa0;font-size:10px;">{min(10, len(horizontals))}</span>
 </div>
@@ -1033,7 +1033,14 @@ let _annClickTimer = null;
 // Collect segments filtered by current annotation mode
 function getAnnotSegs() {
   const all = collectVisibleSegs();
-  if(annotMode === 'zig')  return all.filter(s => !s.source.startsWith('DRAW:'));
+  if(annotMode === 'zig') {
+    // Sys mode: ONLY zigzag snapshot segments (exclude EX/FUS/SYM/DRAW)
+    return all.filter(s => {
+      const src = s.source;
+      return !src.startsWith('DRAW:') && !src.startsWith('EX:') &&
+             !src.startsWith('FUS:') && !src.startsWith('SYM:');
+    });
+  }
   if(annotMode === 'draw') return all.filter(s => s.source.startsWith('DRAW:'));
   return all;  // mix
 }
@@ -2983,9 +2990,9 @@ const WINDOW_WIN = {win};
 const HIST_LABELS = {json.dumps(hist_labels, ensure_ascii=False)};
 const TLINES = {tlines_json};
 const FLINES = {flines_json};
-let showTLines = true;
+let showTLines = false;
 let tlineTopN = Math.min(10, TLINES.length);
-let showFLines = true;
+let showFLines = false;
 let flineTopN = Math.min(10, FLINES.length);
 const SAVED_DRAWN_LINES = {json.dumps(saved_drawn_lines, ensure_ascii=False)};
 '''

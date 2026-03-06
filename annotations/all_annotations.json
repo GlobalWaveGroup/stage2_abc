@@ -4493,5 +4493,329 @@
       "total_amp": 0.01079,
       "net_dir": "UP"
     }
+  },
+  {
+    "id": "20260306_122212",
+    "timestamp": "2026-03-06T12:22:12.959189",
+    "label": "每个Kzag线都是HL交替的。类似的新的分线方案，混乱。。直接违反了这个规则。",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 3,
+    "dir_sequence": "DUD",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 17,
+        "p1": 1.09637,
+        "b2": 44,
+        "p2": 1.08919,
+        "lbl1": "H1",
+        "lbl2": "H17",
+        "amp": 0.00718,
+        "time": 27,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0002659,
+        "source": "sub"
+      },
+      {
+        "idx": 2,
+        "b1": 44,
+        "p1": 1.08919,
+        "b2": 82,
+        "p2": 1.0906,
+        "lbl1": "H17",
+        "lbl2": "H4",
+        "amp": 0.00141,
+        "time": 38,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 3.71e-05,
+        "source": "sub"
+      },
+      {
+        "idx": 3,
+        "b1": 82,
+        "p1": 1.0906,
+        "b2": 104,
+        "p2": 1.08347,
+        "lbl1": "H4",
+        "lbl2": "L3",
+        "amp": 0.00713,
+        "time": 22,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003241,
+        "source": "sub"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 17,
+            "p1": 1.09637,
+            "b2": 31,
+            "p2": 1.09318,
+            "source": "sub"
+          },
+          {
+            "b1": 31,
+            "p1": 1.09318,
+            "b2": 34,
+            "p2": 1.09453,
+            "source": "sub"
+          },
+          {
+            "b1": 34,
+            "p1": 1.09453,
+            "b2": 44,
+            "p2": 1.08919,
+            "source": "sub"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 44,
+            "p1": 1.08919,
+            "b2": 58,
+            "p2": 1.08996,
+            "source": "sub"
+          },
+          {
+            "b1": 58,
+            "p1": 1.08996,
+            "b2": 61,
+            "p2": 1.08948,
+            "source": "sub"
+          },
+          {
+            "b1": 61,
+            "p1": 1.08948,
+            "b2": 82,
+            "p2": 1.0906,
+            "source": "sub"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 82,
+            "p1": 1.0906,
+            "b2": 88,
+            "p2": 1.08661,
+            "source": "sub"
+          },
+          {
+            "b1": 88,
+            "p1": 1.08661,
+            "b2": 99,
+            "p2": 1.08765,
+            "source": "sub"
+          },
+          {
+            "b1": 99,
+            "p1": 1.08765,
+            "b2": 104,
+            "p2": 1.08347,
+            "source": "sub"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.1964,
+        "time_ratio": 1.4074,
+        "dir_change": true,
+        "retrace": 0.1964
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 5.0567,
+        "time_ratio": 0.5789,
+        "dir_change": true,
+        "retrace": 5.0567
+      }
+    ],
+    "summary": {
+      "total_bars": 87,
+      "total_amp": 0.0129,
+      "net_dir": "DN"
+    }
+  },
+  {
+    "id": "20260306_124140",
+    "timestamp": "2026-03-06T12:41:40.177696",
+    "label": "每个Kzag线都是HL交替的。类似的新的分线方案，混乱。。在现在的参数下，这些被双击选中开始拆解为三波的，；逻辑不是线，而是点吗？Kzig的底层生成逻辑，受到挑战？",
+    "annot_mode": "zig",
+    "decomp_mode": "balance+symmetric",
+    "n_segments": 3,
+    "dir_sequence": "DUD",
+    "window": {
+      "start": 0,
+      "end": 200,
+      "win": 200
+    },
+    "segments": [
+      {
+        "idx": 1,
+        "b1": 17,
+        "p1": 1.09637,
+        "b2": 67,
+        "p2": 1.08914,
+        "lbl1": "H1",
+        "lbl2": "H30",
+        "amp": 0.00723,
+        "time": 50,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0001446,
+        "source": "sub"
+      },
+      {
+        "idx": 2,
+        "b1": 67,
+        "p1": 1.08914,
+        "b2": 82,
+        "p2": 1.0906,
+        "lbl1": "H30",
+        "lbl2": "H4",
+        "amp": 0.00146,
+        "time": 15,
+        "dir": 1,
+        "dir_label": "UP",
+        "slope": 9.73e-05,
+        "source": "sub"
+      },
+      {
+        "idx": 3,
+        "b1": 82,
+        "p1": 1.0906,
+        "b2": 104,
+        "p2": 1.08347,
+        "lbl1": "H4",
+        "lbl2": "L3",
+        "amp": 0.00713,
+        "time": 22,
+        "dir": -1,
+        "dir_label": "DN",
+        "slope": 0.0003241,
+        "source": "sub"
+      }
+    ],
+    "l2": {
+      "0": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 17,
+            "p1": 1.09637,
+            "b2": 31,
+            "p2": 1.09318,
+            "source": "sub"
+          },
+          {
+            "b1": 31,
+            "p1": 1.09318,
+            "b2": 34,
+            "p2": 1.09453,
+            "source": "sub"
+          },
+          {
+            "b1": 34,
+            "p1": 1.09453,
+            "b2": 67,
+            "p2": 1.08914,
+            "source": "sub"
+          }
+        ]
+      },
+      "1": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 1,
+        "subs": [
+          {
+            "b1": 67,
+            "p1": 1.08914,
+            "b2": 82,
+            "p2": 1.0906,
+            "source": "sub",
+            "lbl1": "H30",
+            "lbl2": "H4"
+          }
+        ]
+      },
+      "2": {
+        "mode": "balance+symmetric",
+        "comboIdx": 0,
+        "nCombos": 3,
+        "subs": [
+          {
+            "b1": 82,
+            "p1": 1.0906,
+            "b2": 88,
+            "p2": 1.08661,
+            "source": "sub"
+          },
+          {
+            "b1": 88,
+            "p1": 1.08661,
+            "b2": 99,
+            "p2": 1.08765,
+            "source": "sub"
+          },
+          {
+            "b1": 99,
+            "p1": 1.08765,
+            "b2": 104,
+            "p2": 1.08347,
+            "source": "sub"
+          }
+        ]
+      }
+    },
+    "ratios": [
+      {
+        "pair": "S1→S2",
+        "amp_ratio": 0.2019,
+        "time_ratio": 0.3,
+        "dir_change": true,
+        "retrace": 0.2019
+      },
+      {
+        "pair": "S2→S3",
+        "amp_ratio": 4.8836,
+        "time_ratio": 1.4667,
+        "dir_change": true,
+        "retrace": 4.8836
+      }
+    ],
+    "summary": {
+      "total_bars": 87,
+      "total_amp": 0.0129,
+      "net_dir": "DN"
+    }
   }
 ]
