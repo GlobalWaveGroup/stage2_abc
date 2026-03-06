@@ -708,23 +708,34 @@ function autoDecomposeSegment(seg) {
     return d0 !== d1 && d1 !== d2;
   }
 
-  // Collect ALL pivots from ALL snapshots + TOP array (importance-ranked)
-  const pivotMap = {};  // bar -> {bar, price, imp}
+  // Parent direction: +1 = up (L→H), -1 = down (H→L)
+  const parentDir = seg.p2 > seg.p1 ? 1 : -1;
+  // For a down-segment (H→L): split points must be L', H' (valley, peak) → H→L'→H'→L
+  // For an up-segment (L→H): split points must be H', L' (peak, valley) → L→H'→L'→H
+  // So: first split dir = -parentDir, second split dir = parentDir
+  const need1stDir = -parentDir;  // first split point type: -1=valley for down, +1=peak for up
+  const need2ndDir = parentDir;   // second split point type: +1=peak for down, -1=valley for up
+
+  // Collect ALL pivots from ALL snapshots + TOP array, WITH dir info
+  const pivotMap = {};  // bar -> {bar, price, imp, dir}
   for(let si = 0; si < S.length; si++) {
     if(!vis[si]) continue;
     for(const pt of S[si].pts) {
       if(pt.bar > seg.b1 && pt.bar < seg.b2) {
-        if(!pivotMap[pt.bar]) pivotMap[pt.bar] = { bar: pt.bar, price: pt.y, imp: 0 };
+        if(!pivotMap[pt.bar]) {
+          pivotMap[pt.bar] = { bar: pt.bar, price: pt.y, imp: 0, dir: pt.dir || 0 };
+        }
       }
     }
   }
-  // Enrich with importance from TOP array
+  // Enrich with importance and dir from TOP array
   for(const t of TOP) {
     if(t.bar > seg.b1 && t.bar < seg.b2) {
       if(pivotMap[t.bar]) {
         pivotMap[t.bar].imp = Math.max(pivotMap[t.bar].imp, t.imp || 0);
+        if(t.dir) pivotMap[t.bar].dir = t.dir;  // TOP dir is authoritative
       } else {
-        pivotMap[t.bar] = { bar: t.bar, price: t.price, imp: t.imp || 0 };
+        pivotMap[t.bar] = { bar: t.bar, price: t.price, imp: t.imp || 0, dir: t.dir || 0 };
       }
     }
   }
@@ -743,48 +754,44 @@ function autoDecomposeSegment(seg) {
     return normVar + symDiff - impBonus;
   }
 
-  // Enumerate C(N,2) pairs → 3-leg candidates
-  const candidates = [];
-  for(let i = 0; i < uniq.length; i++) {
-    for(let j = i+1; j < uniq.length; j++) {
-      const pi = uniq[i], pj = uniq[j];
-      const legs = [
-        { b1: seg.b1, p1: seg.p1, b2: pi.bar, p2: pi.price, source: 'sub' },
-        { b1: pi.bar, p1: pi.price, b2: pj.bar, p2: pj.price, source: 'sub' },
-        { b1: pj.bar, p1: pj.price, b2: seg.b2, p2: seg.p2, source: 'sub' }
-      ];
-
-      // MUST alternate direction (zigzag HL交替规则)
-      if(!isAlternating(legs)) continue;
-
-      const mods = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
-
-      // Discard if any leg too small (归并掉小腿)
-      if(mods[0] < minLegMod || mods[1] < minLegMod || mods[2] < minLegMod) continue;
-
-      const score = scoreCandidate(legs, mods, pi, pj);
-      candidates.push({ legs, score, mods });
-    }
-  }
-
-  // If no candidate passes min-leg filter, relax to 5% and retry (still require alternation)
-  if(candidates.length === 0) {
-    const softMin = parentMod * 0.05;
+  // Try to find candidates with given minMod threshold
+  function findCandidates(minMod) {
+    const cands = [];
     for(let i = 0; i < uniq.length; i++) {
       for(let j = i+1; j < uniq.length; j++) {
         const pi = uniq[i], pj = uniq[j];
+
+        // HL交替规则: first split point must match need1stDir, second must match need2ndDir
+        if(pi.dir !== 0 && pi.dir !== need1stDir) continue;
+        if(pj.dir !== 0 && pj.dir !== need2ndDir) continue;
+
         const legs = [
           { b1: seg.b1, p1: seg.p1, b2: pi.bar, p2: pi.price, source: 'sub' },
           { b1: pi.bar, p1: pi.price, b2: pj.bar, p2: pj.price, source: 'sub' },
           { b1: pj.bar, p1: pj.price, b2: seg.b2, p2: seg.p2, source: 'sub' }
         ];
+
+        // Double-check: directions must actually alternate in price
         if(!isAlternating(legs)) continue;
+
         const mods = legs.map(l => Math.sqrt((l.b2-l.b1)**2 + ((l.p2-l.p1)*100000)**2));
-        if(mods[0] < softMin || mods[1] < softMin || mods[2] < softMin) continue;
+
+        // Discard if any leg too small
+        if(mods[0] < minMod || mods[1] < minMod || mods[2] < minMod) continue;
+
         const score = scoreCandidate(legs, mods, pi, pj);
-        candidates.push({ legs, score, mods });
+        cands.push({ legs, score, mods });
       }
     }
+    return cands;
+  }
+
+  // First pass: 10% min-leg filter
+  let candidates = findCandidates(minLegMod);
+
+  // If no candidate passes, relax to 5%
+  if(candidates.length === 0) {
+    candidates = findCandidates(parentMod * 0.05);
   }
 
   if(candidates.length === 0) return { combos: [[seg]] };
