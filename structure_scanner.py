@@ -180,21 +180,42 @@ def _build_structure(segs, n_legs, source_label, df, pivot_info,
             'max_adverse': round(max_down * 10000, 1) if segs[-1]['dir'] > 0 else round(max_up * 10000, 1),
         }
     
+    # --- Merge level category ---
+    # L0 = base, A1-A2 = low, A3-A5 = mid, A6+ / T* = high
+    def _level_cat(label):
+        if label == 'L0': return 'B'
+        if label.startswith('A'):
+            n = int(label[1:])
+            if n <= 2: return 'L'
+            if n <= 5: return 'M'
+            return 'H'
+        if label.startswith('T'): return 'H'
+        return 'B'
+    level_cat = _level_cat(source_label)
+    
     # --- Fingerprint string (for grouping) ---
-    # Quantize ratios to make grouping tractable
-    def q(v, bins=[0.2, 0.5, 0.8, 1.2, 2.0, 5.0]):
-        """Quantize to bucket label"""
-        for i, b in enumerate(bins):
-            if v < b: return str(i)
-        return str(len(bins))
+    # Coarse quantization: 4 bins for retrace (fewer combos)
+    def q_retrace(v):
+        """Quantize retrace to 4 buckets: shallow/normal/deep/extreme"""
+        if v < 0.382: return 'S'   # shallow
+        if v < 0.786: return 'N'   # normal (38-78%)
+        if v < 1.5:   return 'D'   # deep (78-150%)
+        return 'X'                  # extreme (>150%)
     
-    retrace_q = ''.join(q(r) for r in retrace_ratios)
-    amp_q = ''.join(q(r, [0.15, 0.3, 0.5, 0.7, 0.85]) for r in amp_ratios)
+    # Coarse amp ratio: 3 bins (small/medium/large relative to total)
+    def q_amp(v):
+        if v < 0.25: return 's'
+        if v < 0.6:  return 'm'
+        return 'L'
     
-    fingerprint = f"{dir_seq}|r{retrace_q}|a{amp_q}"
+    retrace_q = ''.join(q_retrace(r) for r in retrace_ratios)
+    amp_q = ''.join(q_amp(r) for r in amp_ratios)
+    
+    fingerprint = f"{dir_seq}|{retrace_q}|{amp_q}|{level_cat}"
     
     return {
         'source': source_label,
+        'level_cat': level_cat,
         'n_legs': n_legs,
         'start_bar': start_bar,
         'end_bar': end_bar,
@@ -341,7 +362,9 @@ def run_sliding_pipeline(df, window=500, step=200, horizon_bars=[5, 10, 20, 50])
     """
     total = len(df)
     all_structures = []
+    seen_keys = set()  # dedup: (source_label, global_start_bar, global_end_bar)
     n_windows = 0
+    n_dupes = 0
     
     highs = df['high'].values
     lows = df['low'].values
@@ -349,7 +372,7 @@ def run_sliding_pipeline(df, window=500, step=200, horizon_bars=[5, 10, 20, 50])
     for start in range(0, total - window - max(horizon_bars), step):
         end = start + window
         
-        # Slice
+        # Slice: window + future horizon for outcome measurement
         df_win = df.iloc[start:end + max(horizon_bars)].reset_index(drop=True)
         h = df_win['high'].values
         l = df_win['low'].values
@@ -367,18 +390,26 @@ def run_sliding_pipeline(df, window=500, step=200, horizon_bars=[5, 10, 20, 50])
             results['all_snapshots'], df_win, pi, horizon_bars
         )
         
-        # Offset bar indices to global
+        # Offset bar indices to global + dedup
         for s in structs:
             s['start_bar'] += start
             s['end_bar'] += start
             s['window_start'] = start
+            
+            # Dedup key: same source level + same global bar range
+            key = (s['source'], s['start_bar'], s['end_bar'])
+            if key in seen_keys:
+                n_dupes += 1
+                continue
+            seen_keys.add(key)
+            all_structures.append(s)
         
-        all_structures.extend(structs)
         n_windows += 1
         
         if n_windows % 50 == 0:
-            print(f"  Window {n_windows}: start={start}, structures so far: {len(all_structures)}")
+            print(f"  Window {n_windows}: start={start}, structs={len(all_structures)}, dupes_skipped={n_dupes}")
     
+    print(f"  Dedup: {n_dupes} duplicates removed, {len(all_structures)} unique structures")
     return all_structures
 
 
@@ -414,6 +445,11 @@ def main():
     s3 = [s for s in structures if s['n_legs'] == 3]
     s5 = [s for s in structures if s['n_legs'] == 5]
     print(f"  3-leg: {len(s3)}, 5-leg: {len(s5)}")
+    
+    # Level distribution
+    from collections import Counter
+    level_dist = Counter(s['level_cat'] for s in structures)
+    print(f"  By level: {dict(level_dist)}")
     
     # Analyze predictive power
     print(f"\nAnalyzing predictive power (min_samples={args.min_samples})...")
