@@ -1045,6 +1045,7 @@ cv.addEventListener('dblclick', function(e) {
   // Collect segments based on current mode
   let allSegs;
   if(annotMode === 'zig') {
+    // Collect zigzag segments from all visible snapshots (exclude EX/FUS/SYM/DRAW)
     allSegs = collectVisibleSegs().filter(function(s) {
       return !s.source.startsWith('DRAW:') && !s.source.startsWith('EX:') &&
              !s.source.startsWith('FUS:') && !s.source.startsWith('SYM:');
@@ -1055,11 +1056,26 @@ cv.addEventListener('dblclick', function(e) {
     allSegs = collectVisibleSegs();
   }
 
-  // Find nearest segment
+  // Find nearest segment — among candidates within threshold,
+  // prefer SHORTEST time-span (most precise level) to avoid selecting
+  // an overlapping long segment from a higher snapshot level
   let best = null, bestDist = 20;
+  var nearCandidates = [];
   for(const seg of allSegs) {
     const dd = distToSeg(cmx, cmy, seg);
-    if(dd < bestDist) { bestDist = dd; best = seg; }
+    if(dd < 20) nearCandidates.push({ seg: seg, dist: dd });
+  }
+  if(nearCandidates.length > 0) {
+    // Sort: first by distance (closest), then by time-span (shortest = most specific)
+    nearCandidates.sort(function(a, b) {
+      // Within 3px of each other → prefer shorter segment
+      if(Math.abs(a.dist - b.dist) < 3) {
+        return Math.abs(a.seg.b2 - a.seg.b1) - Math.abs(b.seg.b2 - b.seg.b1);
+      }
+      return a.dist - b.dist;
+    });
+    best = nearCandidates[0].seg;
+    bestDist = nearCandidates[0].dist;
   }
   if(!best) {
     setAnnotStatus('No segment found near click (' + annotMode + ' mode)', '#f88');
