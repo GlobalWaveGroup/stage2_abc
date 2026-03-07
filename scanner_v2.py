@@ -242,6 +242,16 @@ def build_structure(pts, pct, closes, highs, lows, total_bars, horizon_bars):
             'max_adverse': round(max_adverse * 10000, 1),
         }
 
+    # 跨度分档: 3段结构总共跨多少根K线
+    def _span_bucket(span):
+        if span <= 10: return 'S10'
+        if span <= 20: return 'S20'
+        if span <= 50: return 'S50'
+        if span <= 100: return 'S100'
+        if span <= 200: return 'S200'
+        return 'S200+'
+    span_bkt = _span_bucket(total_span)
+
     return {
         'pct': pct,
         'fingerprint': fingerprint,
@@ -250,6 +260,7 @@ def build_structure(pts, pct, closes, highs, lows, total_bars, horizon_bars):
         'end_bar': end_bar,
         'total_amp': round(total_amp, 6),
         'total_span': total_span,
+        'span_bucket': span_bkt,
         'retrace_ratios': [round(r, 4) for r in retrace_ratios],
         'amp_ratios': [round(r, 4) for r in amp_ratios],
         'time_ratios': [round(r, 4) for r in time_ratios],
@@ -353,19 +364,31 @@ def run_dual_window(df, outer_sizes=[10000, 20000, 50000],
 
 
 # =============================================================================
-# 5. 聚类分析
+# 5. 聚类分析 — 按 (pct, span_bucket, fingerprint) 三维聚类
 # =============================================================================
 
+SPAN_BUCKETS = ['S10', 'S20', 'S50', 'S100', 'S200', 'S200+']
+
 def analyze_clusters(structures_by_group, min_samples=30):
-    """按 (outer_size, pct, fingerprint) 聚类, 统计预测力."""
+    """
+    把所有outer_size的结构合并, 按 (pct, span_bucket, fingerprint) 聚类.
+    外层大小不再作为分组维度(已验证影响不大).
+    """
+    # 合并所有outer_size的结构, 只按pct分
+    by_pct = defaultdict(list)
+    for (outer, pct), structs in structures_by_group.items():
+        by_pct[pct].extend(structs)
+
     all_clusters = []
 
-    for (outer, pct), structs in sorted(structures_by_group.items()):
+    for pct in sorted(by_pct.keys()):
+        structs = by_pct[pct]
+        # 按 (span_bucket, fingerprint) 分组
         groups = defaultdict(list)
         for s in structs:
-            groups[s['fingerprint']].append(s)
+            groups[(s['span_bucket'], s['fingerprint'])].append(s)
 
-        for fp, members in groups.items():
+        for (sb, fp), members in groups.items():
             if len(members) < min_samples:
                 continue
 
@@ -374,11 +397,13 @@ def analyze_clusters(structures_by_group, min_samples=30):
                 horizons.update(m['outcomes'].keys())
 
             cluster = {
-                'outer_size': outer,
                 'pct': pct,
+                'span_bucket': sb,
                 'fingerprint': fp,
                 'n_samples': len(members),
                 'dir_seq': members[0]['dir_seq'],
+                'avg_span': round(np.mean([m['total_span'] for m in members]), 1),
+                'avg_amp_pips': round(np.mean([m['total_amp'] for m in members]) * 10000, 1),
                 'avg_imp': round(np.mean([m['avg_imp'] for m in members]), 4),
                 'avg_sym': round(np.mean([m['sym_score'] for m in members]), 4),
                 'avg_retrace': [
@@ -410,6 +435,9 @@ def analyze_clusters(structures_by_group, min_samples=30):
                 avg_adv = np.mean(adv)
                 edge = avg_fav - avg_adv
 
+                # 盈亏比 (反转方向做单: favorable/adverse)
+                rr_ratio = avg_fav / avg_adv if avg_adv > 0 else 0
+
                 horizon_stats[h_key] = {
                     'n': n_total,
                     'avg_move': round(np.mean(moves), 2),
@@ -420,6 +448,7 @@ def analyze_clusters(structures_by_group, min_samples=30):
                     'avg_favorable': round(avg_fav, 2),
                     'avg_adverse': round(avg_adv, 2),
                     'edge_pips': round(edge, 2),
+                    'rr_ratio': round(rr_ratio, 3),
                 }
 
             cluster['horizon_stats'] = horizon_stats
@@ -434,9 +463,25 @@ def analyze_clusters(structures_by_group, min_samples=30):
                 cluster['best_pred_strength'] = 0
                 cluster['best_edge'] = 0
 
+            # 综合评分: 概率 × 盈亏比 × sqrt(频次)
+            # 用H10作为基准horizon
+            h10 = horizon_stats.get('H10', {})
+            if h10:
+                rev_rate = h10['reversal_rate']
+                rr = h10['rr_ratio']
+                freq = cluster['n_samples']
+                # 期望值 = rev_rate * avg_favorable - (1-rev_rate) * avg_adverse
+                ev_per_trade = rev_rate * h10['avg_favorable'] - (1 - rev_rate) * h10['avg_adverse']
+                # 综合分 = 期望值/trade × sqrt(频次) (越高越好)
+                composite = ev_per_trade * np.sqrt(freq)
+                cluster['ev_per_trade'] = round(ev_per_trade, 2)
+                cluster['composite_score'] = round(composite, 1)
+            else:
+                cluster['ev_per_trade'] = 0
+                cluster['composite_score'] = 0
+
             all_clusters.append(cluster)
 
-    all_clusters.sort(key=lambda c: c['best_pred_strength'], reverse=True)
     return all_clusters
 
 
@@ -445,70 +490,85 @@ def analyze_clusters(structures_by_group, min_samples=30):
 # =============================================================================
 
 def report(clusters, top_n=15):
-    """分组报告"""
+    # --- 按 (pct, span_bucket) 分组的明细报告 ---
     groups = defaultdict(list)
     for c in clusters:
-        groups[(c['outer_size'], c['pct'])].append(c)
+        groups[(c['pct'], c['span_bucket'])].append(c)
 
-    for (outer, pct), cls in sorted(groups.items()):
-        cls.sort(key=lambda c: c['best_pred_strength'], reverse=True)
+    for (pct, sb), cls in sorted(groups.items()):
+        cls.sort(key=lambda c: c['composite_score'], reverse=True)  # 最高composite在前
+        # 只报告有一定数量cluster的格子
+        if len(cls) < 3:
+            continue
         print(f"\n{'='*70}")
-        print(f"outer={outer}, top {pct}% pivots — {len(cls)} clusters")
+        print(f"top {pct}% pivots, span {sb} — {len(cls)} clusters")
         print(f"{'='*70}")
 
         for i, c in enumerate(cls[:top_n]):
-            bh = c['best_horizon']
-            bhs = c['horizon_stats'].get(bh, {})
             h10 = c['horizon_stats'].get('H10', {})
-            print(f"\n  [{i+1}] {c['fingerprint']}")
-            print(f"      n={c['n_samples']}, avg_imp={c['avg_imp']:.3f}, retrace={c['avg_retrace']}, sym={c['avg_sym']:.3f}")
-            if bhs:
-                print(f"      BEST {bh}: pred={c['best_pred_strength']:.3f}, cont={bhs['continuation_rate']:.3f}, rev={bhs['reversal_rate']:.3f}, edge={bhs['edge_pips']:+.1f}p")
+            h20 = c['horizon_stats'].get('H20', {})
+            print(f"\n  [{i+1}] {c['fingerprint']}  (n={c['n_samples']}, avg_span={c['avg_span']:.0f}, amp={c['avg_amp_pips']:.0f}p)")
+            print(f"      imp={c['avg_imp']:.3f}, retrace={c['avg_retrace']}, sym={c['avg_sym']:.3f}")
             if h10:
-                print(f"      H10: cont={h10['continuation_rate']:.3f}, rev={h10['reversal_rate']:.3f}, edge={h10['edge_pips']:+.1f}p, move={h10['avg_move']:+.1f}p")
+                print(f"      H10: rev={h10['reversal_rate']:.3f}, edge={h10['edge_pips']:+.1f}p, fav={h10['avg_favorable']:.1f}p, adv={h10['avg_adverse']:.1f}p, RR={h10['rr_ratio']:.2f}")
+            if h20:
+                print(f"      H20: rev={h20['reversal_rate']:.3f}, edge={h20['edge_pips']:+.1f}p, RR={h20['rr_ratio']:.2f}")
+            print(f"      EV/trade={c['ev_per_trade']:+.1f}p, composite={c['composite_score']:+.0f}")
 
-    # Baseline
+    # --- BASELINE: 每个(pct, span_bucket)格子的整体统计 ---
     print(f"\n{'='*70}")
-    print(f"BASELINE: 各口径的整体反转率 (不分fingerprint)")
+    print(f"BASELINE: 各(百分位, 跨度)格子的整体反转率")
     print(f"{'='*70}")
-    print(f"  {'outer':>7s} {'pct':>5s} {'clusters':>8s} {'samples':>8s} {'rev_H10':>8s} {'edge_H10':>9s} {'rev_H20':>8s} {'edge_H20':>9s}")
+    print(f"  {'pct':>5s} {'span':>6s} {'cls':>4s} {'samples':>8s} {'rev_H10':>8s} {'edge_H10':>9s} {'rev_H20':>8s} {'edge_H20':>9s} {'avg_amp':>8s}")
 
-    for (outer, pct), cls in sorted(groups.items()):
+    for (pct, sb), cls in sorted(groups.items()):
         h10_data = [(c['horizon_stats']['H10']['reversal_rate'],
                       c['horizon_stats']['H10']['edge_pips'],
                       c['n_samples'])
                      for c in cls if 'H10' in c['horizon_stats']]
-        h20_data = [(c['horizon_stats']['H20']['reversal_rate'],
-                      c['horizon_stats']['H20']['edge_pips'],
-                      c['n_samples'])
-                     for c in cls if 'H20' in c['horizon_stats']]
         if not h10_data:
             continue
         tn = sum(n for _,_,n in h10_data)
         r10 = sum(r*n for r,_,n in h10_data) / tn
         e10 = sum(e*n for _,e,n in h10_data) / tn
-        if h20_data:
-            tn20 = sum(n for _,_,n in h20_data)
-            r20 = sum(r*n for r,_,n in h20_data) / tn20
-            e20 = sum(e*n for _,e,n in h20_data) / tn20
-        else:
-            r20, e20 = 0, 0
-        print(f"  {outer:>7d} {pct:>5d} {len(cls):>8d} {tn:>8d} {r10:>8.3f} {e10:>+9.1f}p {r20:>8.3f} {e20:>+9.1f}p")
 
-    # Fingerprint区分度: 同一(outer, pct)内, 各fingerprint的H10反转率方差
+        h20_data = [(c['horizon_stats']['H20']['reversal_rate'],
+                      c['horizon_stats']['H20']['edge_pips'],
+                      c['n_samples'])
+                     for c in cls if 'H20' in c['horizon_stats']]
+        r20 = sum(r*n for r,_,n in h20_data) / sum(n for _,_,n in h20_data) if h20_data else 0
+        e20 = sum(e*n for _,e,n in h20_data) / sum(n for _,_,n in h20_data) if h20_data else 0
+
+        avg_amp = np.mean([c['avg_amp_pips'] for c in cls])
+        print(f"  {pct:>5d} {sb:>6s} {len(cls):>4d} {tn:>8d} {r10:>8.3f} {e10:>+9.1f}p {r20:>8.3f} {e20:>+9.1f}p {avg_amp:>8.0f}p")
+
+    # --- FINGERPRINT区分度 ---
     print(f"\n{'='*70}")
-    print(f"FINGERPRINT区分度: 同组内反转率的标准差 (越大=fingerprint越有区分价值)")
+    print(f"FINGERPRINT区分度: 同格子内反转率std (越大=fingerprint越有区分价值)")
     print(f"{'='*70}")
-    print(f"  {'outer':>7s} {'pct':>5s} {'clusters':>8s} {'rev_std':>8s} {'rev_min':>8s} {'rev_max':>8s} {'edge_std':>9s}")
+    print(f"  {'pct':>5s} {'span':>6s} {'cls':>4s} {'rev_std':>8s} {'rev_range':>12s} {'edge_std':>9s}")
 
-    for (outer, pct), cls in sorted(groups.items()):
+    for (pct, sb), cls in sorted(groups.items()):
         revs = [c['horizon_stats']['H10']['reversal_rate']
                 for c in cls if 'H10' in c['horizon_stats']]
         edges = [c['horizon_stats']['H10']['edge_pips']
                  for c in cls if 'H10' in c['horizon_stats']]
         if len(revs) < 3:
             continue
-        print(f"  {outer:>7d} {pct:>5d} {len(revs):>8d} {np.std(revs):>8.3f} {min(revs):>8.3f} {max(revs):>8.3f} {np.std(edges):>9.1f}p")
+        print(f"  {pct:>5d} {sb:>6s} {len(revs):>4d} {np.std(revs):>8.3f} {min(revs):.3f}~{max(revs):.3f} {np.std(edges):>9.1f}p")
+
+    # --- TOP综合排名: 概率×盈亏比×频次 最优的fingerprint ---
+    print(f"\n{'='*70}")
+    print(f"TOP 30 综合排名: EV/trade × sqrt(freq)")
+    print(f"  (正EV=反转做单有正期望, 负composite=亏损)")
+    print(f"{'='*70}")
+    # 只看有H10数据的
+    ranked = [c for c in clusters if 'H10' in c['horizon_stats']]
+    ranked.sort(key=lambda c: c['composite_score'], reverse=True)
+    print(f"  {'rank':>4s} {'pct':>4s} {'span':>5s} {'fingerprint':>18s} {'n':>6s} {'rev%':>6s} {'edge':>7s} {'fav':>6s} {'adv':>6s} {'RR':>5s} {'EV':>7s} {'comp':>7s}")
+    for i, c in enumerate(ranked[:30]):
+        h10 = c['horizon_stats']['H10']
+        print(f"  {i+1:>4d} {c['pct']:>4d} {c['span_bucket']:>5s} {c['fingerprint']:>18s} {c['n_samples']:>6d} {h10['reversal_rate']:>6.1%} {h10['edge_pips']:>+7.1f} {h10['avg_favorable']:>6.1f} {h10['avg_adverse']:>6.1f} {h10['rr_ratio']:>5.2f} {c['ev_per_trade']:>+7.1f} {c['composite_score']:>+7.0f}")
 
 
 # =============================================================================
@@ -575,7 +635,7 @@ def main():
         'percentiles': percentiles,
         'total_structures': total_structs,
         'n_clusters': len(clusters),
-        'clusters': clusters[:100],
+        'clusters': sorted(clusters, key=lambda c: c['composite_score'], reverse=True)[:100],
         'elapsed_seconds': round(elapsed, 1),
     }
     with open(output_path, 'w') as f:

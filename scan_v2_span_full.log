@@ -1,0 +1,2359 @@
+=== Scanner V2 (dual-window): EURUSD H1 ===
+  outer: [10000]
+  inner: 500, step: 200
+  percentiles: [10, 20, 30, 50, 75, 100]
+  Loaded 155227 bars
+
+Running dual-window scan...
+
+  outer=10000, outer_step=5000, inner=500, inner_step=200
+    outer_win 5: o_start=20000, pivots=5128, structs=46002, dupes=86220
+    outer_win 10: o_start=45000, pivots=5009, structs=86696, dupes=170924
+    outer_win 15: o_start=70000, pivots=4912, structs=125811, dupes=251363
+    outer_win 20: o_start=95000, pivots=4864, structs=164603, dupes=332897
+    outer_win 25: o_start=120000, pivots=4844, structs=203273, dupes=413997
+    outer_win 30: o_start=145000, pivots=4824, structs=242430, dupes=495040
+    Done: 30 outer windows, 242430 structures, 495040 dupes skipped
+
+Total structures: 242430
+  outer=10000, pct=10: 5533 structures
+  outer=10000, pct=20: 13470 structures
+  outer=10000, pct=30: 23217 structures
+  outer=10000, pct=50: 45484 structures
+  outer=10000, pct=75: 77569 structures
+  outer=10000, pct=100: 77157 structures
+
+Analyzing clusters (min_samples=30)...
+Total clusters: 1017
+
+======================================================================
+top 10% pivots, span S100 — 13 clusters
+======================================================================
+
+  [1] UDU|DD|LLL  (n=93, avg_span=75, amp=119p)
+      imp=0.346, retrace=[1.1012, 1.0696], sym=0.238
+      H10: rev=0.806, edge=-37.4p, fav=21.9p, adv=59.3p, RR=0.37
+      H20: rev=0.806, edge=-55.1p, RR=0.31
+      EV/trade=+6.2p, composite=+60
+
+  [2] UDU|DN|LLL  (n=60, avg_span=71, amp=81p)
+      imp=0.344, retrace=[1.0818, 0.6173], sym=0.388
+      H10: rev=0.850, edge=-31.6p, fav=17.4p, adv=49.1p, RR=0.35
+      H20: rev=0.867, edge=-48.8p, RR=0.32
+      EV/trade=+7.5p, composite=+58
+
+  [3] DUD|XD|LLL  (n=52, avg_span=74, amp=68p)
+      imp=0.353, retrace=[2.3468, 1.0203], sym=0.666
+      H10: rev=0.846, edge=-39.3p, fav=20.1p, adv=59.4p, RR=0.34
+      H20: rev=0.885, edge=-57.8p, RR=0.27
+      EV/trade=+7.8p, composite=+57
+
+  [4] UDU|DX|mmL  (n=36, avg_span=76, amp=174p)
+      imp=0.350, retrace=[1.127, 2.4065], sym=1.024
+      H10: rev=0.889, edge=-37.8p, fav=16.4p, adv=54.3p, RR=0.30
+      H20: rev=0.778, edge=-51.8p, RR=0.31
+      EV/trade=+8.6p, composite=+52
+
+  [5] DUD|XN|LLL  (n=69, avg_span=74, amp=27p)
+      imp=0.338, retrace=[2.5541, 0.5893], sym=0.276
+      H10: rev=0.812, edge=-38.7p, fav=20.6p, adv=59.3p, RR=0.35
+      H20: rev=0.812, edge=-55.8p, RR=0.29
+      EV/trade=+5.6p, composite=+46
+
+  [6] DUD|DX|mmL  (n=34, avg_span=75, amp=222p)
+      imp=0.350, retrace=[1.0403, 2.4613], sym=0.974
+      H10: rev=0.794, edge=-35.9p, fav=24.4p, adv=60.4p, RR=0.41
+      H20: rev=0.676, edge=-43.2p, RR=0.40
+      EV/trade=+7.0p, composite=+41
+
+  [7] UDU|XS|LLL  (n=31, avg_span=74, amp=43p)
+      imp=0.329, retrace=[2.1282, 0.2889], sym=0.364
+      H10: rev=0.839, edge=-43.5p, fav=21.0p, adv=64.5p, RR=0.33
+      H20: rev=0.677, edge=-57.3p, RR=0.28
+      EV/trade=+7.2p, composite=+40
+
+  [8] DUD|DD|LLL  (n=96, avg_span=74, amp=129p)
+      imp=0.348, retrace=[1.0911, 1.1422], sym=0.292
+      H10: rev=0.771, edge=-35.9p, fav=21.7p, adv=57.6p, RR=0.38
+      H20: rev=0.750, edge=-48.5p, RR=0.36
+      EV/trade=+3.5p, composite=+35
+
+  [9] UDU|XN|LLL  (n=71, avg_span=73, amp=26p)
+      imp=0.339, retrace=[2.6084, 0.604], sym=0.303
+      H10: rev=0.845, edge=-52.4p, fav=17.2p, adv=69.6p, RR=0.25
+      H20: rev=0.817, edge=-65.7p, RR=0.24
+      EV/trade=+3.8p, composite=+32
+
+  [10] UDU|XD|LLL  (n=41, avg_span=73, amp=72p)
+      imp=0.348, retrace=[2.1713, 1.0314], sym=0.640
+      H10: rev=0.732, edge=-32.3p, fav=22.7p, adv=55.0p, RR=0.41
+      H20: rev=0.780, edge=-52.8p, RR=0.34
+      EV/trade=+1.9p, composite=+12
+
+  [11] DUD|SX|Lsm  (n=31, avg_span=75, amp=212p)
+      imp=0.352, retrace=[0.2384, 2.613], sym=0.677
+      H10: rev=0.710, edge=-24.7p, fav=19.6p, adv=44.3p, RR=0.44
+      H20: rev=0.774, edge=-30.4p, RR=0.43
+      EV/trade=+1.0p, composite=+6
+
+  [12] DUD|XS|LLL  (n=33, avg_span=74, amp=39p)
+      imp=0.332, retrace=[2.077, 0.2897], sym=0.353
+      H10: rev=0.727, edge=-29.9p, fav=17.6p, adv=47.4p, RR=0.37
+      H20: rev=0.697, edge=-46.8p, RR=0.32
+      EV/trade=-0.2p, composite=-1
+
+  [13] DUD|DN|LLL  (n=70, avg_span=71, amp=69p)
+      imp=0.338, retrace=[1.0616, 0.5948], sym=0.437
+      H10: rev=0.714, edge=-29.7p, fav=15.3p, adv=45.0p, RR=0.34
+      H20: rev=0.700, edge=-38.1p, RR=0.36
+      EV/trade=-1.9p, composite=-16
+
+======================================================================
+top 10% pivots, span S200 — 13 clusters
+======================================================================
+
+  [1] DUD|DD|LLL  (n=75, avg_span=146, amp=192p)
+      imp=0.355, retrace=[1.1169, 1.1283], sym=0.277
+      H10: rev=0.853, edge=-37.6p, fav=23.7p, adv=61.3p, RR=0.39
+      H20: rev=0.867, edge=-49.2p, RR=0.38
+      EV/trade=+11.2p, composite=+97
+
+  [2] UDU|DX|mmL  (n=34, avg_span=141, amp=271p)
+      imp=0.356, retrace=[1.1245, 2.3262], sym=0.982
+      H10: rev=0.912, edge=-37.1p, fav=22.2p, adv=59.2p, RR=0.37
+      H20: rev=0.853, edge=-49.8p, RR=0.34
+      EV/trade=+15.0p, composite=+87
+
+  [3] DUD|XN|LLL  (n=59, avg_span=150, amp=30p)
+      imp=0.333, retrace=[2.5756, 0.5801], sym=0.280
+      H10: rev=0.898, edge=-38.6p, fav=18.6p, adv=57.2p, RR=0.33
+      H20: rev=0.814, edge=-60.7p, RR=0.26
+      EV/trade=+10.9p, composite=+84
+
+  [4] UDU|DD|LLL  (n=71, avg_span=146, amp=172p)
+      imp=0.352, retrace=[1.0926, 1.1216], sym=0.257
+      H10: rev=0.859, edge=-38.3p, fav=21.1p, adv=59.4p, RR=0.36
+      H20: rev=0.887, edge=-53.6p, RR=0.30
+      EV/trade=+9.8p, composite=+82
+
+  [5] UDU|XD|LLL  (n=30, avg_span=145, amp=108p)
+      imp=0.350, retrace=[2.4898, 1.0228], sym=0.664
+      H10: rev=0.933, edge=-44.9p, fav=17.4p, adv=62.3p, RR=0.28
+      H20: rev=0.867, edge=-59.1p, RR=0.26
+      EV/trade=+12.1p, composite=+66
+
+  [6] UDU|DN|LLL  (n=54, avg_span=144, amp=88p)
+      imp=0.347, retrace=[1.1723, 0.5525], sym=0.399
+      H10: rev=0.870, edge=-42.1p, fav=18.8p, adv=60.9p, RR=0.31
+      H20: rev=0.907, edge=-60.6p, RR=0.25
+      EV/trade=+8.5p, composite=+62
+
+  [7] DUD|SX|Lsm  (n=33, avg_span=144, amp=407p)
+      imp=0.352, retrace=[0.2199, 2.5943], sym=0.827
+      H10: rev=0.879, edge=-41.8p, fav=19.5p, adv=61.3p, RR=0.32
+      H20: rev=0.849, edge=-57.0p, RR=0.33
+      EV/trade=+9.7p, composite=+56
+
+  [8] DUD|ND|Lmm  (n=30, avg_span=147, amp=261p)
+      imp=0.359, retrace=[0.475, 1.1331], sym=0.706
+      H10: rev=0.867, edge=-31.2p, fav=18.5p, adv=49.6p, RR=0.37
+      H20: rev=0.933, edge=-55.0p, RR=0.26
+      EV/trade=+9.4p, composite=+51
+
+  [9] DUD|XS|LLL  (n=37, avg_span=139, amp=67p)
+      imp=0.336, retrace=[2.1463, 0.2887], sym=0.356
+      H10: rev=0.865, edge=-42.8p, fav=19.0p, adv=61.8p, RR=0.31
+      H20: rev=0.865, edge=-57.6p, RR=0.27
+      EV/trade=+8.1p, composite=+49
+
+  [10] UDU|ND|Lmm  (n=30, avg_span=152, amp=274p)
+      imp=0.358, retrace=[0.4746, 1.1074], sym=0.727
+      H10: rev=0.900, edge=-41.3p, fav=14.6p, adv=55.9p, RR=0.26
+      H20: rev=0.900, edge=-53.3p, RR=0.26
+      EV/trade=+7.5p, composite=+41
+
+  [11] UDU|XN|LLL  (n=49, avg_span=143, amp=42p)
+      imp=0.337, retrace=[2.2907, 0.5976], sym=0.260
+      H10: rev=0.837, edge=-52.6p, fav=20.8p, adv=73.5p, RR=0.28
+      H20: rev=0.837, edge=-73.7p, RR=0.25
+      EV/trade=+5.4p, composite=+38
+
+  [12] DUD|DN|LLL  (n=50, avg_span=146, amp=101p)
+      imp=0.347, retrace=[1.1815, 0.5915], sym=0.343
+      H10: rev=0.840, edge=-43.2p, fav=16.8p, adv=60.0p, RR=0.28
+      H20: rev=0.900, edge=-63.5p, RR=0.24
+      EV/trade=+4.5p, composite=+32
+
+  [13] DUD|XD|LLL  (n=47, avg_span=137, amp=98p)
+      imp=0.356, retrace=[2.4697, 1.0242], sym=0.689
+      H10: rev=0.808, edge=-41.3p, fav=18.2p, adv=59.5p, RR=0.31
+      H20: rev=0.787, edge=-65.9p, RR=0.25
+      EV/trade=+3.3p, composite=+23
+
+======================================================================
+top 10% pivots, span S200+ — 8 clusters
+======================================================================
+
+  [1] UDU|XN|LLL  (n=43, avg_span=292, amp=53p)
+      imp=0.351, retrace=[2.321, 0.5647], sym=0.214
+      H10: rev=1.000, edge=-62.2p, fav=20.4p, adv=82.6p, RR=0.25
+      H20: rev=0.954, edge=-90.2p, RR=0.20
+      EV/trade=+20.4p, composite=+134
+
+  [2] DUD|DD|LLL  (n=52, avg_span=309, amp=289p)
+      imp=0.369, retrace=[1.1038, 1.0575], sym=0.196
+      H10: rev=0.923, edge=-50.7p, fav=22.1p, adv=72.8p, RR=0.30
+      H20: rev=0.942, edge=-83.5p, RR=0.21
+      EV/trade=+14.8p, composite=+107
+
+  [3] UDU|DN|LLL  (n=43, avg_span=303, amp=165p)
+      imp=0.356, retrace=[1.1029, 0.6112], sym=0.388
+      H10: rev=0.884, edge=-47.6p, fav=24.2p, adv=71.8p, RR=0.34
+      H20: rev=0.861, edge=-64.2p, RR=0.30
+      EV/trade=+13.1p, composite=+86
+
+  [4] UDU|SX|Lsm  (n=32, avg_span=288, amp=548p)
+      imp=0.350, retrace=[0.2513, 2.817], sym=0.542
+      H10: rev=0.875, edge=-43.7p, fav=25.6p, adv=69.4p, RR=0.37
+      H20: rev=0.938, edge=-65.9p, RR=0.29
+      EV/trade=+13.8p, composite=+78
+
+  [5] DUD|DN|LLL  (n=45, avg_span=286, amp=158p)
+      imp=0.364, retrace=[1.1482, 0.6006], sym=0.365
+      H10: rev=0.911, edge=-47.1p, fav=15.2p, adv=62.3p, RR=0.24
+      H20: rev=0.889, edge=-68.9p, RR=0.21
+      EV/trade=+8.3p, composite=+56
+
+  [6] UDU|DD|LLL  (n=64, avg_span=290, amp=266p)
+      imp=0.373, retrace=[1.1181, 1.1206], sym=0.265
+      H10: rev=0.812, edge=-37.7p, fav=20.1p, adv=57.8p, RR=0.35
+      H20: rev=0.844, edge=-52.7p, RR=0.31
+      EV/trade=+5.5p, composite=+44
+
+  [7] DUD|XD|LLL  (n=33, avg_span=292, amp=124p)
+      imp=0.372, retrace=[2.267, 0.9905], sym=0.623
+      H10: rev=0.788, edge=-33.9p, fav=21.9p, adv=55.8p, RR=0.39
+      H20: rev=0.788, edge=-47.4p, RR=0.32
+      EV/trade=+5.4p, composite=+31
+
+  [8] DUD|XN|LLL  (n=38, avg_span=293, amp=68p)
+      imp=0.369, retrace=[2.5599, 0.5577], sym=0.255
+      H10: rev=0.842, edge=-42.7p, fav=16.2p, adv=59.0p, RR=0.28
+      H20: rev=0.842, edge=-58.3p, RR=0.22
+      EV/trade=+4.3p, composite=+27
+
+======================================================================
+top 10% pivots, span S50 — 14 clusters
+======================================================================
+
+  [1] DUD|DX|mmL  (n=30, avg_span=36, amp=154p)
+      imp=0.350, retrace=[1.0556, 2.5232], sym=1.019
+      H10: rev=0.833, edge=-28.6p, fav=25.1p, adv=53.6p, RR=0.47
+      H20: rev=0.700, edge=-44.1p, RR=0.42
+      EV/trade=+11.9p, composite=+65
+
+  [2] DUD|DN|LLL  (n=75, avg_span=34, amp=51p)
+      imp=0.329, retrace=[1.079, 0.593], sym=0.422
+      H10: rev=0.827, edge=-32.6p, fav=18.2p, adv=50.8p, RR=0.36
+      H20: rev=0.800, edge=-52.7p, RR=0.28
+      EV/trade=+6.2p, composite=+54
+
+  [3] DUD|DD|LLL  (n=99, avg_span=35, amp=85p)
+      imp=0.332, retrace=[1.1134, 1.101], sym=0.256
+      H10: rev=0.748, edge=-32.1p, fav=26.1p, adv=58.2p, RR=0.45
+      H20: rev=0.727, edge=-39.9p, RR=0.47
+      EV/trade=+4.8p, composite=+48
+
+  [4] UDU|DN|LLL  (n=61, avg_span=35, amp=50p)
+      imp=0.325, retrace=[1.1278, 0.5927], sym=0.385
+      H10: rev=0.787, edge=-26.6p, fav=19.5p, adv=46.1p, RR=0.42
+      H20: rev=0.705, edge=-34.8p, RR=0.46
+      EV/trade=+5.5p, composite=+43
+
+  [5] DUD|ND|Lmm  (n=40, avg_span=34, amp=129p)
+      imp=0.327, retrace=[0.4718, 1.0922], sym=0.747
+      H10: rev=0.800, edge=-41.2p, fav=21.7p, adv=62.9p, RR=0.34
+      H20: rev=0.675, edge=-52.5p, RR=0.34
+      EV/trade=+4.8p, composite=+30
+
+  [6] UDU|XD|LLL  (n=58, avg_span=34, amp=48p)
+      imp=0.333, retrace=[2.4538, 1.0239], sym=0.684
+      H10: rev=0.759, edge=-30.2p, fav=21.3p, adv=51.5p, RR=0.41
+      H20: rev=0.707, edge=-41.7p, RR=0.39
+      EV/trade=+3.7p, composite=+28
+
+  [7] UDU|XN|LLL  (n=66, avg_span=36, amp=17p)
+      imp=0.334, retrace=[2.3301, 0.5617], sym=0.251
+      H10: rev=0.697, edge=-23.4p, fav=26.5p, adv=49.9p, RR=0.53
+      H20: rev=0.636, edge=-26.4p, RR=0.56
+      EV/trade=+3.4p, composite=+27
+
+  [8] UDU|ND|Lmm  (n=32, avg_span=34, amp=118p)
+      imp=0.329, retrace=[0.4901, 1.1255], sym=0.671
+      H10: rev=0.719, edge=-21.5p, fav=21.4p, adv=42.8p, RR=0.50
+      H20: rev=0.625, edge=-25.4p, RR=0.57
+      EV/trade=+3.3p, composite=+19
+
+  [9] DUD|XN|LLL  (n=66, avg_span=32, amp=19p)
+      imp=0.322, retrace=[2.4669, 0.5459], sym=0.256
+      H10: rev=0.773, edge=-36.0p, fav=18.6p, adv=54.6p, RR=0.34
+      H20: rev=0.697, edge=-43.4p, RR=0.42
+      EV/trade=+1.9p, composite=+16
+
+  [10] UDU|XS|LLL  (n=35, avg_span=37, amp=41p)
+      imp=0.327, retrace=[2.1592, 0.293], sym=0.338
+      H10: rev=0.771, edge=-44.0p, fav=22.4p, adv=66.4p, RR=0.34
+      H20: rev=0.743, edge=-63.0p, RR=0.31
+      EV/trade=+2.1p, composite=+12
+
+  [11] UDU|DX|mmL  (n=50, avg_span=34, amp=128p)
+      imp=0.336, retrace=[1.0752, 2.3552], sym=0.953
+      H10: rev=0.740, edge=-28.9p, fav=18.7p, adv=47.6p, RR=0.39
+      H20: rev=0.800, edge=-41.4p, RR=0.39
+      EV/trade=+1.5p, composite=+10
+
+  [12] UDU|DD|LLL  (n=90, avg_span=36, amp=85p)
+      imp=0.333, retrace=[1.123, 1.089], sym=0.234
+      H10: rev=0.689, edge=-29.5p, fav=26.7p, adv=56.1p, RR=0.47
+      H20: rev=0.611, edge=-34.5p, RR=0.53
+      EV/trade=+0.9p, composite=+9
+
+  [13] UDU|NX|LmL  (n=34, avg_span=32, amp=126p)
+      imp=0.334, retrace=[0.5977, 1.7697], sym=0.150
+      H10: rev=0.706, edge=-31.3p, fav=24.5p, adv=55.8p, RR=0.44
+      H20: rev=0.676, edge=-41.4p, RR=0.42
+      EV/trade=+0.9p, composite=+5
+
+  [14] DUD|XD|LLL  (n=52, avg_span=34, amp=53p)
+      imp=0.339, retrace=[2.2845, 1.0434], sym=0.659
+      H10: rev=0.673, edge=-22.4p, fav=21.8p, adv=44.2p, RR=0.49
+      H20: rev=0.692, edge=-24.0p, RR=0.56
+      EV/trade=+0.2p, composite=+2
+
+======================================================================
+top 20% pivots, span S10 — 14 clusters
+======================================================================
+
+  [1] DUD|ND|LLL  (n=43, avg_span=8, amp=48p)
+      imp=0.279, retrace=[0.7141, 0.9876], sym=0.374
+      H10: rev=0.721, edge=-13.8p, fav=25.3p, adv=39.1p, RR=0.65
+      H20: rev=0.651, edge=-24.3p, RR=0.60
+      EV/trade=+7.3p, composite=+48
+
+  [2] UDU|DX|mmL  (n=57, avg_span=8, amp=66p)
+      imp=0.293, retrace=[1.0708, 2.3209], sym=0.944
+      H10: rev=0.632, edge=-13.6p, fav=30.6p, adv=44.2p, RR=0.69
+      H20: rev=0.544, edge=-18.8p, RR=0.67
+      EV/trade=+3.1p, composite=+23
+
+  [3] DUD|DD|LLL  (n=144, avg_span=7, amp=39p)
+      imp=0.285, retrace=[1.1123, 1.1162], sym=0.279
+      H10: rev=0.632, edge=-18.3p, fav=27.5p, adv=45.8p, RR=0.60
+      H20: rev=0.653, edge=-26.3p, RR=0.59
+      EV/trade=+0.5p, composite=+6
+
+  [4] UDU|ND|LLL  (n=30, avg_span=7, amp=48p)
+      imp=0.286, retrace=[0.7186, 0.9679], sym=0.387
+      H10: rev=0.567, edge=-7.6p, fav=30.4p, adv=38.0p, RR=0.80
+      H20: rev=0.500, edge=-13.2p, RR=0.79
+      EV/trade=+0.8p, composite=+4
+
+  [5] DUD|XD|LLL  (n=68, avg_span=8, amp=32p)
+      imp=0.286, retrace=[2.1313, 1.054], sym=0.639
+      H10: rev=0.647, edge=-27.7p, fav=30.9p, adv=58.7p, RR=0.53
+      H20: rev=0.632, edge=-29.1p, RR=0.62
+      EV/trade=-0.7p, composite=-6
+
+  [6] DUD|XN|LLL  (n=84, avg_span=8, amp=12p)
+      imp=0.283, retrace=[2.3968, 0.5838], sym=0.265
+      H10: rev=0.619, edge=-17.6p, fav=22.8p, adv=40.4p, RR=0.56
+      H20: rev=0.655, edge=-26.0p, RR=0.57
+      EV/trade=-1.3p, composite=-12
+
+  [7] UDU|ND|Lmm  (n=43, avg_span=8, amp=58p)
+      imp=0.285, retrace=[0.4841, 1.063], sym=0.742
+      H10: rev=0.558, edge=-11.1p, fav=22.0p, adv=33.1p, RR=0.67
+      H20: rev=0.535, edge=-7.2p, RR=0.87
+      EV/trade=-2.3p, composite=-15
+
+  [8] UDU|XN|LLL  (n=70, avg_span=8, amp=9p)
+      imp=0.281, retrace=[2.2116, 0.5901], sym=0.205
+      H10: rev=0.529, edge=-8.4p, fav=35.0p, adv=43.5p, RR=0.81
+      H20: rev=0.500, edge=-14.9p, RR=0.76
+      EV/trade=-2.0p, composite=-16
+
+  [9] DUD|DX|mmL  (n=52, avg_span=8, amp=71p)
+      imp=0.294, retrace=[1.0664, 2.331], sym=0.941
+      H10: rev=0.635, edge=-26.0p, fav=26.3p, adv=52.3p, RR=0.50
+      H20: rev=0.615, edge=-23.6p, RR=0.61
+      EV/trade=-2.4p, composite=-18
+
+  [10] DUD|NN|LLm  (n=32, avg_span=8, amp=51p)
+      imp=0.291, retrace=[0.6076, 0.5979], sym=0.982
+      H10: rev=0.625, edge=-19.1p, fav=14.6p, adv=33.6p, RR=0.43
+      H20: rev=0.594, edge=-24.2p, RR=0.58
+      EV/trade=-3.5p, composite=-20
+
+  [11] DUD|DN|LLL  (n=102, avg_span=8, amp=29p)
+      imp=0.285, retrace=[1.0942, 0.6225], sym=0.375
+      H10: rev=0.539, edge=-11.9p, fav=27.5p, adv=39.3p, RR=0.70
+      H20: rev=0.510, edge=-13.3p, RR=0.78
+      EV/trade=-3.3p, composite=-34
+
+  [12] UDU|XD|LLL  (n=80, avg_span=7, amp=29p)
+      imp=0.297, retrace=[2.1243, 1.0391], sym=0.627
+      H10: rev=0.562, edge=-23.1p, fav=26.7p, adv=49.8p, RR=0.54
+      H20: rev=0.600, edge=-26.8p, RR=0.58
+      EV/trade=-6.8p, composite=-61
+
+  [13] UDU|DD|LLL  (n=131, avg_span=7, amp=38p)
+      imp=0.285, retrace=[1.0996, 1.1052], sym=0.246
+      H10: rev=0.557, edge=-20.4p, fav=28.4p, adv=48.8p, RR=0.58
+      H20: rev=0.573, edge=-20.4p, RR=0.67
+      EV/trade=-5.8p, composite=-66
+
+  [14] UDU|DN|LLL  (n=85, avg_span=8, amp=26p)
+      imp=0.279, retrace=[1.092, 0.6106], sym=0.394
+      H10: rev=0.482, edge=-13.0p, fav=27.9p, adv=41.0p, RR=0.68
+      H20: rev=0.471, edge=-10.2p, RR=0.82
+      EV/trade=-7.7p, composite=-71
+
+======================================================================
+top 20% pivots, span S100 — 22 clusters
+======================================================================
+
+  [1] UDU|DD|LLL  (n=121, avg_span=73, amp=122p)
+      imp=0.308, retrace=[1.1344, 1.1175], sym=0.286
+      H10: rev=0.843, edge=-31.9p, fav=23.6p, adv=55.6p, RR=0.42
+      H20: rev=0.802, edge=-44.7p, RR=0.39
+      EV/trade=+11.2p, composite=+123
+
+  [2] DUD|DD|LLL  (n=138, avg_span=72, amp=127p)
+      imp=0.305, retrace=[1.0946, 1.117], sym=0.265
+      H10: rev=0.833, edge=-38.4p, fav=22.2p, adv=60.5p, RR=0.37
+      H20: rev=0.783, edge=-51.4p, RR=0.35
+      EV/trade=+8.4p, composite=+98
+
+  [3] UDU|XX|mLL  (n=30, avg_span=72, amp=148p)
+      imp=0.319, retrace=[2.0264, 1.797], sym=1.160
+      H10: rev=0.867, edge=-51.4p, fav=25.4p, adv=76.8p, RR=0.33
+      H20: rev=0.767, edge=-67.8p, RR=0.31
+      EV/trade=+11.8p, composite=+65
+
+  [4] DUD|XD|LLL  (n=82, avg_span=71, amp=74p)
+      imp=0.313, retrace=[2.3325, 1.0372], sym=0.661
+      H10: rev=0.817, edge=-37.1p, fav=20.4p, adv=57.5p, RR=0.35
+      H20: rev=0.854, edge=-55.6p, RR=0.31
+      EV/trade=+6.2p, composite=+56
+
+  [5] DUD|ND|Lmm  (n=39, avg_span=75, amp=206p)
+      imp=0.298, retrace=[0.4614, 1.1881], sym=0.689
+      H10: rev=0.821, edge=-33.9p, fav=22.2p, adv=56.1p, RR=0.40
+      H20: rev=0.718, edge=-50.3p, RR=0.34
+      EV/trade=+8.2p, composite=+51
+
+  [6] UDU|XD|LLL  (n=75, avg_span=75, amp=63p)
+      imp=0.312, retrace=[2.2914, 1.0072], sym=0.635
+      H10: rev=0.813, edge=-34.0p, fav=19.3p, adv=53.3p, RR=0.36
+      H20: rev=0.800, edge=-49.8p, RR=0.34
+      EV/trade=+5.8p, composite=+50
+
+  [7] DUD|ND|LmL  (n=30, avg_span=73, amp=169p)
+      imp=0.305, retrace=[0.6393, 1.3112], sym=0.222
+      H10: rev=0.800, edge=-29.9p, fav=23.7p, adv=53.6p, RR=0.44
+      H20: rev=0.767, edge=-41.1p, RR=0.39
+      EV/trade=+8.2p, composite=+45
+
+  [8] UDU|SX|Lsm  (n=33, avg_span=72, amp=260p)
+      imp=0.321, retrace=[0.2438, 2.6614], sym=0.648
+      H10: rev=0.818, edge=-31.8p, fav=21.1p, adv=52.9p, RR=0.40
+      H20: rev=0.788, edge=-50.4p, RR=0.32
+      EV/trade=+7.7p, composite=+44
+
+  [9] DUD|SX|Lsm  (n=49, avg_span=71, amp=270p)
+      imp=0.319, retrace=[0.2263, 2.7913], sym=0.703
+      H10: rev=0.775, edge=-33.1p, fav=24.8p, adv=57.9p, RR=0.43
+      H20: rev=0.735, edge=-48.9p, RR=0.36
+      EV/trade=+6.2p, composite=+44
+
+  [10] UDU|DX|mmL  (n=49, avg_span=74, amp=196p)
+      imp=0.317, retrace=[1.091, 2.3222], sym=0.952
+      H10: rev=0.775, edge=-25.0p, fav=21.3p, adv=46.3p, RR=0.46
+      H20: rev=0.735, edge=-40.6p, RR=0.40
+      EV/trade=+6.1p, composite=+43
+
+  [11] DUD|XS|LLL  (n=41, avg_span=68, amp=49p)
+      imp=0.299, retrace=[2.163, 0.2975], sym=0.325
+      H10: rev=0.780, edge=-28.3p, fav=22.6p, adv=50.9p, RR=0.44
+      H20: rev=0.780, edge=-41.3p, RR=0.43
+      EV/trade=+6.4p, composite=+41
+
+  [12] UDU|XN|LLL  (n=88, avg_span=73, amp=29p)
+      imp=0.301, retrace=[2.4847, 0.5571], sym=0.227
+      H10: rev=0.773, edge=-33.7p, fav=21.8p, adv=55.5p, RR=0.39
+      H20: rev=0.761, edge=-47.6p, RR=0.36
+      EV/trade=+4.2p, composite=+40
+
+  [13] UDU|DN|LLL  (n=88, avg_span=72, amp=76p)
+      imp=0.305, retrace=[1.1362, 0.6076], sym=0.360
+      H10: rev=0.773, edge=-30.8p, fav=20.5p, adv=51.4p, RR=0.40
+      H20: rev=0.705, edge=-45.6p, RR=0.37
+      EV/trade=+4.2p, composite=+39
+
+  [14] UDU|NX|mmL  (n=34, avg_span=71, amp=217p)
+      imp=0.298, retrace=[0.6528, 2.4504], sym=0.526
+      H10: rev=0.794, edge=-35.4p, fav=22.1p, adv=57.5p, RR=0.39
+      H20: rev=0.824, edge=-55.6p, RR=0.32
+      EV/trade=+5.7p, composite=+33
+
+  [15] DUD|DX|mmL  (n=59, avg_span=72, amp=188p)
+      imp=0.312, retrace=[1.0817, 2.3876], sym=0.971
+      H10: rev=0.797, edge=-36.8p, fav=19.2p, adv=56.0p, RR=0.34
+      H20: rev=0.729, edge=-47.4p, RR=0.36
+      EV/trade=+3.9p, composite=+30
+
+======================================================================
+top 20% pivots, span S20 — 33 clusters
+======================================================================
+
+  [1] UDU|SD|Lmm  (n=39, avg_span=15, amp=94p)
+      imp=0.296, retrace=[0.3286, 1.157], sym=1.099
+      H10: rev=0.615, edge=-2.1p, fav=30.9p, adv=33.1p, RR=0.94
+      H20: rev=0.564, edge=-1.9p, RR=0.96
+      EV/trade=+6.3p, composite=+40
+
+  [2] DUD|DN|LLL  (n=143, avg_span=15, amp=32p)
+      imp=0.292, retrace=[1.0996, 0.5859], sym=0.422
+      H10: rev=0.664, edge=-21.9p, fav=29.5p, adv=51.4p, RR=0.57
+      H20: rev=0.608, edge=-21.8p, RR=0.68
+      EV/trade=+2.3p, composite=+28
+
+  [3] UDU|DX|mmL  (n=86, avg_span=15, amp=82p)
+      imp=0.292, retrace=[1.0694, 2.3334], sym=0.941
+      H10: rev=0.721, edge=-29.7p, fav=25.5p, adv=55.2p, RR=0.46
+      H20: rev=0.686, edge=-34.9p, RR=0.50
+      EV/trade=+3.0p, composite=+28
+
+  [4] UDU|XD|mLL  (n=30, avg_span=15, amp=43p)
+      imp=0.304, retrace=[2.6285, 1.3902], sym=1.048
+      H10: rev=0.767, edge=-28.5p, fav=16.4p, adv=45.0p, RR=0.36
+      H20: rev=0.600, edge=-32.6p, RR=0.42
+      EV/trade=+2.1p, composite=+12
+
+  [5] UDU|NX|msL  (n=31, avg_span=16, amp=111p)
+      imp=0.296, retrace=[0.5263, 3.8089], sym=0.790
+      H10: rev=0.613, edge=-13.2p, fav=25.4p, adv=38.5p, RR=0.66
+      H20: rev=0.581, edge=-15.9p, RR=0.67
+      EV/trade=+0.6p, composite=+4
+
+  [6] DUD|XD|LLL  (n=91, avg_span=16, amp=35p)
+      imp=0.299, retrace=[2.2717, 1.021], sym=0.634
+      H10: rev=0.626, edge=-18.4p, fav=27.7p, adv=46.1p, RR=0.60
+      H20: rev=0.582, edge=-25.8p, RR=0.59
+      EV/trade=+0.1p, composite=+1
+
+  [7] DUD|ND|Lmm  (n=67, avg_span=15, amp=79p)
+      imp=0.291, retrace=[0.4694, 1.0911], sym=0.754
+      H10: rev=0.612, edge=-17.1p, fav=28.6p, adv=45.7p, RR=0.62
+      H20: rev=0.582, edge=-23.9p, RR=0.61
+      EV/trade=-0.2p, composite=-2
+
+  [8] DUD|NX|LmL  (n=43, avg_span=15, amp=87p)
+      imp=0.295, retrace=[0.5869, 1.8513], sym=0.159
+      H10: rev=0.605, edge=-17.1p, fav=30.6p, adv=47.8p, RR=0.64
+      H20: rev=0.558, edge=-10.8p, RR=0.82
+      EV/trade=-0.4p, composite=-2
+
+  [9] UDU|XX|mLL  (n=35, avg_span=14, amp=62p)
+      imp=0.310, retrace=[2.0324, 1.7714], sym=1.141
+      H10: rev=0.657, edge=-21.9p, fav=22.0p, adv=44.0p, RR=0.50
+      H20: rev=0.514, edge=-31.3p, RR=0.49
+      EV/trade=-0.6p, composite=-4
+
+  [10] DUD|XX|mLL  (n=42, avg_span=15, amp=58p)
+      imp=0.304, retrace=[2.1317, 1.7474], sym=1.160
+      H10: rev=0.667, edge=-21.8p, fav=19.6p, adv=41.4p, RR=0.47
+      H20: rev=0.595, edge=-21.0p, RR=0.63
+      EV/trade=-0.7p, composite=-5
+
+  [11] UDU|NN|LLm  (n=44, avg_span=15, amp=55p)
+      imp=0.294, retrace=[0.5935, 0.5849], sym=1.026
+      H10: rev=0.636, edge=-18.9p, fav=21.7p, adv=40.6p, RR=0.53
+      H20: rev=0.500, edge=-24.2p, RR=0.57
+      EV/trade=-1.0p, composite=-6
+
+  [12] DUD|NN|LLm  (n=51, avg_span=15, amp=61p)
+      imp=0.300, retrace=[0.6147, 0.5625], sym=1.017
+      H10: rev=0.569, edge=-13.7p, fav=28.8p, adv=42.4p, RR=0.68
+      H20: rev=0.431, edge=-11.0p, RR=0.81
+      EV/trade=-1.9p, composite=-14
+
+  [13] DUD|NX|mmL  (n=45, avg_span=16, amp=96p)
+      imp=0.288, retrace=[0.6312, 2.6037], sym=0.561
+      H10: rev=0.578, edge=-16.7p, fav=31.8p, adv=48.5p, RR=0.66
+      H20: rev=0.556, edge=-13.4p, RR=0.76
+      EV/trade=-2.1p, composite=-14
+
+  [14] DUD|SD|Lmm  (n=41, avg_span=16, amp=102p)
+      imp=0.300, retrace=[0.3307, 1.098], sym=1.138
+      H10: rev=0.634, edge=-26.0p, fav=24.8p, adv=50.9p, RR=0.49
+      H20: rev=0.634, edge=-33.2p, RR=0.51
+      EV/trade=-2.9p, composite=-18
+
+  [15] UDU|ND|LmL  (n=31, avg_span=16, amp=75p)
+      imp=0.288, retrace=[0.6618, 1.3257], sym=0.169
+      H10: rev=0.581, edge=-18.9p, fav=27.6p, adv=46.5p, RR=0.59
+      H20: rev=0.548, edge=-20.3p, RR=0.62
+      EV/trade=-3.5p, composite=-20
+
+======================================================================
+top 20% pivots, span S200 — 20 clusters
+======================================================================
+
+  [1] UDU|DN|LLL  (n=97, avg_span=148, amp=129p)
+      imp=0.318, retrace=[1.1165, 0.5756], sym=0.418
+      H10: rev=0.887, edge=-51.8p, fav=21.8p, adv=73.5p, RR=0.30
+      H20: rev=0.876, edge=-70.0p, RR=0.26
+      EV/trade=+10.9p, composite=+108
+
+  [2] DUD|DD|LLL  (n=105, avg_span=141, amp=190p)
+      imp=0.318, retrace=[1.1102, 1.0783], sym=0.237
+      H10: rev=0.876, edge=-47.7p, fav=21.7p, adv=69.4p, RR=0.31
+      H20: rev=0.857, edge=-65.3p, RR=0.27
+      EV/trade=+10.4p, composite=+107
+
+  [3] DUD|DN|LLL  (n=75, avg_span=143, amp=102p)
+      imp=0.309, retrace=[1.1537, 0.5924], sym=0.363
+      H10: rev=0.893, edge=-41.6p, fav=18.9p, adv=60.6p, RR=0.31
+      H20: rev=0.813, edge=-59.1p, RR=0.26
+      EV/trade=+10.5p, composite=+91
+
+  [4] DUD|XS|LLL  (n=47, avg_span=134, amp=63p)
+      imp=0.307, retrace=[2.1519, 0.3065], sym=0.325
+      H10: rev=0.915, edge=-45.7p, fav=19.3p, adv=65.0p, RR=0.30
+      H20: rev=0.894, edge=-65.8p, RR=0.24
+      EV/trade=+12.2p, composite=+83
+
+  [5] DUD|XN|LLL  (n=93, avg_span=143, amp=35p)
+      imp=0.311, retrace=[2.5033, 0.5695], sym=0.258
+      H10: rev=0.850, edge=-39.9p, fav=20.1p, adv=59.9p, RR=0.34
+      H20: rev=0.839, edge=-56.7p, RR=0.29
+      EV/trade=+8.0p, composite=+77
+
+  [6] UDU|XN|LLL  (n=72, avg_span=142, amp=30p)
+      imp=0.310, retrace=[2.4218, 0.5734], sym=0.266
+      H10: rev=0.861, edge=-52.0p, fav=21.6p, adv=73.6p, RR=0.29
+      H20: rev=0.889, edge=-74.3p, RR=0.23
+      EV/trade=+8.4p, composite=+71
+
+  [7] UDU|NX|LmL  (n=36, avg_span=138, amp=276p)
+      imp=0.312, retrace=[0.5463, 1.8741], sym=0.129
+      H10: rev=0.889, edge=-43.7p, fav=21.2p, adv=64.9p, RR=0.33
+      H20: rev=0.750, edge=-55.3p, RR=0.32
+      EV/trade=+11.6p, composite=+70
+
+  [8] DUD|XD|LLL  (n=78, avg_span=142, amp=110p)
+      imp=0.332, retrace=[2.4553, 1.0102], sym=0.670
+      H10: rev=0.859, edge=-51.2p, fav=19.5p, adv=70.7p, RR=0.28
+      H20: rev=0.846, edge=-77.3p, RR=0.23
+      EV/trade=+6.8p, composite=+60
+
+  [9] UDU|DX|mmL  (n=49, avg_span=142, amp=266p)
+      imp=0.321, retrace=[1.079, 2.2651], sym=0.919
+      H10: rev=0.857, edge=-43.7p, fav=20.6p, adv=64.2p, RR=0.32
+      H20: rev=0.837, edge=-53.0p, RR=0.31
+      EV/trade=+8.4p, composite=+59
+
+  [10] UDU|SX|Lsm  (n=39, avg_span=142, amp=377p)
+      imp=0.318, retrace=[0.2596, 2.5915], sym=0.599
+      H10: rev=0.821, edge=-32.4p, fav=23.5p, adv=55.9p, RR=0.42
+      H20: rev=0.769, edge=-47.6p, RR=0.36
+      EV/trade=+9.3p, composite=+58
+
+  [11] DUD|DX|mmL  (n=39, avg_span=139, amp=272p)
+      imp=0.317, retrace=[1.1049, 2.3102], sym=0.961
+      H10: rev=0.846, edge=-35.7p, fav=20.9p, adv=56.6p, RR=0.37
+      H20: rev=0.872, edge=-54.0p, RR=0.32
+      EV/trade=+9.0p, composite=+56
+
+  [12] DUD|SX|Lsm  (n=40, avg_span=142, amp=391p)
+      imp=0.325, retrace=[0.2274, 2.4118], sym=0.874
+      H10: rev=0.800, edge=-28.5p, fav=22.7p, adv=51.2p, RR=0.44
+      H20: rev=0.775, edge=-40.7p, RR=0.43
+      EV/trade=+7.9p, composite=+50
+
+  [13] UDU|ND|Lmm  (n=40, avg_span=147, amp=260p)
+      imp=0.314, retrace=[0.4844, 1.1128], sym=0.694
+      H10: rev=0.850, edge=-40.0p, fav=18.5p, adv=58.5p, RR=0.32
+      H20: rev=0.875, edge=-51.5p, RR=0.30
+      EV/trade=+7.0p, composite=+44
+
+  [14] UDU|DD|LLL  (n=94, avg_span=141, amp=180p)
+      imp=0.319, retrace=[1.0778, 1.0756], sym=0.219
+      H10: rev=0.777, edge=-37.6p, fav=22.9p, adv=60.5p, RR=0.38
+      H20: rev=0.851, edge=-55.2p, RR=0.31
+      EV/trade=+4.3p, composite=+41
+
+  [15] UDU|XD|LLL  (n=52, avg_span=147, amp=92p)
+      imp=0.313, retrace=[2.7074, 1.0047], sym=0.691
+      H10: rev=0.846, edge=-42.5p, fav=17.2p, adv=59.7p, RR=0.29
+      H20: rev=0.904, edge=-61.5p, RR=0.23
+      EV/trade=+5.4p, composite=+39
+
+======================================================================
+top 20% pivots, span S200+ — 8 clusters
+======================================================================
+
+  [1] UDU|XN|LLL  (n=48, avg_span=289, amp=56p)
+      imp=0.331, retrace=[2.7007, 0.58], sym=0.294
+      H10: rev=0.938, edge=-51.1p, fav=23.0p, adv=74.1p, RR=0.31
+      H20: rev=0.875, edge=-69.5p, RR=0.28
+      EV/trade=+16.9p, composite=+117
+
+  [2] UDU|DD|LLL  (n=71, avg_span=265, amp=260p)
+      imp=0.342, retrace=[1.0968, 1.1395], sym=0.262
+      H10: rev=0.915, edge=-39.6p, fav=18.4p, adv=58.0p, RR=0.32
+      H20: rev=0.901, edge=-55.9p, RR=0.26
+      EV/trade=+12.0p, composite=+101
+
+  [3] DUD|DD|LLL  (n=57, avg_span=274, amp=256p)
+      imp=0.345, retrace=[1.1235, 1.0536], sym=0.222
+      H10: rev=0.895, edge=-47.6p, fav=20.0p, adv=67.6p, RR=0.29
+      H20: rev=0.947, edge=-73.4p, RR=0.22
+      EV/trade=+10.8p, composite=+81
+
+  [4] DUD|DN|LLL  (n=43, avg_span=271, amp=152p)
+      imp=0.328, retrace=[1.1344, 0.6318], sym=0.339
+      H10: rev=0.884, edge=-45.6p, fav=16.8p, adv=62.4p, RR=0.27
+      H20: rev=0.837, edge=-62.8p, RR=0.22
+      EV/trade=+7.6p, composite=+50
+
+  [5] UDU|DN|LLL  (n=36, avg_span=265, amp=162p)
+      imp=0.326, retrace=[1.1178, 0.5892], sym=0.398
+      H10: rev=0.833, edge=-48.4p, fav=21.3p, adv=69.7p, RR=0.30
+      H20: rev=0.889, edge=-73.2p, RR=0.27
+      EV/trade=+6.1p, composite=+37
+
+  [6] DUD|XD|LLL  (n=36, avg_span=274, amp=129p)
+      imp=0.344, retrace=[2.4793, 0.989], sym=0.664
+      H10: rev=0.833, edge=-46.1p, fav=20.3p, adv=66.4p, RR=0.31
+      H20: rev=0.806, edge=-59.1p, RR=0.28
+      EV/trade=+5.9p, composite=+35
+
+  [7] DUD|XN|LLL  (n=31, avg_span=262, amp=44p)
+      imp=0.341, retrace=[2.9398, 0.5747], sym=0.302
+      H10: rev=0.839, edge=-37.2p, fav=16.2p, adv=53.5p, RR=0.30
+      H20: rev=0.903, edge=-59.2p, RR=0.23
+      EV/trade=+5.0p, composite=+28
+
+  [8] UDU|XD|LLL  (n=33, avg_span=274, amp=119p)
+      imp=0.343, retrace=[3.0184, 0.984], sym=0.763
+      H10: rev=0.727, edge=-41.8p, fav=24.5p, adv=66.4p, RR=0.37
+      H20: rev=0.788, edge=-69.7p, RR=0.28
+      EV/trade=-0.2p, composite=-1
+
+======================================================================
+top 20% pivots, span S50 — 37 clusters
+======================================================================
+
+  [1] DUD|ND|Lmm  (n=97, avg_span=31, amp=121p)
+      imp=0.303, retrace=[0.4767, 1.102], sym=0.728
+      H10: rev=0.763, edge=-22.9p, fav=26.6p, adv=49.4p, RR=0.54
+      H20: rev=0.660, edge=-31.7p, RR=0.51
+      EV/trade=+8.5p, composite=+84
+
+  [2] UDU|DX|mmL  (n=125, avg_span=32, amp=128p)
+      imp=0.301, retrace=[1.0403, 2.3965], sym=0.942
+      H10: rev=0.768, edge=-24.7p, fav=23.8p, adv=48.5p, RR=0.49
+      H20: rev=0.736, edge=-40.4p, RR=0.42
+      EV/trade=+7.0p, composite=+78
+
+  [3] UDU|XX|mLL  (n=44, avg_span=30, amp=78p)
+      imp=0.311, retrace=[1.9938, 1.7204], sym=1.101
+      H10: rev=0.750, edge=-22.3p, fav=28.0p, adv=50.3p, RR=0.56
+      H20: rev=0.727, edge=-28.7p, RR=0.55
+      EV/trade=+8.4p, composite=+56
+
+  [4] UDU|XD|LLL  (n=137, avg_span=34, amp=45p)
+      imp=0.303, retrace=[2.2759, 1.0245], sym=0.645
+      H10: rev=0.723, edge=-21.6p, fav=23.2p, adv=44.8p, RR=0.52
+      H20: rev=0.679, edge=-28.9p, RR=0.53
+      EV/trade=+4.4p, composite=+51
+
+  [5] DUD|NX|LmL  (n=75, avg_span=33, amp=128p)
+      imp=0.303, retrace=[0.5705, 1.8547], sym=0.145
+      H10: rev=0.733, edge=-22.7p, fav=24.7p, adv=47.4p, RR=0.52
+      H20: rev=0.653, edge=-26.8p, RR=0.57
+      EV/trade=+5.5p, composite=+47
+
+  [6] UDU|NX|mmL  (n=51, avg_span=33, amp=136p)
+      imp=0.303, retrace=[0.6376, 2.5585], sym=0.553
+      H10: rev=0.765, edge=-29.8p, fav=24.4p, adv=54.2p, RR=0.45
+      H20: rev=0.784, edge=-40.4p, RR=0.42
+      EV/trade=+5.9p, composite=+42
+
+  [7] DUD|DD|LLL  (n=245, avg_span=32, amp=73p)
+      imp=0.297, retrace=[1.1268, 1.0675], sym=0.257
+      H10: rev=0.747, edge=-29.6p, fav=19.7p, adv=49.4p, RR=0.40
+      H20: rev=0.690, edge=-34.1p, RR=0.46
+      EV/trade=+2.2p, composite=+35
+
+  [8] UDU|ND|LLL  (n=66, avg_span=35, amp=89p)
+      imp=0.305, retrace=[0.7187, 1.023], sym=0.335
+      H10: rev=0.758, edge=-29.1p, fav=20.9p, adv=50.0p, RR=0.42
+      H20: rev=0.651, edge=-32.7p, RR=0.47
+      EV/trade=+3.7p, composite=+30
+
+  [9] UDU|NX|LmL  (n=87, avg_span=32, amp=129p)
+      imp=0.299, retrace=[0.5787, 1.8676], sym=0.133
+      H10: rev=0.701, edge=-18.6p, fav=21.9p, adv=40.4p, RR=0.54
+      H20: rev=0.609, edge=-27.1p, RR=0.54
+      EV/trade=+3.2p, composite=+30
+
+  [10] UDU|DD|LLL  (n=226, avg_span=32, amp=76p)
+      imp=0.299, retrace=[1.1062, 1.1165], sym=0.265
+      H10: rev=0.695, edge=-24.7p, fav=23.8p, adv=48.5p, RR=0.49
+      H20: rev=0.637, edge=-30.9p, RR=0.51
+      EV/trade=+1.7p, composite=+26
+
+  [11] DUD|XX|mLL  (n=44, avg_span=32, amp=92p)
+      imp=0.309, retrace=[2.0266, 1.7413], sym=1.128
+      H10: rev=0.682, edge=-21.5p, fav=27.5p, adv=49.1p, RR=0.56
+      H20: rev=0.659, edge=-25.1p, RR=0.61
+      EV/trade=+3.2p, composite=+21
+
+  [12] DUD|SD|Lmm  (n=51, avg_span=30, amp=135p)
+      imp=0.303, retrace=[0.3324, 1.1557], sym=1.084
+      H10: rev=0.686, edge=-20.5p, fav=24.5p, adv=45.0p, RR=0.55
+      H20: rev=0.745, edge=-35.4p, RR=0.44
+      EV/trade=+2.7p, composite=+19
+
+  [13] UDU|NN|LLm  (n=44, avg_span=32, amp=87p)
+      imp=0.297, retrace=[0.5985, 0.5917], sym=1.005
+      H10: rev=0.727, edge=-24.5p, fav=21.0p, adv=45.5p, RR=0.46
+      H20: rev=0.659, edge=-26.2p, RR=0.53
+      EV/trade=+2.9p, composite=+19
+
+  [14] UDU|ND|LmL  (n=50, avg_span=33, amp=103p)
+      imp=0.302, retrace=[0.6326, 1.3477], sym=0.203
+      H10: rev=0.720, edge=-29.5p, fav=22.3p, adv=51.9p, RR=0.43
+      H20: rev=0.700, edge=-36.3p, RR=0.45
+      EV/trade=+1.5p, composite=+11
+
+  [15] DUD|DN|LLL  (n=182, avg_span=32, amp=44p)
+      imp=0.298, retrace=[1.124, 0.591], sym=0.393
+      H10: rev=0.703, edge=-26.1p, fav=21.0p, adv=47.0p, RR=0.45
+      H20: rev=0.687, edge=-39.4p, RR=0.41
+      EV/trade=+0.8p, composite=+11
+
+======================================================================
+top 30% pivots, span S10 — 47 clusters
+======================================================================
+
+  [1] UDU|XX|mLL  (n=96, avg_span=7, amp=44p)
+      imp=0.276, retrace=[2.0431, 1.7516], sym=1.139
+      H10: rev=0.656, edge=-11.0p, fav=31.4p, adv=42.5p, RR=0.74
+      H20: rev=0.531, edge=-11.7p, RR=0.80
+      EV/trade=+6.0p, composite=+59
+
+  [2] DUD|DX|ssL  (n=33, avg_span=8, amp=104p)
+      imp=0.276, retrace=[1.0858, 5.6652], sym=1.823
+      H10: rev=0.636, edge=-4.0p, fav=32.3p, adv=36.3p, RR=0.89
+      H20: rev=0.606, edge=-5.5p, RR=0.89
+      EV/trade=+7.3p, composite=+42
+
+  [3] UDU|NX|Lmm  (n=33, avg_span=8, amp=70p)
+      imp=0.265, retrace=[0.4298, 1.7269], sym=0.363
+      H10: rev=0.515, edge=+2.8p, fav=36.9p, adv=34.1p, RR=1.08
+      H20: rev=0.424, edge=+3.3p, RR=1.07
+      EV/trade=+2.5p, composite=+14
+
+  [4] DUD|ND|LLL  (n=146, avg_span=6, amp=42p)
+      imp=0.266, retrace=[0.7122, 0.9999], sym=0.366
+      H10: rev=0.562, edge=-6.8p, fav=29.1p, adv=35.9p, RR=0.81
+      H20: rev=0.575, edge=-9.0p, RR=0.83
+      EV/trade=+0.6p, composite=+7
+
+  [5] DUD|XX|mLL  (n=92, avg_span=7, amp=50p)
+      imp=0.283, retrace=[2.0749, 1.7652], sym=1.157
+      H10: rev=0.609, edge=-15.3p, fav=29.9p, adv=45.1p, RR=0.66
+      H20: rev=0.533, edge=-16.4p, RR=0.70
+      EV/trade=+0.5p, composite=+5
+
+  [6] UDU|DX|mLL  (n=55, avg_span=7, amp=46p)
+      imp=0.275, retrace=[1.3254, 1.6675], sym=0.793
+      H10: rev=0.673, edge=-22.0p, fav=22.4p, adv=44.4p, RR=0.51
+      H20: rev=0.654, edge=-27.4p, RR=0.52
+      EV/trade=+0.5p, composite=+4
+
+  [7] DUD|SN|Lms  (n=30, avg_span=8, amp=106p)
+      imp=0.275, retrace=[0.2873, 0.5984], sym=1.711
+      H10: rev=0.600, edge=-14.3p, fav=26.8p, adv=41.1p, RR=0.65
+      H20: rev=0.667, edge=-22.4p, RR=0.64
+      EV/trade=-0.4p, composite=-2
+
+  [8] UDU|NX|msL  (n=57, avg_span=8, amp=85p)
+      imp=0.272, retrace=[0.5765, 4.1442], sym=0.995
+      H10: rev=0.597, edge=-16.5p, fav=33.2p, adv=49.7p, RR=0.67
+      H20: rev=0.526, edge=-13.6p, RR=0.77
+      EV/trade=-0.3p, composite=-2
+
+  [9] DUD|NX|Lmm  (n=33, avg_span=7, amp=50p)
+      imp=0.262, retrace=[0.4218, 1.751], sym=0.373
+      H10: rev=0.545, edge=-7.9p, fav=30.9p, adv=38.9p, RR=0.80
+      H20: rev=0.545, edge=-12.2p, RR=0.76
+      EV/trade=-0.8p, composite=-4
+
+  [10] UDU|XD|mLL  (n=45, avg_span=7, amp=31p)
+      imp=0.279, retrace=[2.5385, 1.3835], sym=1.012
+      H10: rev=0.644, edge=-22.5p, fav=24.9p, adv=47.4p, RR=0.53
+      H20: rev=0.622, edge=-31.6p, RR=0.50
+      EV/trade=-0.8p, composite=-6
+
+  [11] DUD|ND|LmL  (n=96, avg_span=7, amp=49p)
+      imp=0.266, retrace=[0.6314, 1.3184], sym=0.226
+      H10: rev=0.573, edge=-11.9p, fav=29.6p, adv=41.6p, RR=0.71
+      H20: rev=0.562, edge=-20.9p, RR=0.66
+      EV/trade=-0.8p, composite=-8
+
+  [12] DUD|NN|LLL  (n=50, avg_span=6, amp=34p)
+      imp=0.263, retrace=[0.7362, 0.671], sym=0.685
+      H10: rev=0.600, edge=-14.9p, fav=24.1p, adv=39.0p, RR=0.62
+      H20: rev=0.700, edge=-24.4p, RR=0.60
+      EV/trade=-1.1p, composite=-8
+
+  [13] DUD|DD|LLL  (n=526, avg_span=6, amp=33p)
+      imp=0.265, retrace=[1.0876, 1.0871], sym=0.244
+      H10: rev=0.568, edge=-11.1p, fav=29.9p, adv=40.9p, RR=0.73
+      H20: rev=0.599, edge=-16.2p, RR=0.71
+      EV/trade=-0.7p, composite=-16
+
+  [14] DUD|XX|mmL  (n=33, avg_span=7, amp=62p)
+      imp=0.287, retrace=[1.7166, 2.3349], sym=1.334
+      H10: rev=0.697, edge=-38.8p, fav=22.5p, adv=61.3p, RR=0.37
+      H20: rev=0.667, edge=-51.2p, RR=0.37
+      EV/trade=-2.9p, composite=-16
+
+  [15] UDU|NN|Lmm  (n=47, avg_span=7, amp=54p)
+      imp=0.274, retrace=[0.4444, 0.6361], sym=1.250
+      H10: rev=0.404, edge=+3.2p, fav=28.6p, adv=25.4p, RR=1.13
+      H20: rev=0.340, edge=+8.3p, RR=1.19
+      EV/trade=-3.5p, composite=-24
+
+======================================================================
+top 30% pivots, span S100 — 29 clusters
+======================================================================
+
+  [1] UDU|ND|Lmm  (n=64, avg_span=76, amp=202p)
+      imp=0.283, retrace=[0.4693, 1.1323], sym=0.718
+      H10: rev=0.875, edge=-47.3p, fav=23.3p, adv=70.6p, RR=0.33
+      H20: rev=0.812, edge=-63.9p, RR=0.30
+      EV/trade=+11.5p, composite=+92
+
+  [2] UDU|XN|LLL  (n=119, avg_span=73, amp=31p)
+      imp=0.281, retrace=[2.5351, 0.5616], sym=0.248
+      H10: rev=0.849, edge=-40.9p, fav=20.6p, adv=61.5p, RR=0.33
+      H20: rev=0.798, edge=-59.5p, RR=0.28
+      EV/trade=+8.1p, composite=+89
+
+  [3] UDU|XX|mLL  (n=43, avg_span=71, amp=152p)
+      imp=0.300, retrace=[2.0873, 1.7373], sym=1.137
+      H10: rev=0.861, edge=-43.9p, fav=26.8p, adv=70.7p, RR=0.38
+      H20: rev=0.791, edge=-60.7p, RR=0.33
+      EV/trade=+13.2p, composite=+86
+
+  [4] UDU|NX|LmL  (n=59, avg_span=73, amp=204p)
+      imp=0.285, retrace=[0.582, 1.8356], sym=0.132
+      H10: rev=0.864, edge=-31.5p, fav=20.4p, adv=51.9p, RR=0.39
+      H20: rev=0.797, edge=-46.2p, RR=0.37
+      EV/trade=+10.6p, composite=+82
+
+  [5] DUD|DD|LLL  (n=189, avg_span=71, amp=124p)
+      imp=0.283, retrace=[1.1035, 1.1105], sym=0.267
+      H10: rev=0.799, edge=-35.6p, fav=21.8p, adv=57.3p, RR=0.38
+      H20: rev=0.693, edge=-49.4p, RR=0.36
+      EV/trade=+5.9p, composite=+81
+
+  [6] UDU|NN|LLm  (n=38, avg_span=71, amp=153p)
+      imp=0.293, retrace=[0.614, 0.5681], sym=1.009
+      H10: rev=0.895, edge=-32.1p, fav=19.9p, adv=52.0p, RR=0.38
+      H20: rev=0.763, edge=-44.7p, RR=0.36
+      EV/trade=+12.3p, composite=+76
+
+  [7] UDU|DX|mmL  (n=71, avg_span=73, amp=206p)
+      imp=0.288, retrace=[1.0697, 2.3495], sym=0.950
+      H10: rev=0.803, edge=-27.7p, fav=23.7p, adv=51.3p, RR=0.46
+      H20: rev=0.761, edge=-44.0p, RR=0.41
+      EV/trade=+8.9p, composite=+75
+
+  [8] UDU|DD|LLL  (n=160, avg_span=72, amp=127p)
+      imp=0.287, retrace=[1.1129, 1.0933], sym=0.270
+      H10: rev=0.781, edge=-34.1p, fav=23.2p, adv=57.3p, RR=0.40
+      H20: rev=0.769, edge=-48.8p, RR=0.36
+      EV/trade=+5.6p, composite=+70
+
+  [9] UDU|DN|LLL  (n=135, avg_span=71, amp=76p)
+      imp=0.285, retrace=[1.1177, 0.5841], sym=0.405
+      H10: rev=0.830, edge=-35.7p, fav=18.2p, adv=53.9p, RR=0.34
+      H20: rev=0.793, edge=-50.3p, RR=0.32
+      EV/trade=+5.9p, composite=+69
+
+  [10] DUD|SD|Lmm  (n=33, avg_span=73, amp=250p)
+      imp=0.288, retrace=[0.3242, 1.2554], sym=1.033
+      H10: rev=0.849, edge=-44.1p, fav=25.6p, adv=69.8p, RR=0.37
+      H20: rev=0.818, edge=-58.9p, RR=0.34
+      EV/trade=+11.2p, composite=+64
+
+  [11] UDU|SX|Lsm  (n=59, avg_span=74, amp=282p)
+      imp=0.299, retrace=[0.2312, 2.9231], sym=0.663
+      H10: rev=0.864, edge=-51.8p, fav=19.4p, adv=71.2p, RR=0.27
+      H20: rev=0.814, edge=-65.7p, RR=0.28
+      EV/trade=+7.1p, composite=+55
+
+  [12] DUD|ND|Lmm  (n=56, avg_span=70, amp=183p)
+      imp=0.291, retrace=[0.4765, 1.1361], sym=0.697
+      H10: rev=0.857, edge=-38.3p, fav=17.6p, adv=55.8p, RR=0.32
+      H20: rev=0.732, edge=-49.8p, RR=0.30
+      EV/trade=+7.1p, composite=+53
+
+  [13] DUD|ND|LmL  (n=33, avg_span=72, amp=185p)
+      imp=0.288, retrace=[0.6471, 1.3262], sym=0.193
+      H10: rev=0.849, edge=-36.6p, fav=20.5p, adv=57.1p, RR=0.36
+      H20: rev=0.758, edge=-53.8p, RR=0.29
+      EV/trade=+8.8p, composite=+50
+
+  [14] DUD|SX|Lsm  (n=63, avg_span=76, amp=322p)
+      imp=0.294, retrace=[0.2349, 2.7901], sym=0.688
+      H10: rev=0.778, edge=-34.2p, fav=22.7p, adv=56.9p, RR=0.40
+      H20: rev=0.794, edge=-51.3p, RR=0.34
+      EV/trade=+5.0p, composite=+40
+
+  [15] DUD|DX|mmL  (n=64, avg_span=73, amp=200p)
+      imp=0.293, retrace=[1.1146, 2.362], sym=0.986
+      H10: rev=0.797, edge=-36.4p, fav=20.1p, adv=56.5p, RR=0.36
+      H20: rev=0.781, edge=-39.9p, RR=0.44
+      EV/trade=+4.5p, composite=+36
+
+======================================================================
+top 30% pivots, span S20 — 47 clusters
+======================================================================
+
+  [1] DUD|SD|Lss  (n=36, avg_span=14, amp=115p)
+      imp=0.275, retrace=[0.1759, 1.1605], sym=1.758
+      H10: rev=0.667, edge=-13.0p, fav=22.5p, adv=35.5p, RR=0.63
+      H20: rev=0.556, edge=-12.3p, RR=0.75
+      EV/trade=+3.2p, composite=+19
+
+  [2] DUD|SD|Lmm  (n=68, avg_span=15, amp=90p)
+      imp=0.281, retrace=[0.3239, 1.0887], sym=1.170
+      H10: rev=0.559, edge=-3.4p, fav=30.9p, adv=34.3p, RR=0.90
+      H20: rev=0.485, edge=-3.8p, RR=0.92
+      EV/trade=+2.1p, composite=+18
+
+  [3] DUD|SX|Lsm  (n=88, avg_span=15, amp=120p)
+      imp=0.281, retrace=[0.2358, 2.5756], sym=0.808
+      H10: rev=0.591, edge=-10.7p, fav=28.0p, adv=38.7p, RR=0.72
+      H20: rev=0.580, edge=-9.4p, RR=0.81
+      EV/trade=+0.7p, composite=+7
+
+  [4] UDU|SD|Lmm  (n=69, avg_span=15, amp=85p)
+      imp=0.279, retrace=[0.3201, 1.1841], sym=1.105
+      H10: rev=0.565, edge=-7.8p, fav=27.6p, adv=35.4p, RR=0.78
+      H20: rev=0.507, edge=-12.8p, RR=0.73
+      EV/trade=+0.2p, composite=+2
+
+  [5] DUD|XD|LLL  (n=164, avg_span=15, amp=31p)
+      imp=0.278, retrace=[2.3049, 1.0181], sym=0.646
+      H10: rev=0.628, edge=-17.1p, fav=25.1p, adv=42.2p, RR=0.59
+      H20: rev=0.628, edge=-24.3p, RR=0.57
+      EV/trade=+0.1p, composite=+1
+
+  [6] DUD|NX|msL  (n=57, avg_span=15, amp=111p)
+      imp=0.282, retrace=[0.536, 4.0919], sym=0.904
+      H10: rev=0.597, edge=-16.0p, fav=34.1p, adv=50.1p, RR=0.68
+      H20: rev=0.561, edge=-11.8p, RR=0.80
+      EV/trade=+0.1p, composite=+1
+
+  [7] DUD|DX|ssL  (n=31, avg_span=14, amp=115p)
+      imp=0.284, retrace=[1.0648, 5.5095], sym=1.806
+      H10: rev=0.645, edge=-18.4p, fav=20.4p, adv=38.8p, RR=0.53
+      H20: rev=0.581, edge=-25.6p, RR=0.55
+      EV/trade=-0.6p, composite=-3
+
+  [8] UDU|SN|Lms  (n=30, avg_span=15, amp=102p)
+      imp=0.289, retrace=[0.3075, 0.5647], sym=1.682
+      H10: rev=0.700, edge=-31.5p, fav=21.9p, adv=53.5p, RR=0.41
+      H20: rev=0.767, edge=-50.8p, RR=0.33
+      EV/trade=-0.7p, composite=-4
+
+  [9] UDU|ND|LmL  (n=60, avg_span=15, amp=66p)
+      imp=0.267, retrace=[0.6417, 1.314], sym=0.211
+      H10: rev=0.700, edge=-29.1p, fav=20.3p, adv=49.5p, RR=0.41
+      H20: rev=0.617, edge=-30.2p, RR=0.50
+      EV/trade=-0.6p, composite=-5
+
+  [10] DUD|DX|mLL  (n=36, avg_span=15, amp=60p)
+      imp=0.284, retrace=[1.2897, 1.6664], sym=0.770
+      H10: rev=0.694, edge=-30.9p, fav=22.0p, adv=52.9p, RR=0.42
+      H20: rev=0.611, edge=-33.9p, RR=0.46
+      EV/trade=-0.9p, composite=-5
+
+  [11] DUD|ND|Lmm  (n=137, avg_span=14, amp=78p)
+      imp=0.274, retrace=[0.4667, 1.0857], sym=0.764
+      H10: rev=0.569, edge=-10.8p, fav=29.9p, adv=40.6p, RR=0.73
+      H20: rev=0.599, edge=-16.5p, RR=0.73
+      EV/trade=-0.5p, composite=-6
+
+  [12] UDU|SD|Lss  (n=36, avg_span=15, amp=107p)
+      imp=0.275, retrace=[0.1804, 1.1244], sym=1.743
+      H10: rev=0.583, edge=-13.2p, fav=26.7p, adv=39.9p, RR=0.67
+      H20: rev=0.500, edge=-13.3p, RR=0.76
+      EV/trade=-1.1p, composite=-6
+
+  [13] DUD|NX|mmL  (n=67, avg_span=15, amp=87p)
+      imp=0.278, retrace=[0.6536, 2.5748], sym=0.589
+      H10: rev=0.597, edge=-18.1p, fav=29.8p, adv=47.9p, RR=0.62
+      H20: rev=0.612, edge=-19.1p, RR=0.68
+      EV/trade=-1.5p, composite=-12
+
+  [14] UDU|NN|LLm  (n=99, avg_span=14, amp=54p)
+      imp=0.280, retrace=[0.6035, 0.5748], sym=1.019
+      H10: rev=0.535, edge=-7.5p, fav=27.8p, adv=35.3p, RR=0.79
+      H20: rev=0.485, edge=-10.6p, RR=0.79
+      EV/trade=-1.5p, composite=-15
+
+  [15] DUD|XD|mLL  (n=36, avg_span=14, amp=43p)
+      imp=0.285, retrace=[3.1443, 1.3773], sym=1.096
+      H10: rev=0.583, edge=-15.3p, fav=21.6p, adv=36.9p, RR=0.59
+      H20: rev=0.472, edge=-16.7p, RR=0.67
+      EV/trade=-2.8p, composite=-16
+
+======================================================================
+top 30% pivots, span S200 — 17 clusters
+======================================================================
+
+  [1] UDU|XD|LLL  (n=55, avg_span=144, amp=91p)
+      imp=0.301, retrace=[2.5518, 0.9807], sym=0.648
+      H10: rev=0.909, edge=-46.2p, fav=21.8p, adv=68.0p, RR=0.32
+      H20: rev=0.891, edge=-62.8p, RR=0.27
+      EV/trade=+13.7p, composite=+101
+
+  [2] DUD|XN|LLL  (n=83, avg_span=140, amp=34p)
+      imp=0.291, retrace=[2.8128, 0.5905], sym=0.323
+      H10: rev=0.868, edge=-41.4p, fav=20.6p, adv=61.9p, RR=0.33
+      H20: rev=0.795, edge=-56.7p, RR=0.31
+      EV/trade=+9.6p, composite=+88
+
+  [3] DUD|DD|LLL  (n=120, avg_span=135, amp=185p)
+      imp=0.299, retrace=[1.0796, 1.0924], sym=0.217
+      H10: rev=0.842, edge=-42.4p, fav=21.4p, adv=63.8p, RR=0.34
+      H20: rev=0.783, edge=-53.1p, RR=0.34
+      EV/trade=+7.9p, composite=+87
+
+  [4] UDU|XN|LLL  (n=89, avg_span=137, amp=34p)
+      imp=0.293, retrace=[2.5122, 0.5705], sym=0.282
+      H10: rev=0.843, edge=-38.4p, fav=21.7p, adv=60.1p, RR=0.36
+      H20: rev=0.820, edge=-54.5p, RR=0.31
+      EV/trade=+8.8p, composite=+83
+
+  [5] DUD|DN|LLL  (n=74, avg_span=142, amp=110p)
+      imp=0.303, retrace=[1.1637, 0.5993], sym=0.348
+      H10: rev=0.851, edge=-36.6p, fav=19.7p, adv=56.3p, RR=0.35
+      H20: rev=0.824, edge=-57.6p, RR=0.29
+      EV/trade=+8.4p, composite=+72
+
+  [6] DUD|XS|LLL  (n=51, avg_span=133, amp=62p)
+      imp=0.296, retrace=[2.1531, 0.2991], sym=0.336
+      H10: rev=0.902, edge=-43.5p, fav=17.2p, adv=60.8p, RR=0.28
+      H20: rev=0.863, edge=-64.2p, RR=0.23
+      EV/trade=+9.6p, composite=+69
+
+  [7] UDU|DS|LLL  (n=34, avg_span=141, amp=46p)
+      imp=0.297, retrace=[1.1661, 0.2868], sym=0.817
+      H10: rev=0.853, edge=-41.1p, fav=23.4p, adv=64.5p, RR=0.36
+      H20: rev=0.706, edge=-49.3p, RR=0.36
+      EV/trade=+10.5p, composite=+61
+
+  [8] DUD|XD|LLL  (n=73, avg_span=136, amp=105p)
+      imp=0.317, retrace=[2.5198, 1.0075], sym=0.668
+      H10: rev=0.904, edge=-64.9p, fav=16.0p, adv=80.9p, RR=0.20
+      H20: rev=0.863, edge=-88.0p, RR=0.18
+      EV/trade=+6.7p, composite=+57
+
+  [9] DUD|DX|mmL  (n=40, avg_span=133, amp=271p)
+      imp=0.299, retrace=[1.0865, 2.4467], sym=1.001
+      H10: rev=0.875, edge=-35.2p, fav=17.8p, adv=52.9p, RR=0.34
+      H20: rev=0.800, edge=-45.5p, RR=0.34
+      EV/trade=+8.9p, composite=+56
+
+  [10] UDU|NX|mmL  (n=36, avg_span=142, amp=314p)
+      imp=0.299, retrace=[0.6247, 2.5099], sym=0.506
+      H10: rev=0.806, edge=-31.4p, fav=24.9p, adv=56.3p, RR=0.44
+      H20: rev=0.806, edge=-39.4p, RR=0.43
+      EV/trade=+9.1p, composite=+55
+
+  [11] UDU|XS|LLL  (n=40, avg_span=135, amp=66p)
+      imp=0.285, retrace=[2.2979, 0.2904], sym=0.316
+      H10: rev=0.875, edge=-39.5p, fav=17.6p, adv=57.1p, RR=0.31
+      H20: rev=0.850, edge=-49.8p, RR=0.29
+      EV/trade=+8.2p, composite=+52
+
+  [12] UDU|DX|mmL  (n=52, avg_span=142, amp=281p)
+      imp=0.310, retrace=[1.1205, 2.2533], sym=0.954
+      H10: rev=0.846, edge=-41.1p, fav=17.9p, adv=59.0p, RR=0.30
+      H20: rev=0.885, edge=-54.1p, RR=0.27
+      EV/trade=+6.1p, composite=+44
+
+  [13] UDU|SX|Lsm  (n=39, avg_span=141, amp=358p)
+      imp=0.305, retrace=[0.2528, 2.6735], sym=0.649
+      H10: rev=0.821, edge=-36.2p, fav=20.8p, adv=57.0p, RR=0.36
+      H20: rev=0.795, edge=-46.8p, RR=0.33
+      EV/trade=+6.8p, composite=+43
+
+  [14] DUD|SX|Lsm  (n=42, avg_span=145, amp=365p)
+      imp=0.309, retrace=[0.2376, 2.433], sym=0.817
+      H10: rev=0.786, edge=-26.6p, fav=21.2p, adv=47.8p, RR=0.44
+      H20: rev=0.786, edge=-32.8p, RR=0.48
+      EV/trade=+6.4p, composite=+42
+
+  [15] UDU|DD|LLL  (n=97, avg_span=138, amp=182p)
+      imp=0.309, retrace=[1.0863, 1.0969], sym=0.235
+      H10: rev=0.814, edge=-46.7p, fav=20.5p, adv=67.2p, RR=0.30
+      H20: rev=0.814, edge=-61.4p, RR=0.28
+      EV/trade=+4.2p, composite=+41
+
+======================================================================
+top 30% pivots, span S50 — 41 clusters
+======================================================================
+
+  [1] UDU|XX|mLL  (n=55, avg_span=30, amp=91p)
+      imp=0.290, retrace=[1.9624, 1.7417], sym=1.101
+      H10: rev=0.855, edge=-22.5p, fav=25.9p, adv=48.4p, RR=0.54
+      H20: rev=0.673, edge=-28.0p, RR=0.55
+      EV/trade=+15.1p, composite=+112
+
+  [2] UDU|ND|LmL  (n=59, avg_span=34, amp=101p)
+      imp=0.278, retrace=[0.6216, 1.3259], sym=0.242
+      H10: rev=0.763, edge=-18.7p, fav=25.6p, adv=44.3p, RR=0.58
+      H20: rev=0.661, edge=-26.8p, RR=0.53
+      EV/trade=+9.0p, composite=+69
+
+  [3] DUD|XN|LLL  (n=230, avg_span=32, amp=17p)
+      imp=0.272, retrace=[2.61, 0.5839], sym=0.290
+      H10: rev=0.748, edge=-25.8p, fav=20.2p, adv=46.0p, RR=0.44
+      H20: rev=0.670, edge=-34.4p, RR=0.44
+      EV/trade=+3.5p, composite=+53
+
+  [4] DUD|XX|mLL  (n=52, avg_span=32, amp=94p)
+      imp=0.285, retrace=[2.0984, 1.7794], sym=1.170
+      H10: rev=0.731, edge=-27.1p, fav=26.8p, adv=53.9p, RR=0.50
+      H20: rev=0.692, edge=-34.4p, RR=0.54
+      EV/trade=+5.1p, composite=+37
+
+  [5] DUD|DN|LLL  (n=228, avg_span=32, amp=44p)
+      imp=0.276, retrace=[1.1213, 0.5968], sym=0.389
+      H10: rev=0.719, edge=-24.8p, fav=21.1p, adv=46.0p, RR=0.46
+      H20: rev=0.667, edge=-34.1p, RR=0.45
+      EV/trade=+2.3p, composite=+35
+
+  [6] UDU|ND|Lmm  (n=96, avg_span=31, amp=122p)
+      imp=0.279, retrace=[0.4697, 1.0989], sym=0.748
+      H10: rev=0.719, edge=-24.3p, fav=23.7p, adv=48.0p, RR=0.49
+      H20: rev=0.646, edge=-32.3p, RR=0.48
+      EV/trade=+3.5p, composite=+34
+
+  [7] UDU|SX|msL  (n=35, avg_span=30, amp=174p)
+      imp=0.283, retrace=[0.2901, 6.9774], sym=0.686
+      H10: rev=0.657, edge=-8.8p, fav=27.3p, adv=36.1p, RR=0.76
+      H20: rev=0.629, edge=-18.6p, RR=0.65
+      EV/trade=+5.5p, composite=+33
+
+  [8] UDU|XD|LLL  (n=184, avg_span=34, amp=44p)
+      imp=0.285, retrace=[2.3258, 1.0241], sym=0.657
+      H10: rev=0.701, edge=-23.3p, fav=23.1p, adv=46.3p, RR=0.50
+      H20: rev=0.636, edge=-29.9p, RR=0.51
+      EV/trade=+2.3p, composite=+31
+
+  [9] UDU|NX|msL  (n=39, avg_span=34, amp=162p)
+      imp=0.286, retrace=[0.5225, 3.9796], sym=0.834
+      H10: rev=0.821, edge=-34.1p, fav=17.2p, adv=51.4p, RR=0.34
+      H20: rev=0.795, edge=-50.1p, RR=0.30
+      EV/trade=+4.9p, composite=+31
+
+  [10] DUD|DX|mmL  (n=136, avg_span=32, amp=126p)
+      imp=0.289, retrace=[1.0902, 2.4408], sym=1.004
+      H10: rev=0.743, edge=-26.6p, fav=19.5p, adv=46.1p, RR=0.42
+      H20: rev=0.706, edge=-36.1p, RR=0.44
+      EV/trade=+2.6p, composite=+30
+
+  [11] UDU|DX|mmL  (n=164, avg_span=33, amp=125p)
+      imp=0.284, retrace=[1.0444, 2.4703], sym=0.982
+      H10: rev=0.732, edge=-28.5p, fav=21.5p, adv=50.0p, RR=0.43
+      H20: rev=0.787, edge=-40.5p, RR=0.42
+      EV/trade=+2.3p, composite=+30
+
+  [12] DUD|NX|mmL  (n=59, avg_span=31, amp=119p)
+      imp=0.276, retrace=[0.6658, 2.6269], sym=0.629
+      H10: rev=0.695, edge=-16.5p, fav=22.5p, adv=39.0p, RR=0.58
+      H20: rev=0.729, edge=-22.3p, RR=0.57
+      EV/trade=+3.7p, composite=+29
+
+  [13] DUD|NX|LmL  (n=92, avg_span=31, amp=122p)
+      imp=0.278, retrace=[0.5692, 1.9043], sym=0.147
+      H10: rev=0.707, edge=-19.6p, fav=21.1p, adv=40.8p, RR=0.52
+      H20: rev=0.652, edge=-32.7p, RR=0.46
+      EV/trade=+3.0p, composite=+28
+
+  [14] DUD|XD|LLL  (n=172, avg_span=32, amp=46p)
+      imp=0.280, retrace=[2.4685, 1.0061], sym=0.640
+      H10: rev=0.715, edge=-27.8p, fav=23.3p, adv=51.1p, RR=0.46
+      H20: rev=0.669, edge=-32.0p, RR=0.49
+      EV/trade=+2.1p, composite=+27
+
+  [15] DUD|ND|Lmm  (n=103, avg_span=30, amp=116p)
+      imp=0.275, retrace=[0.4674, 1.0929], sym=0.756
+      H10: rev=0.718, edge=-26.6p, fav=22.9p, adv=49.5p, RR=0.46
+      H20: rev=0.631, edge=-31.5p, RR=0.48
+      EV/trade=+2.5p, composite=+25
+
+======================================================================
+top 50% pivots, span S10 — 82 clusters
+======================================================================
+
+  [1] DUD|DX|ssL  (n=106, avg_span=7, amp=94p)
+      imp=0.259, retrace=[1.0642, 5.9049], sym=1.840
+      H10: rev=0.576, edge=-3.2p, fav=35.0p, adv=38.2p, RR=0.92
+      H20: rev=0.594, edge=-1.8p, RR=0.96
+      EV/trade=+4.0p, composite=+41
+
+  [2] UDU|DX|smL  (n=38, avg_span=7, amp=68p)
+      imp=0.259, retrace=[1.2792, 3.7445], sym=1.600
+      H10: rev=0.684, edge=-15.9p, fav=28.9p, adv=44.8p, RR=0.64
+      H20: rev=0.632, edge=-14.8p, RR=0.72
+      EV/trade=+5.6p, composite=+35
+
+  [3] UDU|XX|smL  (n=86, avg_span=7, amp=70p)
+      imp=0.257, retrace=[2.1707, 3.1576], sym=1.712
+      H10: rev=0.558, edge=-3.0p, fav=36.4p, adv=39.4p, RR=0.92
+      H20: rev=0.512, edge=-2.8p, RR=0.94
+      EV/trade=+2.9p, composite=+27
+
+  [4] UDU|XX|mLL  (n=244, avg_span=7, amp=42p)
+      imp=0.256, retrace=[2.0842, 1.7448], sym=1.143
+      H10: rev=0.603, edge=-13.1p, fav=29.8p, adv=42.8p, RR=0.69
+      H20: rev=0.557, edge=-15.2p, RR=0.72
+      EV/trade=+0.9p, composite=+14
+
+  [5] DUD|DX|LLL  (n=87, avg_span=6, amp=37p)
+      imp=0.249, retrace=[1.0548, 1.5549], sym=0.514
+      H10: rev=0.609, edge=-14.1p, fav=29.7p, adv=43.8p, RR=0.68
+      H20: rev=0.540, edge=-16.7p, RR=0.70
+      EV/trade=+1.0p, composite=+9
+
+  [6] DUD|SD|Lss  (n=77, avg_span=8, amp=92p)
+      imp=0.257, retrace=[0.1791, 1.0453], sym=1.799
+      H10: rev=0.493, edge=+2.1p, fav=27.9p, adv=25.7p, RR=1.08
+      H20: rev=0.416, edge=+4.0p, RR=1.09
+      EV/trade=+0.7p, composite=+6
+
+  [7] DUD|SN|Lss  (n=32, avg_span=8, amp=89p)
+      imp=0.260, retrace=[0.1943, 0.6557], sym=1.984
+      H10: rev=0.500, edge=+2.0p, fav=25.5p, adv=23.6p, RR=1.08
+      H20: rev=0.500, edge=+8.0p, RR=1.18
+      EV/trade=+1.0p, composite=+6
+
+  [8] DUD|XS|LLm  (n=32, avg_span=8, amp=40p)
+      imp=0.248, retrace=[2.6505, 0.1963], sym=0.363
+      H10: rev=0.688, edge=-19.2p, fav=16.7p, adv=35.9p, RR=0.47
+      H20: rev=0.469, edge=-22.6p, RR=0.59
+      EV/trade=+0.3p, composite=+2
+
+  [9] UDU|SD|Lsm  (n=32, avg_span=7, amp=78p)
+      imp=0.250, retrace=[0.2441, 1.2594], sym=1.343
+      H10: rev=0.562, edge=-6.3p, fav=23.4p, adv=29.7p, RR=0.79
+      H20: rev=0.469, edge=-4.5p, RR=0.90
+      EV/trade=+0.2p, composite=+1
+
+  [10] DUD|SN|Lms  (n=114, avg_span=7, amp=84p)
+      imp=0.259, retrace=[0.2995, 0.5928], sym=1.681
+      H10: rev=0.517, edge=-2.2p, fav=25.7p, adv=28.0p, RR=0.92
+      H20: rev=0.544, edge=-7.0p, RR=0.86
+      EV/trade=-0.2p, composite=-2
+
+  [11] UDU|NX|Lmm  (n=81, avg_span=7, amp=66p)
+      imp=0.249, retrace=[0.4241, 1.7865], sym=0.343
+      H10: rev=0.531, edge=-5.0p, fav=33.1p, adv=38.1p, RR=0.87
+      H20: rev=0.518, edge=-5.5p, RR=0.90
+      EV/trade=-0.3p, composite=-3
+
+  [12] DUD|SX|msL  (n=32, avg_span=8, amp=88p)
+      imp=0.255, retrace=[0.335, 4.3414], sym=0.421
+      H10: rev=0.562, edge=-13.7p, fav=33.0p, adv=46.6p, RR=0.71
+      H20: rev=0.469, edge=-8.5p, RR=0.84
+      EV/trade=-1.9p, composite=-10
+
+  [13] UDU|SX|Lmm  (n=49, avg_span=7, amp=82p)
+      imp=0.254, retrace=[0.3447, 1.7714], sym=0.604
+      H10: rev=0.673, edge=-27.3p, fav=20.7p, adv=48.0p, RR=0.43
+      H20: rev=0.592, edge=-30.3p, RR=0.54
+      EV/trade=-1.7p, composite=-12
+
+  [14] DUD|XS|mLL  (n=36, avg_span=7, amp=44p)
+      imp=0.248, retrace=[4.9883, 0.3359], sym=0.252
+      H10: rev=0.583, edge=-14.0p, fav=22.9p, adv=36.9p, RR=0.62
+      H20: rev=0.556, edge=-18.1p, RR=0.67
+      EV/trade=-2.0p, composite=-12
+
+  [15] UDU|NS|LLm  (n=40, avg_span=7, amp=29p)
+      imp=0.252, retrace=[0.6836, 0.3136], sym=1.251
+      H10: rev=0.475, edge=-2.4p, fav=20.7p, adv=23.2p, RR=0.90
+      H20: rev=0.475, edge=+2.0p, RR=1.04
+      EV/trade=-2.3p, composite=-15
+
+======================================================================
+top 50% pivots, span S100 — 29 clusters
+======================================================================
+
+  [1] UDU|DN|LLL  (n=122, avg_span=67, amp=74p)
+      imp=0.258, retrace=[1.117, 0.5832], sym=0.404
+      H10: rev=0.820, edge=-35.4p, fav=23.1p, adv=58.5p, RR=0.39
+      H20: rev=0.738, edge=-48.6p, RR=0.38
+      EV/trade=+8.3p, composite=+92
+
+  [2] DUD|DD|LLL  (n=173, avg_span=69, amp=128p)
+      imp=0.266, retrace=[1.0931, 1.0823], sym=0.246
+      H10: rev=0.809, edge=-39.1p, fav=21.8p, adv=60.9p, RR=0.36
+      H20: rev=0.699, edge=-46.5p, RR=0.40
+      EV/trade=+6.0p, composite=+79
+
+  [3] DUD|SX|Lsm  (n=73, avg_span=70, amp=287p)
+      imp=0.271, retrace=[0.2376, 2.6103], sym=0.711
+      H10: rev=0.849, edge=-39.7p, fav=20.4p, adv=60.2p, RR=0.34
+      H20: rev=0.767, edge=-57.4p, RR=0.29
+      EV/trade=+8.3p, composite=+71
+
+  [4] UDU|ND|LmL  (n=36, avg_span=68, amp=181p)
+      imp=0.261, retrace=[0.649, 1.3385], sym=0.204
+      H10: rev=0.806, edge=-37.3p, fav=29.9p, adv=67.1p, RR=0.45
+      H20: rev=0.778, edge=-52.1p, RR=0.40
+      EV/trade=+11.0p, composite=+66
+
+  [5] UDU|ND|LLL  (n=35, avg_span=67, amp=140p)
+      imp=0.253, retrace=[0.7316, 0.998], sym=0.344
+      H10: rev=0.800, edge=-21.2p, fav=25.4p, adv=46.6p, RR=0.55
+      H20: rev=0.629, edge=-32.6p, RR=0.47
+      EV/trade=+11.0p, composite=+65
+
+  [6] UDU|DX|mmL  (n=61, avg_span=69, amp=206p)
+      imp=0.270, retrace=[1.0948, 2.3665], sym=0.977
+      H10: rev=0.836, edge=-36.9p, fav=21.1p, adv=57.9p, RR=0.36
+      H20: rev=0.836, edge=-66.3p, RR=0.27
+      EV/trade=+8.1p, composite=+63
+
+  [7] UDU|XD|LLL  (n=97, avg_span=72, amp=67p)
+      imp=0.263, retrace=[2.2952, 0.9931], sym=0.622
+      H10: rev=0.814, edge=-36.3p, fav=20.8p, adv=57.1p, RR=0.36
+      H20: rev=0.753, edge=-46.6p, RR=0.37
+      EV/trade=+6.4p, composite=+63
+
+  [8] UDU|DD|LLL  (n=170, avg_span=70, amp=133p)
+      imp=0.270, retrace=[1.1144, 1.0871], sym=0.254
+      H10: rev=0.759, edge=-33.7p, fav=23.9p, adv=57.7p, RR=0.41
+      H20: rev=0.729, edge=-42.4p, RR=0.42
+      EV/trade=+4.3p, composite=+56
+
+  [9] DUD|DN|LLL  (n=133, avg_span=70, amp=78p)
+      imp=0.263, retrace=[1.0939, 0.6075], sym=0.394
+      H10: rev=0.789, edge=-33.1p, fav=20.2p, adv=53.3p, RR=0.38
+      H20: rev=0.699, edge=-50.6p, RR=0.34
+      EV/trade=+4.7p, composite=+55
+
+  [10] DUD|ND|LLL  (n=35, avg_span=71, amp=178p)
+      imp=0.260, retrace=[0.712, 1.0446], sym=0.333
+      H10: rev=0.857, edge=-38.7p, fav=20.5p, adv=59.2p, RR=0.35
+      H20: rev=0.714, edge=-44.6p, RR=0.39
+      EV/trade=+9.1p, composite=+54
+
+  [11] DUD|XN|LLL  (n=139, avg_span=70, amp=25p)
+      imp=0.257, retrace=[2.3794, 0.5837], sym=0.265
+      H10: rev=0.799, edge=-37.2p, fav=20.2p, adv=57.4p, RR=0.35
+      H20: rev=0.691, edge=-48.0p, RR=0.36
+      EV/trade=+4.6p, composite=+54
+
+  [12] DUD|DX|mmL  (n=78, avg_span=68, amp=216p)
+      imp=0.267, retrace=[1.1121, 2.4594], sym=1.032
+      H10: rev=0.795, edge=-35.0p, fav=22.1p, adv=57.1p, RR=0.39
+      H20: rev=0.654, edge=-39.5p, RR=0.44
+      EV/trade=+5.9p, composite=+52
+
+  [13] UDU|DS|LLL  (n=57, avg_span=73, amp=26p)
+      imp=0.258, retrace=[1.2031, 0.2665], sym=0.829
+      H10: rev=0.807, edge=-33.2p, fav=20.9p, adv=54.0p, RR=0.39
+      H20: rev=0.667, edge=-43.6p, RR=0.40
+      EV/trade=+6.4p, composite=+48
+
+  [14] DUD|XS|LLL  (n=61, avg_span=69, amp=43p)
+      imp=0.250, retrace=[2.1271, 0.2886], sym=0.360
+      H10: rev=0.787, edge=-36.1p, fav=23.2p, adv=59.4p, RR=0.39
+      H20: rev=0.787, edge=-50.0p, RR=0.34
+      EV/trade=+5.6p, composite=+44
+
+  [15] DUD|XX|mLL  (n=38, avg_span=68, amp=128p)
+      imp=0.268, retrace=[2.1678, 1.7632], sym=1.179
+      H10: rev=0.816, edge=-31.0p, fav=19.6p, adv=50.6p, RR=0.39
+      H20: rev=0.816, edge=-43.0p, RR=0.36
+      EV/trade=+6.7p, composite=+41
+
+======================================================================
+top 50% pivots, span S20 — 66 clusters
+======================================================================
+
+  [1] DUD|NX|Lmm  (n=41, avg_span=15, amp=102p)
+      imp=0.245, retrace=[0.4243, 1.7425], sym=0.368
+      H10: rev=0.732, edge=-23.9p, fav=28.0p, adv=51.9p, RR=0.54
+      H20: rev=0.658, edge=-29.2p, RR=0.59
+      EV/trade=+6.6p, composite=+42
+
+  [2] UDU|NX|Lmm  (n=40, avg_span=15, amp=99p)
+      imp=0.242, retrace=[0.4197, 1.764], sym=0.369
+      H10: rev=0.725, edge=-24.9p, fav=27.1p, adv=52.0p, RR=0.52
+      H20: rev=0.500, edge=-31.5p, RR=0.52
+      EV/trade=+5.3p, composite=+34
+
+  [3] DUD|SD|Lss  (n=69, avg_span=14, amp=125p)
+      imp=0.253, retrace=[0.1762, 1.0902], sym=1.792
+      H10: rev=0.580, edge=-4.1p, fav=28.4p, adv=32.5p, RR=0.87
+      H20: rev=0.580, edge=-15.8p, RR=0.72
+      EV/trade=+2.8p, composite=+23
+
+  [4] DUD|NX|mmL  (n=97, avg_span=14, amp=88p)
+      imp=0.241, retrace=[0.6562, 2.5305], sym=0.569
+      H10: rev=0.629, edge=-15.1p, fav=28.0p, adv=43.1p, RR=0.65
+      H20: rev=0.515, edge=-16.2p, RR=0.69
+      EV/trade=+1.6p, composite=+16
+
+  [5] UDU|SX|msL  (n=39, avg_span=16, amp=130p)
+      imp=0.251, retrace=[0.3078, 5.193], sym=0.465
+      H10: rev=0.538, edge=-0.8p, fav=38.0p, adv=38.8p, RR=0.98
+      H20: rev=0.487, edge=-0.5p, RR=0.99
+      EV/trade=+2.6p, composite=+16
+
+  [6] UDU|DX|ssL  (n=59, avg_span=14, amp=129p)
+      imp=0.259, retrace=[1.0765, 6.847], sym=1.934
+      H10: rev=0.559, edge=-3.9p, fav=30.2p, adv=34.1p, RR=0.89
+      H20: rev=0.576, edge=-3.2p, RR=0.93
+      EV/trade=+1.9p, composite=+14
+
+  [7] UDU|XX|mmL  (n=31, avg_span=15, amp=74p)
+      imp=0.251, retrace=[1.699, 2.3988], sym=1.353
+      H10: rev=0.742, edge=-23.2p, fav=17.4p, adv=40.7p, RR=0.43
+      H20: rev=0.581, edge=-28.6p, RR=0.49
+      EV/trade=+2.4p, composite=+14
+
+  [8] UDU|DX|mLL  (n=65, avg_span=14, amp=60p)
+      imp=0.246, retrace=[1.2945, 1.6835], sym=0.784
+      H10: rev=0.661, edge=-21.2p, fav=27.3p, adv=48.5p, RR=0.56
+      H20: rev=0.677, edge=-29.0p, RR=0.56
+      EV/trade=+1.6p, composite=+13
+
+  [9] UDU|SD|Lss  (n=67, avg_span=15, amp=119p)
+      imp=0.249, retrace=[0.1706, 1.0916], sym=1.815
+      H10: rev=0.672, edge=-18.9p, fav=20.7p, adv=39.6p, RR=0.52
+      H20: rev=0.507, edge=-27.9p, RR=0.54
+      EV/trade=+0.9p, composite=+7
+
+  [10] UDU|XX|mLL  (n=109, avg_span=14, amp=63p)
+      imp=0.257, retrace=[2.0292, 1.7756], sym=1.140
+      H10: rev=0.651, edge=-19.4p, fav=24.4p, adv=43.8p, RR=0.56
+      H20: rev=0.514, edge=-20.6p, RR=0.64
+      EV/trade=+0.6p, composite=+6
+
+  [11] DUD|XX|mmL  (n=41, avg_span=14, amp=70p)
+      imp=0.253, retrace=[1.7537, 2.3785], sym=1.362
+      H10: rev=0.683, edge=-22.1p, fav=21.6p, adv=43.7p, RR=0.49
+      H20: rev=0.683, edge=-33.6p, RR=0.43
+      EV/trade=+0.9p, composite=+6
+
+  [12] DUD|XX|smL  (n=54, avg_span=15, amp=106p)
+      imp=0.273, retrace=[2.5009, 3.1927], sym=1.758
+      H10: rev=0.630, edge=-17.3p, fav=26.2p, adv=43.5p, RR=0.60
+      H20: rev=0.500, edge=-15.2p, RR=0.72
+      EV/trade=+0.4p, composite=+3
+
+  [13] DUD|DX|LmL  (n=32, avg_span=15, amp=60p)
+      imp=0.237, retrace=[0.8576, 1.6503], sym=0.378
+      H10: rev=0.656, edge=-20.9p, fav=23.6p, adv=44.5p, RR=0.53
+      H20: rev=0.500, edge=-20.0p, RR=0.60
+      EV/trade=+0.2p, composite=+1
+
+  [14] DUD|SX|msL  (n=43, avg_span=15, amp=128p)
+      imp=0.246, retrace=[0.3072, 6.2973], sym=0.618
+      H10: rev=0.558, edge=-8.8p, fav=33.8p, adv=42.6p, RR=0.79
+      H20: rev=0.605, edge=-4.7p, RR=0.91
+      EV/trade=+0.0p, composite=+0
+
+  [15] DUD|SX|Lsm  (n=137, avg_span=15, amp=117p)
+      imp=0.247, retrace=[0.249, 2.3576], sym=0.740
+      H10: rev=0.577, edge=-10.7p, fav=29.1p, adv=39.8p, RR=0.73
+      H20: rev=0.562, edge=-10.1p, RR=0.81
+      EV/trade=-0.1p, composite=-1
+
+======================================================================
+top 50% pivots, span S200 — 6 clusters
+======================================================================
+
+  [1] DUD|XN|LLL  (n=37, avg_span=129, amp=26p)
+      imp=0.271, retrace=[2.7814, 0.5624], sym=0.315
+      H10: rev=0.838, edge=-32.7p, fav=22.2p, adv=54.9p, RR=0.40
+      H20: rev=0.757, edge=-51.8p, RR=0.36
+      EV/trade=+9.7p, composite=+59
+
+  [2] UDU|DN|LLL  (n=34, avg_span=138, amp=92p)
+      imp=0.293, retrace=[1.1599, 0.5964], sym=0.351
+      H10: rev=0.941, edge=-49.9p, fav=13.6p, adv=63.5p, RR=0.21
+      H20: rev=0.882, edge=-60.6p, RR=0.22
+      EV/trade=+9.1p, composite=+53
+
+  [3] UDU|DD|LLL  (n=38, avg_span=136, amp=168p)
+      imp=0.304, retrace=[1.0943, 1.0697], sym=0.227
+      H10: rev=0.842, edge=-31.7p, fav=15.8p, adv=47.5p, RR=0.33
+      H20: rev=0.842, edge=-44.0p, RR=0.32
+      EV/trade=+5.8p, composite=+36
+
+  [4] DUD|DD|LLL  (n=43, avg_span=133, amp=140p)
+      imp=0.292, retrace=[1.1217, 1.1075], sym=0.270
+      H10: rev=0.767, edge=-37.1p, fav=21.5p, adv=58.6p, RR=0.37
+      H20: rev=0.767, edge=-45.5p, RR=0.38
+      EV/trade=+2.9p, composite=+19
+
+  [5] DUD|XD|LLL  (n=38, avg_span=135, amp=82p)
+      imp=0.291, retrace=[2.5227, 0.9854], sym=0.669
+      H10: rev=0.763, edge=-47.9p, fav=16.4p, adv=64.3p, RR=0.26
+      H20: rev=0.816, edge=-60.7p, RR=0.23
+      EV/trade=-2.7p, composite=-17
+
+  [6] UDU|XN|LLL  (n=36, avg_span=132, amp=33p)
+      imp=0.277, retrace=[2.5323, 0.5724], sym=0.272
+      H10: rev=0.694, edge=-37.4p, fav=19.2p, adv=56.6p, RR=0.34
+      H20: rev=0.778, edge=-54.1p, RR=0.29
+      EV/trade=-4.0p, composite=-24
+
+======================================================================
+top 50% pivots, span S50 — 59 clusters
+======================================================================
+
+  [1] UDU|NX|Lmm  (n=37, avg_span=30, amp=154p)
+      imp=0.243, retrace=[0.4217, 1.7279], sym=0.387
+      H10: rev=0.811, edge=-32.3p, fav=30.1p, adv=62.4p, RR=0.48
+      H20: rev=0.649, edge=-35.8p, RR=0.53
+      EV/trade=+12.6p, composite=+76
+
+  [2] UDU|DD|LLL  (n=461, avg_span=32, amp=79p)
+      imp=0.243, retrace=[1.1097, 1.0961], sym=0.247
+      H10: rev=0.685, edge=-22.3p, fav=27.2p, adv=49.5p, RR=0.55
+      H20: rev=0.612, edge=-28.0p, RR=0.57
+      EV/trade=+3.1p, composite=+66
+
+  [3] UDU|XX|mLL  (n=108, avg_span=32, amp=92p)
+      imp=0.256, retrace=[2.0873, 1.7458], sym=1.139
+      H10: rev=0.704, edge=-20.2p, fav=27.0p, adv=47.2p, RR=0.57
+      H20: rev=0.556, edge=-18.7p, RR=0.69
+      EV/trade=+5.0p, composite=+52
+
+  [4] UDU|DN|LLL  (n=364, avg_span=32, amp=50p)
+      imp=0.242, retrace=[1.1131, 0.5821], sym=0.415
+      H10: rev=0.758, edge=-34.1p, fav=21.0p, adv=55.1p, RR=0.38
+      H20: rev=0.701, edge=-43.5p, RR=0.40
+      EV/trade=+2.6p, composite=+50
+
+  [5] UDU|ND|LmL  (n=99, avg_span=33, amp=104p)
+      imp=0.240, retrace=[0.6442, 1.3147], sym=0.214
+      H10: rev=0.758, edge=-29.1p, fav=22.8p, adv=51.9p, RR=0.44
+      H20: rev=0.667, edge=-34.1p, RR=0.46
+      EV/trade=+4.7p, composite=+46
+
+  [6] UDU|SX|Lsm  (n=193, avg_span=32, amp=180p)
+      imp=0.252, retrace=[0.2392, 2.5135], sym=0.737
+      H10: rev=0.756, edge=-33.2p, fav=21.2p, adv=54.4p, RR=0.39
+      H20: rev=0.674, edge=-35.9p, RR=0.46
+      EV/trade=+2.8p, composite=+39
+
+  [7] UDU|NX|LmL  (n=150, avg_span=32, amp=132p)
+      imp=0.241, retrace=[0.5807, 1.834], sym=0.150
+      H10: rev=0.693, edge=-21.8p, fav=25.5p, adv=47.3p, RR=0.54
+      H20: rev=0.673, edge=-28.4p, RR=0.54
+      EV/trade=+3.2p, composite=+39
+
+  [8] DUD|DD|LLL  (n=460, avg_span=31, amp=81p)
+      imp=0.243, retrace=[1.0868, 1.1024], sym=0.252
+      H10: rev=0.726, edge=-31.7p, fav=23.1p, adv=54.8p, RR=0.42
+      H20: rev=0.630, edge=-35.2p, RR=0.49
+      EV/trade=+1.8p, composite=+38
+
+  [9] DUD|ND|Lmm  (n=176, avg_span=32, amp=129p)
+      imp=0.249, retrace=[0.4752, 1.1004], sym=0.731
+      H10: rev=0.739, edge=-32.1p, fav=23.1p, adv=55.2p, RR=0.42
+      H20: rev=0.648, edge=-39.8p, RR=0.42
+      EV/trade=+2.6p, composite=+35
+
+  [10] DUD|XD|mLL  (n=69, avg_span=32, amp=75p)
+      imp=0.254, retrace=[2.8135, 1.3732], sym=1.053
+      H10: rev=0.710, edge=-21.3p, fav=22.8p, adv=44.1p, RR=0.52
+      H20: rev=0.638, edge=-33.6p, RR=0.51
+      EV/trade=+3.4p, composite=+28
+
+  [11] UDU|SX|msL  (n=57, avg_span=33, amp=215p)
+      imp=0.251, retrace=[0.2818, 6.389], sym=0.563
+      H10: rev=0.702, edge=-24.5p, fav=26.1p, adv=50.6p, RR=0.52
+      H20: rev=0.632, edge=-23.6p, RR=0.66
+      EV/trade=+3.2p, composite=+24
+
+  [12] DUD|DN|LLL  (n=364, avg_span=32, amp=50p)
+      imp=0.240, retrace=[1.1016, 0.5886], sym=0.416
+      H10: rev=0.714, edge=-29.0p, fav=22.2p, adv=51.2p, RR=0.43
+      H20: rev=0.659, edge=-39.4p, RR=0.43
+      EV/trade=+1.2p, composite=+24
+
+  [13] DUD|XD|LLL  (n=307, avg_span=33, amp=48p)
+      imp=0.247, retrace=[2.4497, 1.0165], sym=0.657
+      H10: rev=0.697, edge=-25.7p, fav=23.2p, adv=48.9p, RR=0.47
+      H20: rev=0.638, edge=-31.4p, RR=0.51
+      EV/trade=+1.3p, composite=+24
+
+  [14] DUD|DX|ssL  (n=46, avg_span=29, amp=173p)
+      imp=0.246, retrace=[1.0686, 5.7047], sym=1.825
+      H10: rev=0.717, edge=-27.5p, fav=25.8p, adv=53.4p, RR=0.48
+      H20: rev=0.674, edge=-35.7p, RR=0.52
+      EV/trade=+3.4p, composite=+23
+
+  [15] UDU|SX|Lmm  (n=32, avg_span=34, amp=147p)
+      imp=0.246, retrace=[0.3482, 1.7374], sym=0.613
+      H10: rev=0.812, edge=-36.7p, fav=16.7p, adv=53.5p, RR=0.31
+      H20: rev=0.781, edge=-46.0p, RR=0.32
+      EV/trade=+3.6p, composite=+20
+
+======================================================================
+top 75% pivots, span S10 — 94 clusters
+======================================================================
+
+  [1] UDU|SD|Lsm  (n=66, avg_span=7, amp=79p)
+      imp=0.225, retrace=[0.2479, 1.2764], sym=1.315
+      H10: rev=0.500, edge=+1.2p, fav=30.7p, adv=29.5p, RR=1.04
+      H20: rev=0.485, edge=+2.0p, RR=1.04
+      EV/trade=+0.6p, composite=+5
+
+  [2] DUD|SD|Lss  (n=143, avg_span=8, amp=90p)
+      imp=0.235, retrace=[0.1812, 1.0191], sym=1.805
+      H10: rev=0.496, edge=+0.9p, fav=25.1p, adv=24.2p, RR=1.04
+      H20: rev=0.434, edge=+2.2p, RR=1.05
+      EV/trade=+0.3p, composite=+3
+
+  [3] UDU|XN|mLL  (n=87, avg_span=7, amp=30p)
+      imp=0.233, retrace=[6.3678, 0.4633], sym=0.546
+      H10: rev=0.586, edge=-11.5p, fav=27.9p, adv=39.4p, RR=0.71
+      H20: rev=0.552, edge=-20.8p, RR=0.64
+      EV/trade=+0.1p, composite=+1
+
+  [4] UDU|DX|smL  (n=79, avg_span=7, amp=66p)
+      imp=0.230, retrace=[1.2747, 3.7389], sym=1.596
+      H10: rev=0.570, edge=-10.5p, fav=32.3p, adv=42.8p, RR=0.76
+      H20: rev=0.494, edge=-10.3p, RR=0.79
+      EV/trade=-0.0p, composite=-0
+
+  [5] UDU|SN|Lss  (n=57, avg_span=8, amp=108p)
+      imp=0.234, retrace=[0.1797, 0.665], sym=2.042
+      H10: rev=0.421, edge=+5.1p, fav=25.4p, adv=20.3p, RR=1.25
+      H20: rev=0.404, edge=+12.9p, RR=1.37
+      EV/trade=-1.0p, composite=-8
+
+  [6] DUD|SX|Lmm  (n=107, avg_span=7, amp=79p)
+      imp=0.221, retrace=[0.3479, 1.7676], sym=0.595
+      H10: rev=0.579, edge=-12.1p, fav=27.0p, adv=39.1p, RR=0.69
+      H20: rev=0.561, edge=-14.0p, RR=0.75
+      EV/trade=-0.8p, composite=-8
+
+  [7] DUD|SN|Lss  (n=68, avg_span=8, amp=98p)
+      imp=0.239, retrace=[0.1882, 0.6438], sym=2.019
+      H10: rev=0.471, edge=+0.6p, fav=25.9p, adv=25.3p, RR=1.02
+      H20: rev=0.515, edge=-0.6p, RR=0.99
+      EV/trade=-1.2p, composite=-10
+
+  [8] DUD|SD|Lms  (n=32, avg_span=8, amp=87p)
+      imp=0.236, retrace=[0.2614, 0.8536], sym=1.571
+      H10: rev=0.438, edge=+2.7p, fav=26.9p, adv=24.2p, RR=1.11
+      H20: rev=0.500, edge=+14.1p, RR=1.37
+      EV/trade=-1.9p, composite=-10
+
+  [9] UDU|SX|msL  (n=86, avg_span=8, amp=90p)
+      imp=0.223, retrace=[0.3291, 4.679], sym=0.476
+      H10: rev=0.628, edge=-22.2p, fav=27.1p, adv=49.3p, RR=0.55
+      H20: rev=0.581, edge=-26.6p, RR=0.58
+      EV/trade=-1.3p, composite=-12
+
+  [10] DUD|XN|mLL  (n=79, avg_span=8, amp=38p)
+      imp=0.224, retrace=[6.5798, 0.4574], sym=0.550
+      H10: rev=0.557, edge=-12.2p, fav=34.6p, adv=46.8p, RR=0.74
+      H20: rev=0.506, edge=-17.8p, RR=0.71
+      EV/trade=-1.4p, composite=-13
+
+  [11] DUD|SN|Lmm  (n=104, avg_span=7, amp=69p)
+      imp=0.231, retrace=[0.3528, 0.71], sym=1.405
+      H10: rev=0.538, edge=-7.2p, fav=24.4p, adv=31.6p, RR=0.77
+      H20: rev=0.481, edge=-8.5p, RR=0.84
+      EV/trade=-1.4p, composite=-14
+
+  [12] DUD|DX|ssL  (n=219, avg_span=7, amp=90p)
+      imp=0.234, retrace=[1.0476, 5.8238], sym=1.820
+      H10: rev=0.543, edge=-8.5p, fav=32.0p, adv=40.5p, RR=0.79
+      H20: rev=0.566, edge=-7.5p, RR=0.85
+      EV/trade=-1.1p, composite=-16
+
+  [13] UDU|XS|mLL  (n=77, avg_span=8, amp=41p)
+      imp=0.219, retrace=[5.0324, 0.3414], sym=0.266
+      H10: rev=0.636, edge=-23.4p, fav=23.4p, adv=46.8p, RR=0.50
+      H20: rev=0.701, edge=-31.2p, RR=0.50
+      EV/trade=-2.1p, composite=-19
+
+  [14] UDU|XX|smL  (n=206, avg_span=7, amp=70p)
+      imp=0.231, retrace=[2.1879, 3.1262], sym=1.703
+      H10: rev=0.510, edge=-4.3p, fav=34.6p, adv=38.9p, RR=0.89
+      H20: rev=0.485, edge=-4.5p, RR=0.91
+      EV/trade=-1.4p, composite=-20
+
+  [15] DUD|SN|Lms  (n=217, avg_span=7, amp=80p)
+      imp=0.237, retrace=[0.2936, 0.5933], sym=1.697
+      H10: rev=0.484, edge=-1.1p, fav=25.1p, adv=26.2p, RR=0.96
+      H20: rev=0.521, edge=-8.4p, RR=0.84
+      EV/trade=-1.4p, composite=-20
+
+======================================================================
+top 75% pivots, span S100 — 8 clusters
+======================================================================
+
+  [1] DUD|XN|LLL  (n=49, avg_span=63, amp=21p)
+      imp=0.234, retrace=[2.6744, 0.5835], sym=0.279
+      H10: rev=0.837, edge=-32.1p, fav=16.0p, adv=48.1p, RR=0.33
+      H20: rev=0.612, edge=-39.8p, RR=0.36
+      EV/trade=+5.6p, composite=+39
+
+  [2] DUD|DD|LLL  (n=60, avg_span=66, amp=110p)
+      imp=0.252, retrace=[1.1133, 1.0718], sym=0.201
+      H10: rev=0.783, edge=-31.7p, fav=19.2p, adv=50.9p, RR=0.38
+      H20: rev=0.700, edge=-48.9p, RR=0.33
+      EV/trade=+4.0p, composite=+31
+
+  [3] DUD|XD|LLL  (n=43, avg_span=62, amp=47p)
+      imp=0.247, retrace=[2.7462, 1.0011], sym=0.714
+      H10: rev=0.791, edge=-35.4p, fav=20.1p, adv=55.5p, RR=0.36
+      H20: rev=0.814, edge=-50.9p, RR=0.36
+      EV/trade=+4.3p, composite=+28
+
+  [4] UDU|XD|LLL  (n=39, avg_span=69, amp=63p)
+      imp=0.246, retrace=[2.4703, 1.0301], sym=0.671
+      H10: rev=0.744, edge=-27.7p, fav=18.6p, adv=46.3p, RR=0.40
+      H20: rev=0.692, edge=-34.0p, RR=0.40
+      EV/trade=+2.0p, composite=+12
+
+  [5] UDU|DN|LLL  (n=34, avg_span=61, amp=71p)
+      imp=0.245, retrace=[1.081, 0.5782], sym=0.441
+      H10: rev=0.765, edge=-31.9p, fav=17.8p, adv=49.7p, RR=0.36
+      H20: rev=0.618, edge=-30.8p, RR=0.50
+      EV/trade=+1.9p, composite=+11
+
+  [6] UDU|XN|LLL  (n=49, avg_span=66, amp=24p)
+      imp=0.239, retrace=[2.523, 0.564], sym=0.274
+      H10: rev=0.694, edge=-24.8p, fav=19.6p, adv=44.4p, RR=0.44
+      H20: rev=0.633, edge=-25.7p, RR=0.56
+      EV/trade=+0.0p, composite=+0
+
+  [7] DUD|DN|LLL  (n=50, avg_span=67, amp=74p)
+      imp=0.251, retrace=[1.1106, 0.603], sym=0.384
+      H10: rev=0.720, edge=-35.1p, fav=21.6p, adv=56.8p, RR=0.38
+      H20: rev=0.700, edge=-40.9p, RR=0.44
+      EV/trade=-0.3p, composite=-2
+
+  [8] UDU|DD|LLL  (n=57, avg_span=66, amp=124p)
+      imp=0.251, retrace=[1.084, 1.0886], sym=0.236
+      H10: rev=0.702, edge=-32.4p, fav=22.9p, adv=55.2p, RR=0.41
+      H20: rev=0.772, edge=-43.3p, RR=0.42
+      EV/trade=-0.4p, composite=-3
+
+======================================================================
+top 75% pivots, span S20 — 91 clusters
+======================================================================
+
+  [1] DUD|SD|Lsm  (n=62, avg_span=14, amp=97p)
+      imp=0.214, retrace=[0.2433, 1.3094], sym=1.313
+      H10: rev=0.677, edge=-13.2p, fav=24.9p, adv=38.1p, RR=0.65
+      H20: rev=0.532, edge=-20.2p, RR=0.66
+      EV/trade=+4.6p, composite=+36
+
+  [2] DUD|NX|Lmm  (n=77, avg_span=15, amp=102p)
+      imp=0.214, retrace=[0.4215, 1.7155], sym=0.394
+      H10: rev=0.688, edge=-27.5p, fav=32.7p, adv=60.2p, RR=0.54
+      H20: rev=0.623, edge=-35.7p, RR=0.55
+      EV/trade=+3.8p, composite=+33
+
+  [3] UDU|SD|Lss  (n=116, avg_span=14, amp=126p)
+      imp=0.223, retrace=[0.1688, 1.1037], sym=1.818
+      H10: rev=0.681, edge=-17.4p, fav=21.9p, adv=39.3p, RR=0.56
+      H20: rev=0.586, edge=-21.1p, RR=0.64
+      EV/trade=+2.4p, composite=+26
+
+  [4] UDU|SD|Lsm  (n=57, avg_span=14, amp=113p)
+      imp=0.214, retrace=[0.244, 1.3099], sym=1.309
+      H10: rev=0.561, edge=-2.4p, fav=35.4p, adv=37.7p, RR=0.94
+      H20: rev=0.474, edge=-9.0p, RR=0.85
+      EV/trade=+3.3p, composite=+25
+
+  [5] DUD|XN|mLL  (n=47, avg_span=14, amp=42p)
+      imp=0.215, retrace=[6.8746, 0.4856], sym=0.603
+      H10: rev=0.575, edge=-5.7p, fav=34.7p, adv=40.4p, RR=0.86
+      H20: rev=0.553, edge=-1.4p, RR=0.97
+      EV/trade=+2.8p, composite=+19
+
+  [6] UDU|ND|LmL  (n=183, avg_span=14, amp=73p)
+      imp=0.203, retrace=[0.6301, 1.3215], sym=0.222
+      H10: rev=0.667, edge=-22.9p, fav=27.0p, adv=49.9p, RR=0.54
+      H20: rev=0.634, edge=-28.8p, RR=0.56
+      EV/trade=+1.4p, composite=+18
+
+  [7] UDU|NX|msL  (n=198, avg_span=14, amp=120p)
+      imp=0.214, retrace=[0.5229, 4.2494], sym=0.905
+      H10: rev=0.621, edge=-16.0p, fav=29.4p, adv=45.5p, RR=0.65
+      H20: rev=0.586, edge=-13.8p, RR=0.77
+      EV/trade=+1.1p, composite=+15
+
+  [8] UDU|XN|mLL  (n=64, avg_span=14, amp=49p)
+      imp=0.227, retrace=[6.569, 0.4738], sym=0.571
+      H10: rev=0.719, edge=-25.6p, fav=19.6p, adv=45.2p, RR=0.43
+      H20: rev=0.688, edge=-55.7p, RR=0.33
+      EV/trade=+1.4p, composite=+11
+
+  [9] UDU|XS|mLL  (n=54, avg_span=15, amp=60p)
+      imp=0.215, retrace=[4.7996, 0.3303], sym=0.225
+      H10: rev=0.685, edge=-21.1p, fav=22.0p, adv=43.1p, RR=0.51
+      H20: rev=0.630, edge=-35.9p, RR=0.49
+      EV/trade=+1.5p, composite=+11
+
+  [10] UDU|XX|sLL  (n=42, avg_span=15, amp=66p)
+      imp=0.223, retrace=[5.1643, 1.9771], sym=1.646
+      H10: rev=0.667, edge=-14.1p, fav=19.1p, adv=33.1p, RR=0.57
+      H20: rev=0.452, edge=-19.0p, RR=0.63
+      EV/trade=+1.7p, composite=+11
+
+  [11] DUD|DX|smL  (n=39, avg_span=15, amp=102p)
+      imp=0.223, retrace=[1.3007, 3.6827], sym=1.596
+      H10: rev=0.615, edge=-11.2p, fav=22.9p, adv=34.1p, RR=0.67
+      H20: rev=0.564, edge=-14.3p, RR=0.72
+      EV/trade=+1.0p, composite=+6
+
+  [12] UDU|SD|Lmm  (n=215, avg_span=14, amp=95p)
+      imp=0.212, retrace=[0.3215, 1.1322], sym=1.144
+      H10: rev=0.591, edge=-12.6p, fav=30.4p, adv=43.0p, RR=0.71
+      H20: rev=0.516, edge=-10.2p, RR=0.82
+      EV/trade=+0.3p, composite=+5
+
+  [13] UDU|SX|Lmm  (n=63, avg_span=15, amp=95p)
+      imp=0.207, retrace=[0.3444, 1.759], sym=0.613
+      H10: rev=0.556, edge=-7.3p, fav=34.5p, adv=41.8p, RR=0.83
+      H20: rev=0.508, edge=+1.4p, RR=1.03
+      EV/trade=+0.6p, composite=+5
+
+  [14] UDU|SX|Lss  (n=34, avg_span=15, amp=140p)
+      imp=0.217, retrace=[0.1278, 1.9341], sym=1.702
+      H10: rev=0.529, edge=-3.5p, fav=30.5p, adv=34.0p, RR=0.90
+      H20: rev=0.529, edge=-10.8p, RR=0.79
+      EV/trade=+0.1p, composite=+1
+
+  [15] DUD|DX|LLL  (n=47, avg_span=14, amp=68p)
+      imp=0.210, retrace=[1.0294, 1.5638], sym=0.499
+      H10: rev=0.617, edge=-19.6p, fav=31.1p, adv=50.7p, RR=0.61
+      H20: rev=0.553, edge=-19.4p, RR=0.69
+      EV/trade=-0.2p, composite=-2
+
+======================================================================
+top 75% pivots, span S50 — 60 clusters
+======================================================================
+
+  [1] UDU|XX|mLL  (n=87, avg_span=31, amp=94p)
+      imp=0.224, retrace=[2.0546, 1.7534], sym=1.135
+      H10: rev=0.770, edge=-20.4p, fav=27.7p, adv=48.1p, RR=0.58
+      H20: rev=0.609, edge=-26.1p, RR=0.59
+      EV/trade=+10.3p, composite=+96
+
+  [2] UDU|DX|LmL  (n=32, avg_span=32, amp=125p)
+      imp=0.231, retrace=[0.8506, 1.621], sym=0.349
+      H10: rev=0.719, edge=-14.9p, fav=38.7p, adv=53.6p, RR=0.72
+      H20: rev=0.625, edge=-11.7p, RR=0.82
+      EV/trade=+12.7p, composite=+72
+
+  [3] UDU|DX|ssL  (n=36, avg_span=28, amp=162p)
+      imp=0.222, retrace=[1.0647, 5.8318], sym=1.823
+      H10: rev=0.833, edge=-27.9p, fav=23.6p, adv=51.5p, RR=0.46
+      H20: rev=0.778, edge=-37.7p, RR=0.43
+      EV/trade=+11.1p, composite=+66
+
+  [4] UDU|ND|LmL  (n=86, avg_span=30, amp=109p)
+      imp=0.220, retrace=[0.6317, 1.3214], sym=0.224
+      H10: rev=0.767, edge=-27.9p, fav=23.8p, adv=51.7p, RR=0.46
+      H20: rev=0.639, edge=-32.1p, RR=0.53
+      EV/trade=+6.2p, composite=+58
+
+  [5] DUD|XX|smL  (n=36, avg_span=30, amp=139p)
+      imp=0.226, retrace=[2.3004, 2.9358], sym=1.687
+      H10: rev=0.778, edge=-23.2p, fav=25.6p, adv=48.7p, RR=0.52
+      H20: rev=0.583, edge=-22.3p, RR=0.63
+      EV/trade=+9.0p, composite=+54
+
+  [6] UDU|XD|mLL  (n=49, avg_span=28, amp=66p)
+      imp=0.219, retrace=[2.7501, 1.3818], sym=1.057
+      H10: rev=0.735, edge=-20.6p, fav=24.4p, adv=45.0p, RR=0.54
+      H20: rev=0.633, edge=-28.1p, RR=0.55
+      EV/trade=+6.0p, composite=+42
+
+  [7] DUD|DD|LLL  (n=373, avg_span=29, amp=76p)
+      imp=0.226, retrace=[1.1073, 1.0857], sym=0.246
+      H10: rev=0.700, edge=-26.1p, fav=24.1p, adv=50.2p, RR=0.48
+      H20: rev=0.646, edge=-32.8p, RR=0.52
+      EV/trade=+1.8p, composite=+35
+
+  [8] DUD|DX|mLL  (n=57, avg_span=31, amp=99p)
+      imp=0.229, retrace=[1.3087, 1.6988], sym=0.801
+      H10: rev=0.719, edge=-19.9p, fav=21.1p, adv=40.9p, RR=0.52
+      H20: rev=0.684, edge=-31.3p, RR=0.47
+      EV/trade=+3.7p, composite=+28
+
+  [9] UDU|SX|Lsm  (n=176, avg_span=30, amp=165p)
+      imp=0.227, retrace=[0.2401, 2.4783], sym=0.758
+      H10: rev=0.744, edge=-33.6p, fav=21.7p, adv=55.3p, RR=0.39
+      H20: rev=0.676, edge=-39.4p, RR=0.41
+      EV/trade=+2.0p, composite=+27
+
+  [10] DUD|ND|LmL  (n=88, avg_span=30, amp=119p)
+      imp=0.226, retrace=[0.6265, 1.3311], sym=0.225
+      H10: rev=0.705, edge=-27.3p, fav=26.5p, adv=53.8p, RR=0.49
+      H20: rev=0.682, edge=-39.6p, RR=0.44
+      EV/trade=+2.8p, composite=+26
+
+  [11] UDU|SX|msL  (n=60, avg_span=29, amp=178p)
+      imp=0.227, retrace=[0.2969, 6.5429], sym=0.653
+      H10: rev=0.717, edge=-22.6p, fav=21.5p, adv=44.2p, RR=0.49
+      H20: rev=0.600, edge=-35.0p, RR=0.49
+      EV/trade=+2.9p, composite=+23
+
+  [12] DUD|NX|mmL  (n=118, avg_span=28, amp=137p)
+      imp=0.216, retrace=[0.648, 2.6133], sym=0.591
+      H10: rev=0.703, edge=-27.6p, fav=24.6p, adv=52.2p, RR=0.47
+      H20: rev=0.669, edge=-33.7p, RR=0.49
+      EV/trade=+1.8p, composite=+20
+
+  [13] UDU|NN|Lmm  (n=33, avg_span=30, amp=123p)
+      imp=0.216, retrace=[0.4467, 0.6652], sym=1.213
+      H10: rev=0.758, edge=-39.8p, fav=23.6p, adv=63.4p, RR=0.37
+      H20: rev=0.727, edge=-44.6p, RR=0.39
+      EV/trade=+2.5p, composite=+14
+
+  [14] UDU|NX|Lmm  (n=35, avg_span=29, amp=134p)
+      imp=0.214, retrace=[0.4237, 1.6758], sym=0.413
+      H10: rev=0.686, edge=-28.9p, fav=28.5p, adv=57.4p, RR=0.50
+      H20: rev=0.600, edge=-25.3p, RR=0.60
+      EV/trade=+1.5p, composite=+9
+
+  [15] UDU|DX|mmL  (n=211, avg_span=29, amp=121p)
+      imp=0.223, retrace=[1.071, 2.4213], sym=0.983
+      H10: rev=0.663, edge=-22.1p, fav=24.1p, adv=46.2p, RR=0.52
+      H20: rev=0.711, edge=-32.9p, RR=0.49
+      EV/trade=+0.5p, composite=+7
+
+======================================================================
+top 100% pivots, span S10 — 100 clusters
+======================================================================
+
+  [1] DUD|SD|Lms  (n=48, avg_span=8, amp=80p)
+      imp=0.220, retrace=[0.2616, 0.8593], sym=1.566
+      H10: rev=0.479, edge=+8.1p, fav=32.4p, adv=24.4p, RR=1.33
+      H20: rev=0.562, edge=+2.8p, RR=1.05
+      EV/trade=+2.8p, composite=+20
+
+  [2] DUD|DD|LmL  (n=33, avg_span=4, amp=30p)
+      imp=0.196, retrace=[0.8052, 1.4618], sym=0.178
+      H10: rev=0.576, edge=-3.5p, fav=30.3p, adv=33.8p, RR=0.90
+      H20: rev=0.606, edge=-13.4p, RR=0.75
+      EV/trade=+3.1p, composite=+18
+
+  [3] UDU|SD|Lsm  (n=81, avg_span=7, amp=76p)
+      imp=0.216, retrace=[0.2482, 1.288], sym=1.306
+      H10: rev=0.506, edge=+0.5p, fav=31.8p, adv=31.2p, RR=1.02
+      H20: rev=0.420, edge=+6.2p, RR=1.14
+      EV/trade=+0.7p, composite=+6
+
+  [4] UDU|XS|mLL  (n=108, avg_span=7, amp=41p)
+      imp=0.206, retrace=[4.9028, 0.3381], sym=0.250
+      H10: rev=0.602, edge=-14.2p, fav=29.2p, adv=43.4p, RR=0.67
+      H20: rev=0.611, edge=-19.5p, RR=0.66
+      EV/trade=+0.3p, composite=+3
+
+  [5] UDU|XS|sLm  (n=61, avg_span=8, amp=79p)
+      imp=0.204, retrace=[9.4778, 0.2556], sym=0.308
+      H10: rev=0.623, edge=-16.6p, fav=26.1p, adv=42.7p, RR=0.61
+      H20: rev=0.459, edge=-20.3p, RR=0.66
+      EV/trade=+0.2p, composite=+1
+
+  [6] UDU|DX|smL  (n=102, avg_span=6, amp=66p)
+      imp=0.218, retrace=[1.2815, 3.7377], sym=1.599
+      H10: rev=0.578, edge=-11.6p, fav=28.5p, adv=40.1p, RR=0.71
+      H20: rev=0.510, edge=-11.3p, RR=0.76
+      EV/trade=-0.4p, composite=-4
+
+  [7] DUD|SD|Lss  (n=200, avg_span=7, amp=86p)
+      imp=0.219, retrace=[0.1836, 1.0134], sym=1.799
+      H10: rev=0.465, edge=+2.6p, fav=26.5p, adv=23.9p, RR=1.11
+      H20: rev=0.410, edge=+5.7p, RR=1.14
+      EV/trade=-0.4p, composite=-6
+
+  [8] DUD|SD|Lsm  (n=67, avg_span=7, amp=84p)
+      imp=0.219, retrace=[0.2391, 1.2936], sym=1.343
+      H10: rev=0.537, edge=-8.3p, fav=25.8p, adv=34.1p, RR=0.76
+      H20: rev=0.552, edge=-7.3p, RR=0.86
+      EV/trade=-1.9p, composite=-16
+
+  [9] UDU|SX|msL  (n=97, avg_span=7, amp=94p)
+      imp=0.217, retrace=[0.3258, 4.8696], sym=0.511
+      H10: rev=0.598, edge=-17.8p, fav=28.4p, adv=46.2p, RR=0.61
+      H20: rev=0.536, edge=-21.4p, RR=0.66
+      EV/trade=-1.6p, composite=-16
+
+  [10] DUD|XS|sLm  (n=60, avg_span=8, amp=79p)
+      imp=0.201, retrace=[9.6504, 0.2614], sym=0.328
+      H10: rev=0.600, edge=-18.8p, fav=27.1p, adv=45.9p, RR=0.59
+      H20: rev=0.517, edge=-18.7p, RR=0.70
+      EV/trade=-2.1p, composite=-16
+
+  [11] UDU|XN|mLL  (n=133, avg_span=7, amp=30p)
+      imp=0.211, retrace=[6.4455, 0.4676], sym=0.559
+      H10: rev=0.556, edge=-10.8p, fav=29.5p, adv=40.4p, RR=0.73
+      H20: rev=0.541, edge=-18.5p, RR=0.67
+      EV/trade=-1.5p, composite=-17
+
+  [12] DUD|DX|msL  (n=71, avg_span=6, amp=72p)
+      imp=0.210, retrace=[0.8543, 4.1546], sym=1.412
+      H10: rev=0.521, edge=-7.3p, fav=32.9p, adv=40.1p, RR=0.82
+      H20: rev=0.479, edge=-6.7p, RR=0.88
+      EV/trade=-2.1p, composite=-18
+
+  [13] DUD|XS|mLL  (n=111, avg_span=7, amp=48p)
+      imp=0.211, retrace=[5.0211, 0.3394], sym=0.264
+      H10: rev=0.586, edge=-16.0p, fav=27.5p, adv=43.6p, RR=0.63
+      H20: rev=0.522, edge=-23.8p, RR=0.63
+      EV/trade=-1.9p, composite=-20
+
+  [14] DUD|XN|mLL  (n=126, avg_span=7, amp=36p)
+      imp=0.207, retrace=[6.4971, 0.4608], sym=0.549
+      H10: rev=0.500, edge=-3.7p, fav=38.0p, adv=41.6p, RR=0.91
+      H20: rev=0.484, edge=-11.8p, RR=0.80
+      EV/trade=-1.8p, composite=-21
+
+  [15] UDU|XX|mmL  (n=232, avg_span=6, amp=54p)
+      imp=0.213, retrace=[1.7312, 2.3583], sym=1.347
+      H10: rev=0.560, edge=-12.2p, fav=32.9p, adv=45.1p, RR=0.73
+      H20: rev=0.547, edge=-14.4p, RR=0.75
+      EV/trade=-1.4p, composite=-22
+
+======================================================================
+top 100% pivots, span S20 — 56 clusters
+======================================================================
+
+  [1] DUD|XN|mLL  (n=31, avg_span=12, amp=42p)
+      imp=0.226, retrace=[7.2952, 0.4959], sym=0.624
+      H10: rev=0.613, edge=+4.5p, fav=48.4p, adv=43.9p, RR=1.10
+      H20: rev=0.419, edge=+10.2p, RR=1.17
+      EV/trade=+12.7p, composite=+71
+
+  [2] UDU|SD|Lss  (n=62, avg_span=13, amp=128p)
+      imp=0.236, retrace=[0.164, 1.0588], sym=1.868
+      H10: rev=0.694, edge=-15.8p, fav=21.8p, adv=37.5p, RR=0.58
+      H20: rev=0.629, edge=-24.1p, RR=0.60
+      EV/trade=+3.6p, composite=+28
+
+  [3] DUD|SD|Lss  (n=50, avg_span=13, amp=125p)
+      imp=0.237, retrace=[0.1705, 1.0642], sym=1.838
+      H10: rev=0.580, edge=-3.4p, fav=26.9p, adv=30.3p, RR=0.89
+      H20: rev=0.540, edge=-13.7p, RR=0.75
+      EV/trade=+2.9p, composite=+20
+
+  [4] DUD|NX|msL  (n=70, avg_span=13, amp=113p)
+      imp=0.227, retrace=[0.534, 4.2066], sym=0.932
+      H10: rev=0.543, edge=-2.3p, fav=33.6p, adv=35.9p, RR=0.94
+      H20: rev=0.457, edge=-6.0p, RR=0.88
+      EV/trade=+1.9p, composite=+16
+
+  [5] UDU|SX|Lsm  (n=74, avg_span=13, amp=126p)
+      imp=0.228, retrace=[0.2337, 2.4912], sym=0.766
+      H10: rev=0.649, edge=-19.0p, fav=27.7p, adv=46.8p, RR=0.59
+      H20: rev=0.568, edge=-19.5p, RR=0.68
+      EV/trade=+1.6p, composite=+13
+
+  [6] UDU|NX|ssL  (n=32, avg_span=13, amp=148p)
+      imp=0.243, retrace=[0.6028, 9.9733], sym=1.888
+      H10: rev=0.688, edge=-20.9p, fav=23.7p, adv=44.7p, RR=0.53
+      H20: rev=0.500, edge=-18.9p, RR=0.67
+      EV/trade=+2.4p, composite=+13
+
+  [7] UDU|SD|Lmm  (n=60, avg_span=12, amp=89p)
+      imp=0.229, retrace=[0.3164, 1.1158], sym=1.174
+      H10: rev=0.600, edge=-8.9p, fav=25.3p, adv=34.1p, RR=0.74
+      H20: rev=0.567, edge=-15.7p, RR=0.69
+      EV/trade=+1.5p, composite=+12
+
+  [8] DUD|NX|mmL  (n=41, avg_span=12, amp=98p)
+      imp=0.226, retrace=[0.6667, 2.5668], sym=0.603
+      H10: rev=0.585, edge=-11.1p, fav=35.6p, adv=46.7p, RR=0.76
+      H20: rev=0.561, edge=-12.9p, RR=0.79
+      EV/trade=+1.5p, composite=+9
+
+  [9] DUD|SX|msL  (n=30, avg_span=13, amp=127p)
+      imp=0.235, retrace=[0.3032, 5.2125], sym=0.511
+      H10: rev=0.533, edge=-5.7p, fav=37.3p, adv=43.0p, RR=0.87
+      H20: rev=0.700, edge=-17.5p, RR=0.71
+      EV/trade=-0.1p, composite=-1
+
+  [10] UDU|SN|Lms  (n=56, avg_span=13, amp=117p)
+      imp=0.234, retrace=[0.2878, 0.5491], sym=1.757
+      H10: rev=0.446, edge=+5.7p, fav=36.1p, adv=30.5p, RR=1.19
+      H20: rev=0.536, edge=-1.2p, RR=0.98
+      EV/trade=-0.7p, composite=-6
+
+  [11] DUD|NX|ssL  (n=30, avg_span=12, amp=147p)
+      imp=0.225, retrace=[0.6261, 9.4207], sym=1.873
+      H10: rev=0.467, edge=+2.6p, fav=37.9p, adv=35.3p, RR=1.07
+      H20: rev=0.433, edge=+20.6p, RR=1.50
+      EV/trade=-1.1p, composite=-6
+
+  [12] UDU|SX|msL  (n=36, avg_span=12, amp=144p)
+      imp=0.228, retrace=[0.3138, 5.3332], sym=0.542
+      H10: rev=0.667, edge=-32.2p, fav=28.4p, adv=60.6p, RR=0.47
+      H20: rev=0.583, edge=-26.0p, RR=0.63
+      EV/trade=-1.3p, composite=-8
+
+  [13] UDU|NX|msL  (n=81, avg_span=13, amp=134p)
+      imp=0.233, retrace=[0.5306, 4.4829], sym=0.989
+      H10: rev=0.617, edge=-19.2p, fav=27.4p, adv=46.6p, RR=0.59
+      H20: rev=0.642, edge=-26.9p, RR=0.59
+      EV/trade=-0.9p, composite=-8
+
+  [14] UDU|DX|mmL  (n=92, avg_span=13, amp=85p)
+      imp=0.230, retrace=[1.0769, 2.5666], sym=1.049
+      H10: rev=0.587, edge=-12.8p, fav=24.5p, adv=37.3p, RR=0.66
+      H20: rev=0.500, edge=-9.8p, RR=0.80
+      EV/trade=-1.1p, composite=-10
+
+  [15] UDU|NX|mmL  (n=57, avg_span=12, amp=91p)
+      imp=0.224, retrace=[0.6602, 2.6737], sym=0.641
+      H10: rev=0.614, edge=-18.5p, fav=25.4p, adv=43.8p, RR=0.58
+      H20: rev=0.544, edge=-16.6p, RR=0.69
+      EV/trade=-1.3p, composite=-10
+
+======================================================================
+BASELINE: 各(百分位, 跨度)格子的整体反转率
+======================================================================
+    pct   span  cls  samples  rev_H10  edge_H10  rev_H20  edge_H20  avg_amp
+     10   S100   13      717    0.796     -36.7p    0.780     -51.1p       99p
+     10    S20    2       67    0.761     -35.0p    0.597     -40.4p       59p
+     10   S200   13      599    0.866     -40.9p    0.865     -58.4p      162p
+     10  S200+    8      350    0.880     -45.8p    0.883     -66.7p      209p
+     10    S50   14      788    0.749     -30.4p    0.701     -39.7p       79p
+     20    S10   14     1021    0.587     -17.1p    0.578     -20.4p       40p
+     20   S100   22     1311    0.797     -34.4p    0.760     -48.8p      127p
+     20    S20   33     2259    0.610     -21.0p    0.575     -24.4p       62p
+     20   S200   20     1123    0.844     -42.6p    0.839     -59.6p      176p
+     20  S200+    8      355    0.870     -44.7p    0.876     -65.0p      147p
+     20    S50   37     3311    0.690     -25.1p    0.644     -31.2p       96p
+     30    S10   47     6350    0.535     -12.7p    0.529     -14.5p       49p
+     30   S100   29     2171    0.792     -35.4p    0.755     -49.7p      142p
+     30    S20   47     4813    0.578     -17.4p    0.552     -19.8p       66p
+     30   S200   17     1039    0.847     -43.1p    0.822     -57.3p      156p
+     30  S200+    1       32    0.781     -33.0p    0.781     -38.8p      275p
+     30    S50   41     4255    0.689     -24.6p    0.651     -31.3p       96p
+     50    S10   82    23564    0.506      -9.6p    0.508     -10.8p       52p
+     50   S100   29     2147    0.775     -35.1p    0.716     -47.0p      136p
+     50    S20   66     8331    0.570     -16.7p    0.549     -18.9p       72p
+     50   S200    6      226    0.805     -39.3p    0.805     -52.5p       90p
+     50    S50   59     7729    0.688     -26.8p    0.642     -32.7p      112p
+     75    S10   94    51412    0.500      -9.1p    0.504     -10.0p       55p
+     75   S100    8      381    0.753     -31.4p    0.696     -39.9p       67p
+     75    S20   91    16296    0.564     -16.0p    0.543     -17.8p       80p
+     75    S50   60     7039    0.644     -23.1p    0.604     -27.6p      103p
+    100    S10  100    71858    0.488      -7.6p    0.495      -8.3p       53p
+    100    S20   56     3959    0.502      -9.0p    0.505      -9.4p       79p
+
+======================================================================
+FINGERPRINT区分度: 同格子内反转率std (越大=fingerprint越有区分价值)
+======================================================================
+    pct   span  cls  rev_std    rev_range  edge_std
+     10   S100   13    0.057 0.710~0.889       6.7p
+     10   S200   13    0.033 0.808~0.933       4.8p
+     10  S200+    8    0.063 0.788~1.000       8.1p
+     10    S50   14    0.049 0.673~0.833       6.3p
+     20    S10   14    0.059 0.482~0.721       6.0p
+     20   S100   22    0.042 0.700~0.867       6.8p
+     20    S20   33    0.052 0.503~0.767       6.4p
+     20   S200   20    0.048 0.733~0.915       7.2p
+     20  S200+    8    0.062 0.727~0.938       4.4p
+     20    S50   37    0.064 0.475~0.800       5.2p
+     30    S10   47    0.075 0.345~0.697       7.6p
+     30   S100   29    0.061 0.629~0.895       6.5p
+     30    S20   47    0.059 0.415~0.700       6.7p
+     30   S200   17    0.040 0.763~0.909       8.7p
+     30    S50   41    0.059 0.540~0.855       6.1p
+     50    S10   82    0.063 0.333~0.688       6.2p
+     50   S100   29    0.060 0.639~0.857       5.4p
+     50    S20   66    0.073 0.386~0.742       6.3p
+     50   S200    6    0.078 0.694~0.941       7.0p
+     50    S50   59    0.061 0.542~0.812       5.2p
+     75    S10   94    0.052 0.346~0.636       6.1p
+     75   S100    8    0.046 0.694~0.837       3.3p
+     75    S20   91    0.068 0.347~0.719       6.7p
+     75    S50   60    0.076 0.463~0.833       6.3p
+    100    S10  100    0.046 0.369~0.623       5.5p
+    100    S20   56    0.093 0.222~0.694       8.3p
+
+======================================================================
+TOP 30 综合排名: EV/trade × sqrt(freq)
+  (正EV=反转做单有正期望, 负composite=亏损)
+======================================================================
+  rank  pct  span        fingerprint      n   rev%    edge    fav    adv    RR      EV    comp
+     1   10 S200+         UDU|XN|LLL     43 100.0%   -62.2   20.4   82.6  0.25   +20.4    +134
+     2   20  S100         UDU|DD|LLL    121  84.3%   -31.9   23.6   55.6  0.42   +11.2    +123
+     3   20 S200+         UDU|XN|LLL     48  93.8%   -51.1   23.0   74.1  0.31   +16.9    +117
+     4   30   S50         UDU|XX|mLL     55  85.5%   -22.5   25.9   48.4  0.54   +15.1    +112
+     5   20  S200         UDU|DN|LLL     97  88.7%   -51.8   21.8   73.5  0.30   +10.9    +108
+     6   20  S200         DUD|DD|LLL    105  87.6%   -47.7   21.7   69.4  0.31   +10.4    +107
+     7   10 S200+         DUD|DD|LLL     52  92.3%   -50.7   22.1   72.8  0.30   +14.8    +107
+     8   30  S200         UDU|XD|LLL     55  90.9%   -46.2   21.8   68.0  0.32   +13.7    +101
+     9   20 S200+         UDU|DD|LLL     71  91.5%   -39.6   18.4   58.0  0.32   +12.0    +101
+    10   20  S100         DUD|DD|LLL    138  83.3%   -38.4   22.2   60.5  0.37    +8.4     +98
+    11   10  S200         DUD|DD|LLL     75  85.3%   -37.6   23.7   61.3  0.39   +11.2     +97
+    12   75   S50         UDU|XX|mLL     87  77.0%   -20.4   27.7   48.1  0.58   +10.3     +96
+    13   30  S100         UDU|ND|Lmm     64  87.5%   -47.3   23.3   70.6  0.33   +11.5     +92
+    14   50  S100         UDU|DN|LLL    122  82.0%   -35.4   23.1   58.5  0.39    +8.3     +92
+    15   20  S200         DUD|DN|LLL     75  89.3%   -41.6   18.9   60.6  0.31   +10.5     +91
+    16   30  S100         UDU|XN|LLL    119  84.9%   -40.9   20.6   61.5  0.33    +8.1     +89
+    17   30  S200         DUD|XN|LLL     83  86.8%   -41.4   20.6   61.9  0.33    +9.6     +88
+    18   10  S200         UDU|DX|mmL     34  91.2%   -37.1   22.2   59.2  0.37   +15.0     +87
+    19   30  S200         DUD|DD|LLL    120  84.2%   -42.4   21.4   63.8  0.34    +7.9     +87
+    20   30  S100         UDU|XX|mLL     43  86.1%   -43.9   26.8   70.7  0.38   +13.2     +86
+    21   10 S200+         UDU|DN|LLL     43  88.4%   -47.6   24.2   71.8  0.34   +13.1     +86
+    22   20   S50         DUD|ND|Lmm     97  76.3%   -22.9   26.6   49.4  0.54    +8.5     +84
+    23   10  S200         DUD|XN|LLL     59  89.8%   -38.6   18.6   57.2  0.33   +10.9     +84
+    24   30  S200         UDU|XN|LLL     89  84.3%   -38.4   21.7   60.1  0.36    +8.8     +83
+    25   20  S200         DUD|XS|LLL     47  91.5%   -45.7   19.3   65.0  0.30   +12.2     +83
+    26   10  S200         UDU|DD|LLL     71  85.9%   -38.3   21.1   59.4  0.36    +9.8     +82
+    27   30  S100         UDU|NX|LmL     59  86.4%   -31.5   20.4   51.9  0.39   +10.6     +82
+    28   20 S200+         DUD|DD|LLL     57  89.5%   -47.6   20.0   67.6  0.29   +10.8     +81
+    29   30  S100         DUD|DD|LLL    189  79.9%   -35.6   21.8   57.3  0.38    +5.9     +81
+    30   50  S100         DUD|DD|LLL    173  80.9%   -39.1   21.8   60.9  0.36    +6.0     +79
+
+
+Completed in 199.3s
+Saved to scan_v2_span_full.json
